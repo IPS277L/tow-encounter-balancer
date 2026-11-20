@@ -46,7 +46,7 @@ def hammer_retrieval_option(state, actor):
         briarroot_weapon_on_ground, _ground_weapon_close,
     )
     from towr.domain.pc_extinguish_models import _enemy_in_zone
-    if actor not in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
+    if actor not in (*state.source.pc_activation_order, *state.source.npc_activation_order):
         raise ValueError('Hammer retrieval requires an actual source participant')
     turn = state.round_state.active_turn
     if (turn is None or turn.actor_id != actor or state.pending

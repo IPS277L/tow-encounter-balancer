@@ -9,10 +9,8 @@ from towr.domain.pc_melee_models import (
 from towr.domain.test_models import Skill
 
 
-def pistol_profile(*, ballistic_skill: int = 3, shooting: int = 4,
-        initiative: int = 3, dexterity: int = 4) -> PcRangedProfile:
-    return PcRangedProfile(ballistic_skill, shooting, initiative, dexterity,
-        True, True, True, PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+def pistol_profile(*, ballistic_skill: int=3, shooting: int=4) -> PcRangedProfile:
+    return PcRangedProfile(ballistic_skill, shooting,  True, True, True, PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
 
 
 def make_pc_pistol_scenario(*, pc_count: int = 1, enemy_count: int = 1,
@@ -22,10 +20,9 @@ def make_pc_pistol_scenario(*, pc_count: int = 1, enemy_count: int = 1,
     """Fresh loaded, no-shield Pistol PCs against explicitly authored Athletics."""
     source = make_pc_melee_party_scenario(pc_count=pc_count,
         enemy_count=enemy_count, max_rounds=max_rounds)
-    profile = (pistol_profile(ballistic_skill=ballistic_skill, shooting=shooting,
-        initiative=initiative, dexterity=dexterity) if profile is None else profile)
+    profile = (pistol_profile(ballistic_skill=ballistic_skill, shooting=shooting) if profile is None else profile)
     party = tuple(replace(member, pc=replace(member.pc,
-        weapon=PcMeleeWeapon.PISTOL, ranged=profile),combat_equipment=initial_weapon_items(
+        weapon=PcMeleeWeapon.PISTOL, ranged=profile, initiative=initiative, dexterity=dexterity),combat_equipment=initial_weapon_items(
             PcMeleeWeapon.PISTOL,member.initial_weapon_hand,initially_loaded=True)) for member in source.party)
     enemies = tuple(replace(enemy, definition=replace(enemy.definition,
         protection=(replace(enemy.definition.protection[0], skill=Skill.ATHLETICS),)))

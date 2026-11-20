@@ -159,7 +159,8 @@ class PcMeleeExecutionTests(unittest.TestCase):
             before.without_condition(Condition.PRONE).without_condition(Condition.DRAINED),
             (Condition.PRONE,Condition.DRAINED))
         object.__setattr__(proof.result.resolution,'condition_changes',(removal,))
-        replace(proof.result)
+        with self.assertRaises(ValueError):
+            replace(proof.result)
         with self.assertRaises(ValueError):
             PcMeleeStep(step.source,proof)
 

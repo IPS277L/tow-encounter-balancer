@@ -1,0 +1,193 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:combat-surgeon-example",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc:surgeon",
+      "characteristics": {
+        "weapon_skill": 3,
+        "strength": 3,
+        "toughness": 3,
+        "agility": 3,
+        "reason": 3,
+        "initiative": 3
+      },
+      "skills": {
+        "melee": 4,
+        "defence": 4,
+        "athletics": 4,
+        "endurance": 4,
+        "brawn": 4,
+        "recall": 5,
+        "dexterity": 4
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "sword",
+            "weapon": "sword",
+            "location": "left_hand"
+          }
+        ],
+        "armour": [],
+        "tools": [
+          {
+            "id": "kit",
+            "kind": "physickers_kit",
+            "hands_required": 1,
+            "location": "carried"
+          }
+        ]
+      },
+      "talents": [
+        {
+          "id": "combat_surgeon",
+          "acquisitions": [
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            }
+          ]
+        }
+      ],
+      "resources": {
+        "fate": 1
+      },
+      "consumables": [],
+      "medical": {
+        "anatomy_lore": true,
+        "treatment_supplies": true,
+        "surgery_supplies": false
+      }
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      3
+    ],
+    "strength": [
+      3
+    ],
+    "toughness": [
+      3
+    ],
+    "agility": [
+      2,
+      3
+    ],
+    "melee": [
+      4
+    ],
+    "athletics": [
+      3,
+      4
+    ],
+    "defence": [
+      3,
+      4
+    ],
+    "weapon": [
+      "sword",
+      "axe"
+    ],
+    "armour": [
+      null
+    ],
+    "shield": [
+      null
+    ],
+    "abilities": [
+      []
+    ],
+    "dexterity": [
+      4
+    ],
+    "allowed_talents": [
+      "combat_surgeon"
+    ],
+    "weapon_count": [
+      1
+    ],
+    "initial_loaded": [
+      true
+    ],
+    "ballistic_skill": [
+      2,
+      3
+    ],
+    "initiative": [
+      3
+    ],
+    "shooting": [
+      3,
+      4
+    ],
+    "reason": [
+      3
+    ],
+    "recall": [
+      5
+    ],
+    "endurance": [
+      4
+    ],
+    "injury_policy": [
+      "champion"
+    ],
+    "allowed_medical_sources": [
+      {
+        "medical": {
+          "anatomy_lore": true,
+          "treatment_supplies": true,
+          "surgery_supplies": false
+        },
+        "tools": [
+          {
+            "id": "kit",
+            "kind": "physickers_kit",
+            "hands_required": 1,
+            "location": "carried"
+          }
+        ]
+      }
+    ]
+  },
+  "npc_count": {
+    "minimum": 1,
+    "maximum": 2
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 1,
+      "denominator": 2
+    },
+    "started_rounds": {
+      "numerator": 2,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 1,
+    "exploration_trials": 1,
+    "finalist_trials": 1,
+    "top_k": 1,
+    "max_total_trials": 2
+  },
+  "max_rounds": 3,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "close",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh",
+    "two_handed_max_range": "long"
+  }
+}

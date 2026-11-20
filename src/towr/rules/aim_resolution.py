@@ -24,6 +24,12 @@ def execute_aim_action(
     decisions: TestDecisionProvider | None = None,
 ) -> AimActionExecutionResult:
     """Resolve an Awareness Test and create a one-use Aim bonus snapshot."""
+    _aim_action_slot(request)
+    awareness = resolve_test(request.awareness_test, rng, decisions=decisions)
+    return _complete_aim_action_after_test(request, awareness)
+
+
+def _aim_action_slot(request):
     if request.rule_id != AIM_ACTION_RULE_ID:
         raise ValueError("Aim request uses an unknown source rule")
     turn = request.round_state.active_turn
@@ -41,7 +47,14 @@ def execute_aim_action(
     if slot.executed:
         raise ValueError("the Aim action slot has already been executed")
 
-    awareness = resolve_test(request.awareness_test, rng, decisions=decisions)
+    return slot
+
+
+def _complete_aim_action_after_test(request, awareness):
+    from towr.domain.talent_test_source import validate_completed_talent_test
+    slot = _aim_action_slot(request)
+    turn = request.round_state.active_turn
+    validate_completed_talent_test(request.awareness_test, awareness)
     bonus = AimBonusSnapshot(
         id=f"{request.id}:bonus",
         source_request_id=request.id,

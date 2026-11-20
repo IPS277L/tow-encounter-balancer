@@ -1,4 +1,5 @@
 """Independent PC encounters; retain observations, discard the battle journal."""
+from towr.simulation.pc_npc_ally_statistics import observe_npc_allies
 from towr.simulation.pc_ranged_statistics import PcRangedCount,pc_ranged_count_actors
 from towr.domain.pc_weapon_inventory import PcWeaponSwapProof
 from towr.domain.pc_ranged_models import PcRangedReloadProof
@@ -49,6 +50,7 @@ def _rapid_reload_observations(result):
             continue
         replace(slot)
         grant=slot.rapid_reload
+        if grant.actor_id in tuple(ally.state.actor_id for ally in result.source.npc_allies):continue
         if slot.index!=2 or not slot.executed or grant.actor_id not in counts:
             raise ValueError('Rapid Reload observation lacks its actual executed owned action2')
         key=(grant.actor_id,grant.round_number,grant.slot_request_id)
@@ -71,6 +73,7 @@ def _immediate_attack_observations(result):
             continue
         replace(proof)
         request = proof.request
+        if request.actor_id in tuple(ally.state.actor_id for ally in result.source.npc_allies):continue
         if request.actor_id not in counts or request.id != request.grant.id:
             raise ValueError('immediate Attack observation requires its actual owner and grant')
         if request.grant.id in seen:
@@ -98,6 +101,9 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
     if result.source != request.scenario:
         raise ValueError('PC encounter result belongs to another source')
     from towr.domain.pc_flagellant_models import PcNpcRecoverProof
+    from towr.domain.pc_npc_champion_models import PcNpcChampionRecoverProof
+    from towr.domain.pc_medical_models import PcMedicalTreatmentProof
+    from towr.domain.pc_medical_equipment_models import PcMedicalToolRecoverProof
     from towr.domain.pc_extinguish_models import PcExtinguishProof
     from towr.domain.pc_npc_shield_models import PcNpcShieldRecoverProof
     from towr.domain.pc_briarroot_models import PcBriarrootReleaseProof
@@ -160,7 +166,7 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
         tuple(PcNpcExitCount(enemy.state.actor_id,int(enemy.state.actor_id in result.exited_npc_ids))
             for enemy in request.scenario.enemies),
         tuple(PcNpcHelpActionCount(enemy.state.actor_id,
-            sum(isinstance(step.proof,(PcNpcHelpProof,PcHelpProof)) and step.proof.request.actor_id==enemy.state.actor_id
+            sum(isinstance(step.proof,(PcNpcHelpProof,PcHelpProof)) and (step.proof.actor_id if type(step.proof) is PcMedicalToolRecoverProof else step.proof.request.actor_id)==enemy.state.actor_id
                 for step in result.steps)) for enemy in request.scenario.enemies),
         tuple(PcNpcExtraAttackCount(enemy.state.actor_id,
             sum(isinstance(step.proof,PcAttackProof) and step.proof.execution.slot_index==2
@@ -168,10 +174,10 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                 and step.proof.request.actor_id==enemy.state.actor_id for step in result.steps))
             for enemy in request.scenario.enemies),
         tuple(PcNpcRecoverActionCount(enemy.state.actor_id,
-            sum(type(step.proof) in (PcNpcRecoverProof,PcExtinguishProof,PcBattlefieldRecoverProof,PcNetReleaseProof,PcNetPickupProof,
+            sum(type(step.proof) in (PcMedicalToolRecoverProof,PcNpcChampionRecoverProof,PcMedicalTreatmentProof,PcNpcRecoverProof,PcExtinguishProof,PcBattlefieldRecoverProof,PcNetReleaseProof,PcNetPickupProof,
                 PcNpcShieldRecoverProof,PcBriarrootReleaseProof,PcBriarrootWeaponPickupProof,
                 PcScarabHealingProof,PcHammerRetrievalProof)
-                and step.proof.request.actor_id==enemy.state.actor_id
+                and (step.proof.actor_id if type(step.proof) is PcMedicalToolRecoverProof else step.proof.request.actor_id)==enemy.state.actor_id
                 for step in result.steps)) for enemy in request.scenario.enemies),
         tuple(PcNpcWarpedFormCount(enemy.state.actor_id,
             sum(type(step.proof) is PcWarpedFormActivationProof and step.proof.actor_id==enemy.state.actor_id
@@ -210,6 +216,7 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                     !=step.state.participant(actor).weapon_inventory.active_item_id
                 for step in result.steps)) for actor in pc_ranged_count_actors(request.scenario))
             if pc_ranged_count_actors(request.scenario) else None),
+        npc_ally_counts=observe_npc_allies(result),
         npc_ranged_counts=(tuple(PcNpcRangedCount(policy.actor_id,
             sum(type(step.proof) is PcAttackProof and step.proof.request.actor_id==policy.actor_id
                 and step.proof.npc_ranged_shot is not None for step in result.steps),
@@ -218,8 +225,8 @@ def run_pc_melee_trial(request: PcMeleeSimulationRequest, trial_index: int, *,
                 and step.proof.npc_ranged_shot.execution.source_request.uses_optional_reload_bonus
                 for step in result.steps),
             sum(type(step.proof) is PcNpcRangedReloadProof and step.proof.request.actor_id==policy.actor_id
-                for step in result.steps)) for policy in request.scenario.npc_ranged_policies)
-            if request.scenario.npc_ranged_policies else None))
+                for step in result.steps)) for policy in request.scenario.npc_ranged_policies if policy.actor_id in request.scenario.enemy_activation_order)
+            if any(p.actor_id in request.scenario.enemy_activation_order for p in request.scenario.npc_ranged_policies) else None))
 
 
 def run_pc_melee_simulation(request: PcMeleeSimulationRequest, *,

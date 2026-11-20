@@ -116,16 +116,16 @@ class RapidReloadStatisticsTests(unittest.TestCase):
         member=pc.party[0]
         weapon=PcMeleeWeapon.HOCHLAND_LONG_RIFLE
         member=replace(member,pc=replace(member.pc,weapon=weapon,
-            ranged=replace(member.pc.ranged,initiative=4)),initial_weapon_hand=PcTwoHandedGrip.BOTH,
+            initiative=4),initial_weapon_hand=PcTwoHandedGrip.BOTH,
             combat_equipment=initial_weapon_items(weapon,PcTwoHandedGrip.BOTH,initially_loaded=False))
         pc=replace(pc,party=(member,))
 
         npc=npc_source(awareness=4,weapon=GeneratedWeapon.HOCHLAND_LONG_RIFLE)
         components=npc.enemies[0].definition.generated_components
-        components=replace(components,ranged=replace(components.ranged,initiative=4))
+        components=replace(components,initiative=4)
         member=npc.party[0]
         member=replace(member,policy=PcMeleePolicy.AUTOMATIC_COMBAT,
-            pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()),
+            pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile(), initiative=3, dexterity=4),
             combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,initially_loaded=True))
         npc=replace(npc,party=(member,),enemies=(components.participant('minion1'),),
             npc_ranged_policies=(pc_npc_ranged_policy_for_generated(components,'minion1'),),

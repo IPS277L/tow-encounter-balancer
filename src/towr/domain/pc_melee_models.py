@@ -15,6 +15,8 @@ from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.pc_magic_source_models import PcWizardProfile
 from towr.domain.talent_models import AcquiredTalent, TalentOwnerFacts, has_talent
 from towr.domain.tool_inventory_models import ToolItemSource, initial_tool_inventory, validate_tool_equipment_hands
+from towr.domain.medical_preparation_models import MedicalPreparationFacts
+from towr.domain.surgery_failure_resolution_models import SurgeryRiskPolicy
 from towr.domain.fate_models import (
     FateBurnRecord, FateRefreshRecord, FateSessionState, FateSpendRecord,
 )
@@ -185,7 +187,7 @@ class PcGloriousPolicy:
         for skill in skills:
             _typed(skill, Skill, "Glorious skill")
             if skill not in (Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE,
-                    Skill.SHOOTING, Skill.DEXTERITY, Skill.WILLPOWER, Skill.LEADERSHIP, Skill.THROWING, Skill.BRAWN):
+                    Skill.SHOOTING, Skill.DEXTERITY, Skill.WILLPOWER, Skill.LEADERSHIP, Skill.THROWING, Skill.BRAWN, Skill.AWARENESS, Skill.RECALL):
                 raise ValueError("Glorious skill is outside the PC melee boundary")
         _integer(self.maximum_initial_successes, "Glorious success threshold", minimum=0)
         _integer(self.minimum_remaining_spends, "Glorious session reserve", minimum=0)
@@ -257,26 +259,16 @@ class PcAimSecondActionPolicy:
 class PcRangedProfile:
     ballistic_skill: int
     shooting: int
-    initiative: int | None = None
-    dexterity: int | None = None
     has_blackpowder_lore: bool | None = None
     has_blackpowder_kit: bool | None = None
     ammunition_supply_confirmed: bool = False
     reload_hand_policy: PcRangedReloadHandPolicy | None = None
     repeater_bonus_policy: PcRepeaterBonusPolicy | None = field(default=None, kw_only=True)
-    awareness: int | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         for name in ("ballistic_skill", "shooting"):
             _integer(getattr(self, name), name, minimum=1)
         self.shooting_profile
-        if self.dexterity is not None and self.initiative is None:
-            raise ValueError("Dexterity requires Initiative")
-        if self.initiative is not None:
-            _integer(self.initiative, "initiative", minimum=1)
-        if self.dexterity is not None:
-            _integer(self.dexterity, "dexterity", minimum=1)
-            self.dexterity_profile
         for name in ("has_blackpowder_lore", "has_blackpowder_kit"):
             value = getattr(self, name)
             if value is not None:
@@ -288,36 +280,12 @@ class PcRangedProfile:
             raise ValueError("ranged source requires ammunition_supply_confirmed")
         if self.reload_hand_policy is not None:
             _typed(self.reload_hand_policy, PcRangedReloadHandPolicy, "ranged reload hand policy")
-        if any(value is not None for value in (
-                self.dexterity, self.reload_hand_policy)):
-            if self.initiative is None or self.dexterity is None:
-                raise ValueError('Exacting source requires Initiative and Dexterity')
-            _typed(self.reload_hand_policy, PcRangedReloadHandPolicy, 'ranged reload hand policy')
         if self.repeater_bonus_policy is not None:
             _typed(self.repeater_bonus_policy, PcRepeaterBonusPolicy, "Repeater bonus policy")
-        if self.awareness is not None:
-            _integer(self.awareness, "Awareness", minimum=1)
-            self.awareness_profile
-        elif self.initiative is not None and self.dexterity is None:
-            raise ValueError('Initiative without Reload requires Awareness for Aim')
 
     @property
     def shooting_profile(self) -> TestProfile:
         return TestProfile(self.ballistic_skill, self.shooting)
-
-    @property
-    def dexterity_profile(self) -> TestProfile:
-        if self.initiative is None or self.dexterity is None:
-            raise ValueError("free-reload bows have no authored Dexterity Test")
-        return TestProfile(self.initiative, self.dexterity)
-
-
-    @property
-    def awareness_profile(self) -> TestProfile:
-        if self.initiative is None or self.awareness is None:
-            raise ValueError("Aim requires authored Initiative and Awareness")
-        return TestProfile(self.initiative, self.awareness)
-
 
 @dataclass(frozen=True, slots=True)
 class PcMeleeDefinition:
@@ -333,18 +301,41 @@ class PcMeleeDefinition:
     weapon: PcMeleeWeapon
     armour_bonus: int
     ranged: PcRangedProfile | None = field(default=None, kw_only=True)
+    initiative: int | None = field(default=None, kw_only=True)
+    awareness: int | None = field(default=None, kw_only=True)
+    reason: int | None = field(default=None, kw_only=True)
+    recall: int | None = field(default=None, kw_only=True)
+    dexterity: int | None = field(default=None, kw_only=True)
     throwing: int | None = field(default=None,kw_only=True)
     brawn: int | None = field(default=None,kw_only=True)
     ballistic_skill: int | None = field(default=None,kw_only=True)
     fellowship: int | None = field(default=None,kw_only=True)
     leadership: int | None = field(default=None,kw_only=True)
     tools: tuple[ToolItemSource, ...] = field(default=(),kw_only=True)
+    medical: MedicalPreparationFacts | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.id, "PC definition")
+        if self.medical is not None:
+            _typed(self.medical,MedicalPreparationFacts,'actual medical preparation')
+            replace(self.medical)
+            if self.medical.treatment_supplies and not self.medical.anatomy_lore:
+                self.recall_profile
+            if self.medical.surgery_supplies or self.medical.recovery_supports:
+                self.dexterity_profile
         initial_tool_inventory(self.id, self.tools)
         for name in ("weapon_skill", "strength", "toughness", "agility"):
             _integer(getattr(self, name), name, minimum=1)
+        if self.initiative is not None:
+            _integer(self.initiative, 'Initiative', minimum=1)
+        if self.awareness is not None:
+            self.awareness_profile
+        if self.reason is not None:
+            _integer(self.reason, 'Reason', minimum=1)
+        if self.recall is not None:
+            self.recall_profile
+        if self.dexterity is not None:
+            self.dexterity_profile
         for characteristic, skill in (
             (self.weapon_skill, self.melee), (self.weapon_skill, self.defence),
             (self.agility, self.athletics), (self.toughness, self.endurance),
@@ -379,6 +370,8 @@ class PcMeleeDefinition:
         if self.ranged is not None:
             _typed(self.ranged,PcRangedProfile,'actor Shooting facts')
             replace(self.ranged)
+            if self.ranged.reload_hand_policy is not None:
+                self.dexterity_profile
             if self.ballistic_skill is not None and self.ballistic_skill!=self.ranged.ballistic_skill:
                 raise ValueError('Shooting and Throwing must use the same Ballistic Skill')
         if self.weapon in PC_RANGED_WEAPONS:
@@ -386,12 +379,12 @@ class PcMeleeDefinition:
             from towr.domain.weapon_capability_models import weapon_ranged_requirements
             requirements=weapon_ranged_requirements((self.weapon,))
             if requirements.requires_aim:
-                self.ranged.awareness_profile
+                self.awareness_profile
             if requirements.firearm and (self.ranged.has_blackpowder_lore is not True
                     or self.ranged.has_blackpowder_kit is not True):
                 raise ValueError('a firearm requires actual Blackpowder Lore and Kit')
             if requirements.exacting:
-                self.ranged.dexterity_profile
+                self.dexterity_profile
                 _typed(self.ranged.reload_hand_policy, PcRangedReloadHandPolicy, 'ranged reload hand policy')
             if requirements.repeater:
                 _typed(self.ranged.repeater_bonus_policy, PcRepeaterBonusPolicy, 'Repeater bonus policy')
@@ -399,6 +392,26 @@ class PcMeleeDefinition:
     @property
     def melee_profile(self) -> TestProfile:
         return TestProfile(self.weapon_skill, self.melee)
+
+    @property
+    def awareness_profile(self) -> TestProfile:
+        if self.initiative is None or self.awareness is None:
+            raise ValueError('Aim requires actual Initiative and Awareness')
+        return TestProfile(self.initiative, self.awareness)
+
+    @property
+    def dexterity_profile(self) -> TestProfile:
+        if self.initiative is None or self.dexterity is None:
+            raise ValueError('Dexterity requires actual Initiative and Dexterity')
+        _integer(self.dexterity,'Dexterity',minimum=1)
+        return TestProfile(self.initiative, self.dexterity)
+
+    @property
+    def recall_profile(self) -> TestProfile:
+        if self.reason is None or self.recall is None:
+            raise ValueError('Recall requires actual Reason and Recall')
+        _integer(self.recall,'Recall',minimum=1)
+        return TestProfile(self.reason, self.recall)
 
     @property
     def throwing_profile(self) -> TestProfile:
@@ -539,11 +552,16 @@ class PcMeleeParticipant:
             if type(self.wizard) is not PcWizardProfile:
                 raise TypeError('PC wizard source requires its typed complete profile')
             replace(self.wizard)
+            self.willpower_profile
             if self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
                 raise ValueError('PC magic currently requires automatic melee tactics')
         _readmit_fate(self.fate, self.actor_id)
         from towr.domain.talent_actor_models import validate_pc_talent_source
         validate_pc_talent_source(self)
+        from towr.domain.talent_catalog import TalentId
+        if (self.pc.medical is not None and self.pc.medical.treatment_supplies
+                and any(t.id is TalentId.COMBAT_SURGEON for t in self.talents)):
+            self.pc.recall_profile
         validate_oath_context(self.talents, self.oath_context)
         from towr.domain.talent_catalog import TalentId
         if any(value.id in (TalentId.DEFENSIVE_STANCE,TalentId.WILD_ATTACK)
@@ -677,6 +695,12 @@ class PcMeleeParticipant:
                 or self.combat_equipment is None):
             raise ValueError('Throwing weapons require automatic decisions and their concrete source items')
 
+    @property
+    def willpower_profile(self) -> TestProfile:
+        if self.wizard is None or self.pc.reason is None:
+            raise ValueError('Wizard Willpower requires the actual owner Reason and Wizard skill')
+        return TestProfile(self.pc.reason,self.wizard.willpower)
+
     def defeat_decision(self, target_id: str) -> MinionDefeatDecision:
         _identifier(target_id, "defeat target")
         for decision in self.defeat_decisions:
@@ -770,10 +794,17 @@ class PcMeleeScenario:
     battlefield: PcBattlefieldSpec | None = field(default=None,kw_only=True)
     music_acoustics: BattlefieldMusicAcoustics | None = field(default=None,kw_only=True)
     single_combat_pairs: tuple[PcSingleCombatPair,...] = field(default=(),kw_only=True)
+    surgery_risk: SurgeryRiskPolicy | None = field(default=None,kw_only=True)
+    npc_allies: tuple[NpcParticipantSnapshot,...] = field(default=(),kw_only=True)
+    player_side_activation_order: tuple[str,...] | None = field(default=None,kw_only=True)
+    npc_defeat_decisions: tuple[MinionDefeatDecision,...] = field(default=(),kw_only=True)
 
     def __post_init__(self) -> None:
         for name in ("id", "day_id"):
             _identifier(getattr(self, name), name)
+        if self.surgery_risk is not None:
+            _typed(self.surgery_risk,SurgeryRiskPolicy,'explicit GM surgery risk')
+            replace(self.surgery_risk)
         _typed(self.facts, PcMeleeFacts, "PC melee facts")
         replace(self.facts)
         if self.music_acoustics is not None:
@@ -789,6 +820,7 @@ class PcMeleeScenario:
         _integer(self.max_rounds, "max rounds", minimum=1)
         party = _ordered(self.party, "party")
         enemies = _ordered(self.enemies, "enemies")
+        allies = _ordered(self.npc_allies, "NPC allies")
         if not party or not enemies:
             raise ValueError("PC melee requires a nonempty party and Minions")
         pc_definitions = {}
@@ -801,10 +833,14 @@ class PcMeleeScenario:
                 raise ValueError("conflicting PC definitions with the same ID")
             pc_definitions[member.pc.id] = member.pc
         validate_pc_single_combat_pairs(self.single_combat_pairs,
-            tuple(member.actor_id for member in party),tuple(enemy.state.actor_id for enemy in enemies))
+            (*tuple(member.actor_id for member in party),*(ally.state.actor_id for ally in allies)),
+            tuple(enemy.state.actor_id for enemy in enemies))
         definitions = {}
-        for enemy in enemies:
-            _readmit_profile_enemy(enemy)
+        for enemy in (*enemies,*allies):
+            allied=enemy in allies
+            _readmit_profile_enemy(enemy,side=CombatSide.PLAYERS_AND_ALLIES if allied else CombatSide.OPPOSITION)
+            if allied and enemy.definition.generated_components is None:
+                raise ValueError("NPC allies require their complete generated actor source")
             definition = enemy.definition
             if definition.id in definitions and definitions[definition.id] != definition:
                 raise ValueError("conflicting Minion definitions with the same ID")
@@ -852,12 +888,14 @@ class PcMeleeScenario:
                     raise ValueError("Shooting/Throwing opponents require Athletics, actual shield Defence or canonical Thief Stealth")
         pc_ids = tuple(member.actor_id for member in party)
         enemy_ids = tuple(enemy.state.actor_id for enemy in enemies)
-        all_ids = (*pc_ids, *enemy_ids)
+        ally_ids=tuple(ally.state.actor_id for ally in allies)
+        player_ids=(*pc_ids,*ally_ids)
+        all_ids = (*player_ids, *enemy_ids)
         if self.music_acoustics is not None and self.music_acoustics.blocked_zone_pairs:
             if self.battlefield is None:
                 raise ValueError('acoustic barriers need actual distinct battlefield Zones')
             from towr.domain.pc_battlefield_models import build_pc_battlefield
-            graph = build_pc_battlefield(self.battlefield, pc_ids, enemy_ids, self.facts.zone_id).spatial.graph
+            graph = build_pc_battlefield(self.battlefield, player_ids, enemy_ids, self.facts.zone_id).spatial.graph
             if any(not graph.contains(self.facts.zone_id + ':' + key)
                     for pair in self.music_acoustics.blocked_zone_pairs for key in pair):
                 raise ValueError('acoustic barrier references an absent battlefield Zone')
@@ -866,13 +904,30 @@ class PcMeleeScenario:
         if len(set(all_ids)) != len(all_ids):
             raise ValueError("PC and Minion actor IDs must be distinct")
         for name, ids in (("pc_activation_order", pc_ids),
-                          ("enemy_activation_order", enemy_ids), ("enemy_target_priority", pc_ids)):
+                          ("enemy_activation_order", enemy_ids), ("enemy_target_priority", player_ids)):
             ordered = _ordered(getattr(self, name), name)
             for actor_id in ordered:
                 _identifier(actor_id, name)
             if len(set(ordered)) != len(ordered) or set(ordered) != set(ids):
                 raise ValueError(f"{name} must contain every member of its side exactly once")
             object.__setattr__(self, name, ordered)
+        if self.player_side_activation_order is not None:
+            _canonical_tuple(self.player_side_activation_order,"player side activation order")
+            if (len(set(self.player_side_activation_order))!=len(self.player_side_activation_order)
+                    or set(self.player_side_activation_order)!=set(player_ids)):
+                raise ValueError("player side activation order must contain every PC and NPC ally exactly once")
+            for actor in self.player_side_activation_order: _identifier(actor,"player side activation actor")
+        _canonical_tuple(self.npc_defeat_decisions,'NPC defeat decisions')
+        expected_pairs={(attacker.state.actor_id,target.state.actor_id) for attacker in (*enemies,*allies)
+            for target in (*enemies,*allies) if attacker.state.side is not target.state.side
+            and target.definition.injury_policy is not TargetInjuryPolicy.CHAMPION}
+        decision_pairs=[]
+        for decision in self.npc_defeat_decisions:
+            _typed(decision,MinionDefeatDecision,'NPC defeat decision');replace(decision)
+            if not decision.gm_approved: raise ValueError('NPC defeat decisions require explicit GM approval')
+            decision_pairs.append((decision.attacker_id,decision.target_id))
+        if len(set(decision_pairs))!=len(decision_pairs) or set(decision_pairs)!=expected_pairs:
+            raise ValueError('NPC defeat decisions must cover exactly the opposing original NPC profile-target pairs')
         for member in party:
             if set(member.target_priority) != set(enemy_ids):
                 raise ValueError("each PC target priority must include every Minion exactly once")
@@ -880,16 +935,23 @@ class PcMeleeScenario:
                 raise ValueError("ally Recover beneficiary must be in the PC party")
             if member.help_policy is not None:
                 beneficiary_id = member.help_policy.beneficiary_id
-                if beneficiary_id not in pc_ids:
-                    raise ValueError("Help beneficiary must be in the PC party")
-                beneficiary = next(other for other in party if other.actor_id == beneficiary_id)
-                if beneficiary.policy is not PcMeleePolicy.ATTACK_OR_RECOVER_SELF:
-                    raise ValueError("the first Help slice cannot target another helper")
+                if beneficiary_id not in player_ids:
+                    raise ValueError("Help beneficiary must be an actual same-side PC or NPC ally")
+                if beneficiary_id in pc_ids:
+                    beneficiary = next(other for other in party if other.actor_id == beneficiary_id)
+                    if beneficiary.policy is not PcMeleePolicy.ATTACK_OR_RECOVER_SELF:
+                        raise ValueError("the first Help slice cannot target another helper")
+                else:
+                    beneficiary=next(other for other in allies if other.state.actor_id==beneficiary_id)
+                    if (member.help_policy.target is PcHelpTarget.ATTACK
+                            and not any(attack.skill is member.help_policy.skill for attack in beneficiary.definition.attacks)):
+                        raise ValueError("NPC Help Skill must match an actual recipient Attack Skill")
                 if (member.help_policy.target is PcHelpTarget.ATTACK
-                        and self.pc_activation_order.index(member.actor_id) >= self.pc_activation_order.index(beneficiary_id)):
+                        and self.player_activation_order.index(member.actor_id) >= self.player_activation_order.index(beneficiary_id)):
                     raise ValueError("Help beneficiary must activate later in this round")
         object.__setattr__(self, "party", party)
         object.__setattr__(self, "enemies", enemies)
+        object.__setattr__(self,"npc_allies",allies)
         from towr.domain.pc_tactical_models import validate_automatic_combat_scenario
         validate_automatic_combat_scenario(self)
         validate_pc_npc_help_policies(self)
@@ -933,9 +995,25 @@ class PcMeleeScenario:
                 return member
         raise ValueError("unknown PC melee participant")
 
+    @property
+    def npc_sources(self) -> tuple[NpcParticipantSnapshot,...]:
+        return (*self.enemies,*self.npc_allies)
+
+    @property
+    def npc_activation_order(self) -> tuple[str,...]:
+        return (*self.enemy_activation_order,*(ally.state.actor_id for ally in self.npc_allies))
+
+    @property
+    def player_activation_order(self) -> tuple[str,...]:
+        return (self.player_side_activation_order if self.player_side_activation_order is not None else
+            (*self.pc_activation_order,*(ally.state.actor_id for ally in self.npc_allies)))
+
+    def npc(self,actor_id: str) -> NpcParticipantSnapshot:
+        return self.enemy(actor_id)
+
     def enemy(self, actor_id: str) -> NpcParticipantSnapshot:
         _identifier(actor_id, "enemy actor")
-        for enemy in self.enemies:
+        for enemy in self.npc_sources:
             if enemy.state.actor_id == actor_id:
                 return enemy
         raise ValueError("unknown PC melee enemy")
@@ -1005,7 +1083,7 @@ def _validate_short_range_opening(scenario: PcMeleeScenario) -> None:
 def validate_pc_melee_scenario_admission(scenario: PcMeleeScenario) -> None:
     """Re-admit canonical full input before execution, including nested values."""
     _typed(scenario, PcMeleeScenario, "PC melee scenario")
-    for name in ("party", "enemies", "pc_activation_order", "enemy_activation_order", "enemy_target_priority"):
+    for name in ("party", "enemies", "npc_allies", "pc_activation_order", "enemy_activation_order", "enemy_target_priority"):
         _canonical_tuple(getattr(scenario, name), name)
     replace(scenario)
 
@@ -1024,7 +1102,7 @@ def _readmit_fate(fate: FateSessionState, actor_id: str) -> None:
         raise ValueError("Fate belongs to another PC")
 
 
-def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
+def _readmit_profile_enemy(enemy: NpcParticipantSnapshot, *, side=CombatSide.OPPOSITION) -> None:
     _typed(enemy, NpcParticipantSnapshot, "Minion snapshot")
     definition, state = enemy.definition, enemy.state
     _typed(definition, NpcDefinition, "Minion definition")
@@ -1036,9 +1114,13 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
         _identifier(value, name)
     _typed(definition.injury_policy, TargetInjuryPolicy, "Minion injury policy")
     _typed(state.side, CombatSide, "Minion side")
-    if definition.injury_policy not in (TargetInjuryPolicy.MINION, TargetInjuryPolicy.BRUTE) or state.side is not CombatSide.OPPOSITION:
-        raise ValueError("PC melee enemies must be opposition Minions or Brutes")
-    _integer(definition.wound_limit, "NPC profile wound limit", minimum=1)
+    if definition.injury_policy not in (TargetInjuryPolicy.MINION, TargetInjuryPolicy.BRUTE,TargetInjuryPolicy.CHAMPION) or state.side is not side:
+        raise ValueError("NPC source must retain its actual side and supported Minion, Brute or generated Champion role")
+    if definition.injury_policy is TargetInjuryPolicy.CHAMPION:
+        if definition.generated_components is None:
+            raise ValueError('Champion admission requires its complete generated actor source')
+    else:
+        _integer(definition.wound_limit, "NPC profile wound limit", minimum=1)
     _readmit_resilience(definition.resilience)
     _readmit_resilience(state.current_resilience)
     attacks = _canonical_tuple(definition.attacks, "Minion attacks")
@@ -1047,7 +1129,7 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
         from towr.domain.generated_npc_models import GeneratedNpc,validate_generated_definition
         _typed(definition.generated_components,GeneratedNpc,'complete generated source')
         validate_generated_definition(definition)
-        expected=definition.generated_components.participant(state.actor_id)
+        expected=definition.generated_components.participant(state.actor_id,side=side)
         expected=replace(expected,definition=replace(expected.definition,id=definition.id),
             state=replace(expected.state,definition_id=definition.id))
         from towr.domain.pc_npc_catalog import validate_pc_book_npc_definition

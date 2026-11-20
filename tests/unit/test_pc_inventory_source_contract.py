@@ -17,18 +17,15 @@ from towr.domain.weapon_inventory_models import weapon_unit_id
 from towr.engine.pc_melee_runner import run_pc_melee_scenario,apply_pc_melee_step
 
 
-def firearm_facts(*,repeater=False,awareness=None):
-    return PcRangedProfile(4,6,3,5,True,True,True,
-        PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,
-        repeater_bonus_policy=PcRepeaterBonusPolicy.AUTOMATIC if repeater else None,
-        awareness=awareness)
+def firearm_facts(*,repeater=False):
+    return PcRangedProfile(4, 6,  True, True, True, PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS, repeater_bonus_policy=PcRepeaterBonusPolicy.AUTOMATIC if repeater else None)
 
 
-def source(items,facts,*,policy=PcMeleePolicy.AUTOMATIC_COMBAT,opening=False,rounds=1):
+def source(items,facts,*,initiative=3,awareness=None,dexterity=5,policy=PcMeleePolicy.AUTOMATIC_COMBAT,opening=False,rounds=1):
     scene=make_pc_melee_scenario(max_rounds=rounds)
     member=scene.party[0]
     primary=next(item for item in items if item.location is L.HELD)
-    member=replace(member,pc=replace(member.pc,weapon=primary.weapon,ranged=facts,
+    member=replace(member,pc=replace(member.pc,weapon=primary.weapon,ranged=facts,initiative=initiative,awareness=awareness,dexterity=dexterity,
         weapon_skill=1,melee=2,defence=2,toughness=20,strength=4),
         initial_weapon_hand=primary.hand,policy=policy,combat_equipment=items)
     enemies=tuple(replace(enemy,definition=replace(enemy.definition,
@@ -146,7 +143,7 @@ class PcInventorySourceContractTests(unittest.TestCase):
         items=(PcWeaponItem('bow',W.SHORTBOW,L.HELD,PcTwoHandedGrip.BOTH),
             PcWeaponItem('gun',W.PISTOL,L.CARRIED,None,initially_loaded=True))
         member=source(items,firearm_facts(),opening=True).party[0]
-        self.assertEqual(member.pc.ranged.dexterity,5)
+        self.assertEqual(member.pc.dexterity,5)
         free=PcRangedProfile(4,6,ammunition_supply_confirmed=True)
         with self.assertRaises(ValueError):source(items,free)
 

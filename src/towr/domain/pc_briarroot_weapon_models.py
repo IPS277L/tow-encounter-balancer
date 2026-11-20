@@ -5,6 +5,7 @@ actual inventory transition and a static ground marker; the binding owner then
 settles its mandatory release. Natural weapons never enter this item bank.
 """
 from __future__ import annotations
+from towr.domain.injury_models import injury_is_defeated
 from towr.domain.pc_acrobatic_models import actor_acrobatic_source
 from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
 
@@ -244,7 +245,7 @@ BRIARROOT_WEAPON_PROOFS=(PcBriarrootWeaponDropProof,PcBriarrootWeaponPickupProof
 
 
 def _actors(state):
-    return (*state.source.pc_activation_order,*state.source.enemy_activation_order)
+    return (*state.source.pc_activation_order,*state.source.npc_activation_order)
 
 
 def _member(state,actor):
@@ -257,8 +258,7 @@ def _injury(state,actor):
 
 
 def _alive(state,actor):
-    return (not _injury(state,actor).dead if actor in state.source.pc_activation_order
-        else not _injury(state,actor).defeated and actor not in state.exited_npc_ids)
+    return (not injury_is_defeated(_injury(state,actor)) and actor not in state.exited_npc_ids)
 
 
 def _bank(state):
@@ -539,7 +539,7 @@ def can_pickup_briarroot_weapon(state,actor,weapon_id=None):
             or _injury(state,actor).conditions.has(Condition.DEFENCELESS)
             or not _ground_weapon_close(state,actor,item)):
         return False
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         enemy=state.enemy(actor)
         if enemy.state.weapon_inventory is not None:
             try:
@@ -796,7 +796,7 @@ def validate_briarroot_dropped_weapons(state):
                 if item.ground is not None and actual.location not in (PcItemLocation.DROPPED,PcItemLocation.STUCK):
                     raise ValueError('a grounded physical PC weapon cannot also be held or carried')
         else:
-            source=next(enemy for enemy in state.source.enemies if enemy.state.actor_id==item.owner_id)
+            source=next(enemy for enemy in state.source.npc_sources if enemy.state.actor_id==item.owner_id)
             inventory=state.enemy(item.owner_id).state.weapon_inventory
             identifiers=(tuple(unit.id for unit in inventory.items) if inventory is not None else
                 tuple(item.owner_id+':weapon:'+profile.id for profile in source.definition.attacks if profile.hands is not None))

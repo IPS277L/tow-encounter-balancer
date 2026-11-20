@@ -6,6 +6,7 @@ mount turn is manufactured. Physical worn armour remains a separate source fact.
 """
 from __future__ import annotations
 
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -147,7 +148,7 @@ def initial_pc_mounts(source: PcMeleeScenario) -> tuple[PcMountedState, ...]:
         validate_mount_rider(mount, getattr(member, 'rider_kind', None))
         if mount is not None:
             mounted.append(PcMountedState(member.actor_id, mount, True))
-    for enemy in source.enemies:
+    for enemy in source.npc_sources:
         components = enemy.definition.generated_components
         mount = getattr(components, 'mount', None) if components is not None else None
         validate_mount_rider(mount, getattr(components, 'rider_kind', None))
@@ -162,11 +163,11 @@ def initial_pc_mounts(source: PcMeleeScenario) -> tuple[PcMountedState, ...]:
 
 def _known_actor(source, actor):
     _identifier(actor, 'mount query actor')
-    if actor in (*source.pc_activation_order, *source.enemy_activation_order):
+    if actor in (*source.pc_activation_order, *source.npc_activation_order):
         return
     from towr.domain.pc_companion_models import mount_companion_actor_id
     companions = tuple(mount_companion_actor_id(row.actor_id) for row in initial_pc_mounts(source))
-    if actor not in (*source.pc_activation_order, *source.enemy_activation_order, *companions):
+    if actor not in (*source.pc_activation_order, *source.npc_activation_order, *companions):
         raise ValueError('mount query actor must belong to the encounter source')
 
 
@@ -177,7 +178,7 @@ def _mounted_entry(state, actor):
 
 def _rider_source(state, actor):
     _known_actor(state.source, actor)
-    if actor not in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
+    if actor not in (*state.source.pc_activation_order, *state.source.npc_activation_order):
         return None
     return (state.source.participant(actor) if actor in state.source.pc_activation_order
         else state.enemy(actor).definition.generated_components)
@@ -259,7 +260,7 @@ def mounted_can_fly(state: PcMeleeState, actor: str) -> bool:
     from towr.domain.pc_companion_models import mount_companion_actor_id
     row = pc_companion(state, mount_companion_actor_id(actor))
     # A remounted Pegasus retains its own W1 flight loss (GM176).
-    return row is None or (not row.snapshot.state.injury.defeated and row.snapshot.state.injury.wounds == 0)
+    return row is None or (not injury_is_defeated(row.snapshot.state.injury) and row.snapshot.state.injury.wounds == 0)
 
 
 def actor_can_fly(state, actor):
@@ -268,7 +269,7 @@ def actor_can_fly(state, actor):
     if row is None:
         return mounted_can_fly(state, actor)
     mount = next(mount for mount in state.mounts if mount.actor_id == row.rider_id)
-    return (mount.mount is CombatMount.PEGASUS and not row.snapshot.state.injury.defeated
+    return (mount.mount is CombatMount.PEGASUS and not injury_is_defeated(row.snapshot.state.injury)
         and row.snapshot.state.injury.wounds == 0)
 
 
@@ -313,7 +314,7 @@ def pc_mounted_attack_effects(state: PcMeleeState, actor: str, target: str,
     if mount is CombatMount.DEMIGRYPH or not is_charge:
         return after_ground
     pegasus = mount is CombatMount.PEGASUS
-    if (not pegasus and target in state.source.enemy_activation_order
+    if (not pegasus and target in state.source.npc_activation_order
             and state.enemy(target).definition.injury_policy is TargetInjuryPolicy.MONSTROSITY):
         return after_ground
     return (ProneBeforeGiveGroundSpec(

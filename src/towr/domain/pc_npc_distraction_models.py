@@ -1,4 +1,5 @@
 """Typed NPC Distracted sources and confirmed-focus-death expiry (M42/M43)."""
+from towr.domain.injury_models import injury_is_defeated
 from towr.domain.pc_demigryph_models import pc_kernel_attack_types
 from dataclasses import dataclass,replace
 
@@ -54,12 +55,40 @@ class PcNpcWaveDistractionSource:
 
 
 @dataclass(frozen=True,slots=True)
+class PcNpcCleavingDistractionSource:
+    """Brewguard's first Wound from an actual enemy Cleaving Blow wave."""
+    actor_id: str
+    focus_actor_id: str
+    wave_id: str
+    profile_change: ProfileStateChangeRequest
+
+    def __post_init__(self):
+        if any(type(v) is not str or not v.strip() for v in (self.actor_id,self.focus_actor_id,self.wave_id)):
+            raise TypeError('Cleaving distraction retains its actual owner, focus and wave')
+        if self.actor_id==self.focus_actor_id or not _first_wound(self.profile_change):
+            raise ValueError('Cleaving distraction requires another causer and the actual first Wound')
+        replace(self.profile_change)
+
+
+def cleaving_distraction_from_profile_wound(source,wave,ack):
+    from towr.domain.pc_cleaving_blow_models import PcCleavingStartProof,PcCleavingProfileProof
+    if type(wave) is not PcCleavingStartProof or type(ack) is not PcCleavingProfileProof:
+        raise TypeError('Cleaving distraction requires its exact actual wave and acknowledgement')
+    enemy=source.enemy(ack.target_id)
+    if enemy.definition.id!=BREWGUARD_DEFINITION_ID or not _first_wound(ack.source): return None
+    validate_pc_book_npc_definition(enemy.definition)
+    if ack.wave_id!=wave.wave_id or ack.target_id not in wave.target_ids:
+        raise ValueError('Cleaving distraction lost its source wave')
+    return PcNpcCleavingDistractionSource(ack.target_id,wave.trigger.actor_id,wave.wave_id,ack.source)
+
+
+@dataclass(frozen=True,slots=True)
 class PcNpcDistractionExpiredProof:
     source: PcNpcDistractionSource | PcNpcGrudgeDistractionSource | PcNpcWaveDistractionSource
     death_source_id: str
 
     def __post_init__(self):
-        if type(self.source) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource,PcNpcWaveDistractionSource):
+        if type(self.source) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource,PcNpcWaveDistractionSource,PcNpcCleavingDistractionSource):
             raise TypeError('distraction expiry requires its exact typed source')
         replace(self.source)
         if type(self.death_source_id) is not str or not self.death_source_id.strip():
@@ -135,18 +164,19 @@ def _wave_receipt(history,ack):
 
 
 def ordered_npc_distractions(source,causes):
-    actors={enemy.state.actor_id for enemy in source.enemies}
+    actors={enemy.state.actor_id for enemy in source.npc_sources}
     for cause in causes:
-        if type(cause) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource,PcNpcWaveDistractionSource):
+        if type(cause) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource,PcNpcWaveDistractionSource,PcNpcCleavingDistractionSource):
             raise TypeError('NPC distraction requires an exact typed cause')
         replace(cause)
-        focus_ids=actors if type(cause) is PcNpcWaveDistractionSource else source.pc_activation_order
+        focus_ids=(actors if type(cause) is PcNpcWaveDistractionSource else
+            (*actors,*source.pc_activation_order) if type(cause) is PcNpcCleavingDistractionSource else source.pc_activation_order)
         if cause.actor_id not in actors or cause.focus_actor_id not in focus_ids:
             raise ValueError('NPC distraction source/focus must belong to the complete scenario')
     by_actor={cause.actor_id:cause for cause in causes}
     if len(by_actor)!=len(causes):
         raise ValueError('an NPC cannot own several simultaneous distraction sources')
-    return tuple(by_actor[enemy.state.actor_id] for enemy in source.enemies
+    return tuple(by_actor[enemy.state.actor_id] for enemy in source.npc_sources
         if enemy.state.actor_id in by_actor)
 
 
@@ -157,8 +187,18 @@ def _confirmed_death_source(history,actor):
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
     from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
     from towr.domain.pc_falling_models import PcFallingProof
+    from towr.domain.pc_cleaving_blow_models import PcCleavingProfileProof,cleaving_wave_receipt
     for index in range(len(history)-1,-1,-1):
         proof=history[index]
+        if type(proof) is PcCleavingProfileProof:
+            decision=proof.decision
+            if (type(decision) is MinionDefeatDecision and decision.target_id==actor
+                    and decision.gm_approved is True and decision.disposition is NpcDefeatDisposition.KILLED
+                    and proof.source.defeated):
+                wave,_=cleaving_wave_receipt(history[:index],proof)
+                if decision.attacker_id!=wave.trigger.actor_id:
+                    raise ValueError('Cleaving focus death changed its actual Wound causer')
+                return wave.wave_id+':'+actor+':defeat'
         if type(proof) is PcFallingProof:
             decision=proof.npc_disposition
             if (proof.actor_id==actor and decision is NpcDefeatDisposition.KILLED
@@ -202,12 +242,13 @@ def expected_pc_npc_distraction_expiry(state):
     if state.pending or state.pending_wound is not None:
         return None
     for cause in state.npc_distractions:
-        if type(cause) is PcNpcWaveDistractionSource:
+        if (type(cause) is PcNpcWaveDistractionSource or type(cause) is PcNpcCleavingDistractionSource
+                and cause.focus_actor_id in state.source.npc_activation_order):
             # Defeat alone does not establish death: surrendered/knocked out lives.
             source_id=_confirmed_death_source(state.history,cause.focus_actor_id)
             if source_id is None:
                 continue
-            if not state.enemy(cause.focus_actor_id).state.injury.defeated:
+            if not injury_is_defeated(state.enemy(cause.focus_actor_id).state.injury):
                 raise ValueError('NPC focus death proof disagrees with its actual injury')
         else:
             if not state.participant(cause.focus_actor_id).injury.dead:
@@ -234,6 +275,7 @@ def validate_pc_npc_distractions(state):
     from towr.domain.pc_melee_result_models import PcAttackProof,PcProfileWoundProof
     from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
+    from towr.domain.pc_cleaving_blow_models import PcCleavingProfileProof,cleaving_wave_receipt
     if type(state.npc_distractions) is not tuple:
         raise TypeError('NPC distraction bank must be an exact tuple')
     supported=(BREWGUARD_DEFINITION_ID,MINER_DEFINITION_ID)
@@ -245,7 +287,7 @@ def validate_pc_npc_distractions(state):
     attack=None
     encountered=[]
     selected={policy.actor_id for policy in state.source.npc_grudge_policies}
-    encounter_order=tuple(enemy.state.actor_id for enemy in state.source.enemies if enemy.state.actor_id in selected)
+    encounter_order=tuple(enemy.state.actor_id for enemy in state.source.npc_sources if enemy.state.actor_id in selected)
     ordinary_started=False
     for index,proof in enumerate(state.history):
         if type(proof) is PcNpcGrudgeEncounterProof:
@@ -273,6 +315,11 @@ def validate_pc_npc_distractions(state):
             cause=wave_distraction_from_profile_wound(state.source,activation,proof)
             if cause is not None:
                 expected.append(cause)
+        elif type(proof) is PcCleavingProfileProof:
+            wave,_=cleaving_wave_receipt(state.history[:index],proof)
+            cause=cleaving_distraction_from_profile_wound(state.source,wave,proof)
+            if cause is not None:
+                expected.append(cause)
         elif type(proof) is PcNpcDistractionExpiredProof:
             replace(proof)
             if (proof.source not in expected or proof.death_source_id!=
@@ -283,7 +330,7 @@ def validate_pc_npc_distractions(state):
     if state.npc_distractions!=expected:
         raise ValueError('NPC distraction bank changed its actual Wound/expiry history')
     for cause in state.npc_distractions:
-        if type(cause) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource,PcNpcWaveDistractionSource):
+        if type(cause) not in (PcNpcDistractionSource,PcNpcGrudgeDistractionSource,PcNpcWaveDistractionSource,PcNpcCleavingDistractionSource):
             raise TypeError('NPC distraction bank requires exact typed sources')
         replace(cause)
     from towr.domain.pc_melee_result_models import validate_pc_melee_source_types

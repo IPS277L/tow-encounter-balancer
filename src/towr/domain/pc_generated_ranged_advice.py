@@ -212,4 +212,4 @@ def npc_repeater_bonus(state, actor_id, attacker: TestRequest,
         if modifier.rule_id!=AIM_FOLLOW_UP_RULE_ID))
     return _repeater_choice(utility(attacker),utility(boosted),_distribution(reload),horizon,
         reload_profile.required_successes,rapid,utility(future_attacker),utility(future_boosted),
-        aim_required,components.ranged.awareness is not None)
+        aim_required,components.awareness is not None)

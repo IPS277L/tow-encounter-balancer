@@ -5,6 +5,7 @@ after every first-strike consequence; it never reserves or executes another
 action slot. The native owner validates and projects the complete journal.
 """
 from __future__ import annotations
+from towr.domain.injury_models import injury_is_defeated
 
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -184,19 +185,16 @@ def _mount(state, actor):
 def _able(state, actor):
     is_pc = actor in state.source.pc_activation_order
     injury = state.participant(actor).injury if is_pc else state.enemy(actor).state.injury
-    return not (injury.dead if is_pc else injury.defeated) and not any(
+    return not (injury_is_defeated(injury)) and not any(
         injury.conditions.has(condition) for condition in (Condition.DEFENCELESS, Condition.PRONE))
 
 
 def _targets(state, actor):
     from towr.domain.pc_short_opening_models import pc_enemy_range
     from towr.domain.ranged_weapon_profiles import RangedWeaponRange
-    if actor in state.source.pc_activation_order:
-        priority = state.source.participant(actor).target_priority
-        alive = {enemy.state.actor_id for enemy in state.live_enemies}
-    else:
-        priority = state.source.enemy_target_priority
-        alive = {member.actor_id for member in state.live_party}
+    from towr.domain.pc_battlefield_movement_models import _enemies
+    priority=_enemies(state,actor)
+    alive=set(priority)
     return tuple(target for target in priority if target in alive
         and pc_enemy_range(state, actor, target) is RangedWeaponRange.CLOSE)
 

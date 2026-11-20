@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from dataclasses import replace
 
 from towr.domain.condition_models import Condition
+from towr.domain.pc_medical_models import medical_effective_body
 from towr.domain.pc_heavy_wound_models import preferred_weapon_hand, usable_hands
 from towr.domain.pc_melee_models import PC_TWO_HANDED_RANGED_WEAPONS, PcMeleeWeapon, PcWeaponHand, PcTwoHandedGrip
 
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 
 
 def pc_active_weapon(state: PcMeleeState, actor_id: str) -> PcMeleeWeapon:
-    member=state.participant(actor_id)
+    member=medical_effective_body(state,actor_id)
     item=member.weapon_inventory.active
     if item is None:
         return PcMeleeWeapon.UNARMED
@@ -25,7 +26,7 @@ def pc_preferred_weapon_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand
     initial = (participant.backup_weapon_policy.preferred_hand if state.participant(actor_id).using_backup_weapon
         and participant.backup_weapon_policy is not None else participant.initial_weapon_hand)
     from towr.domain.pc_weapon_models import pc_weapon_supports_variable_grip,pc_weapon_requires_two_hands
-    member=state.participant(actor_id)
+    member=medical_effective_body(state,actor_id)
     if (member.weapon_inventory is not None and member.weapon_inventory.active is not None
             and member.weapon_inventory.active.weapon is PcMeleeWeapon.WEIGHTED_NET
             and member.weapon_inventory.active.location.value == 'deployed'):
@@ -71,7 +72,7 @@ def pc_backup_candidate_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand
     """Own-turn backup intent before a weapon-first shield release, if needed."""
     turn = state.round_state.active_turn
     participant = state.source.participant(actor_id)
-    member = state.participant(actor_id)
+    member = medical_effective_body(state,actor_id)
     from towr.domain.pc_melee_models import PcMeleePolicy
     if participant.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
         return None
@@ -118,7 +119,7 @@ def pc_backup_draw_hand(state: PcMeleeState, actor_id: str) -> PcWeaponHand | No
     if selected_pc_potion(state) is not None or (state.source.participant(actor_id).wizard is not None
             and pc_melee_selected_action(state) is CombatActionKind.IMPROVISE):
         return None
-    member = state.participant(actor_id)
+    member = medical_effective_body(state,actor_id)
     from towr.domain.pc_shield_models import PcShieldLocation
     if (member.shield is not None and member.shield.location is PcShieldLocation.HELD
             and member.shield.hand is hand):

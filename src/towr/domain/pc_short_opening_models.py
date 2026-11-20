@@ -1,6 +1,7 @@
 """The declared single-Zone Short opening and one incidental NPC approach."""
 from __future__ import annotations
 
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -68,24 +69,19 @@ def pc_enemy_range(state: PcMeleeState, actor: str, target: str) -> RangedWeapon
         if state.battlefield is None:
             raise ValueError('configured battlefield requires its actual spatial state')
         return battlefield_range(state.battlefield,actor,target)
-    if actor in state.source.pc_activation_order and target in state.source.enemy_activation_order:
-        npc = target
-    elif actor in state.source.enemy_activation_order and target in state.source.pc_activation_order:
-        npc = actor
-    else:
-        raise ValueError('opening range requires an actual PC/NPC pair')
+    from towr.domain.pc_actor_models import pc_actor_side
+    from towr.domain.turn_models import CombatSide
+    first,second=pc_actor_side(state,actor),pc_actor_side(state,target)
+    if first is second:raise ValueError('opening range requires actual opposing actors')
+    npc=actor if first is CombatSide.OPPOSITION else target
     return (RangedWeaponRange.CLOSE if state.source.short_range_opening is None
         or npc in state.approached_npc_ids else RangedWeaponRange.SHORT)
 
 
 def pc_has_close_enemy(state: PcMeleeState, actor: str) -> bool:
-    if actor in state.source.pc_activation_order:
-        return any(pc_enemy_range(state,actor,enemy.state.actor_id) is RangedWeaponRange.CLOSE
-            for enemy in state.live_enemies)
-    if actor in state.source.enemy_activation_order:
-        return any(pc_enemy_range(state,actor,member.actor_id) is RangedWeaponRange.CLOSE
-            for member in state.live_party)
-    raise ValueError('Close query requires an actual encounter actor')
+    from towr.domain.pc_actor_models import pc_opponent_ids
+    return any(pc_enemy_range(state,actor,target) is RangedWeaponRange.CLOSE
+        for target in pc_opponent_ids(state,actor))
 
 
 def expected_pc_npc_approach(state: PcMeleeState) -> PcNpcApproachProof | None:
@@ -93,30 +89,34 @@ def expected_pc_npc_approach(state: PcMeleeState) -> PcNpcApproachProof | None:
             or not state.live_party or not state.live_enemies):
         return None
     turn = state.round_state.active_turn
-    if (turn is None or turn.action_slots or turn.actor_id not in state.source.enemy_activation_order
+    if (turn is None or turn.action_slots or turn.actor_id not in state.source.npc_activation_order
             or turn.actor_id in state.approached_npc_ids):
         return None
     actor = turn.actor_id
     enemy = state.enemy(actor)
-    if enemy.state.injury.defeated or enemy.state.injury.conditions.has(Condition.DEFENCELESS):
+    if injury_is_defeated(enemy.state.injury) or enemy.state.injury.conditions.has(Condition.DEFENCELESS):
         return None
     from towr.domain.pc_melee_result_models import pc_melee_action_id
+    from towr.domain.pc_actor_models import pc_actor_side
+    from towr.domain.turn_models import CombatSide
+    if pc_actor_side(state,actor) is not CombatSide.OPPOSITION:return None
+    from towr.domain.pc_actor_models import pc_opponent_ids
     return PcNpcApproachProof(actor,pc_melee_action_id(state,actor)+':approach',state.round_state,
         state.source.short_range_opening,state.approached_npc_ids,
-        tuple(member.actor_id for member in state.live_party))
+        pc_opponent_ids(state,actor))
 
 
 def validate_pc_approaches(state: PcMeleeState) -> None:
     _ids(state.approached_npc_ids)
     proofs = tuple(proof for proof in state.history if type(proof) is PcNpcApproachProof)
     if (state.approached_npc_ids != tuple(proof.actor_id for proof in proofs)
-            or not set(state.approached_npc_ids) <= set(state.source.enemy_activation_order)
+            or not set(state.approached_npc_ids) <= set(state.source.npc_activation_order)
             or proofs and state.source.short_range_opening is None):
         raise ValueError('proximity must preserve its actual one-time approach history')
     previous: tuple[str, ...] = ()
     for proof in proofs:
         replace(proof)
         if (proof.previous_approached_npc_ids != previous or proof.opening != state.source.short_range_opening
-                or not set(proof.party_actor_ids) <= set(state.source.pc_activation_order)):
+                or not set(proof.party_actor_ids) <= set(state.source.player_activation_order)):
             raise ValueError('approach changed its opening source, party or previous proximity')
         previous = (*previous,proof.actor_id)

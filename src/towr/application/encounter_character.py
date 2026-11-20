@@ -25,6 +25,7 @@ from towr.domain.pc_magic_source_models import PcWizardProfile
 from towr.domain.talent_catalog import TalentId
 from towr.domain.talent_models import AcquiredTalent, TalentOwnerFacts, has_talent
 from towr.domain.tool_inventory_models import ToolItemSource
+from towr.domain.medical_preparation_models import MedicalPreparationFacts
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,11 +59,17 @@ class EncounterCharacter:
     throwing: int | None = field(default=None,kw_only=True)
     brawn: int | None = field(default=None,kw_only=True)
     ballistic_skill: int | None = field(default=None,kw_only=True)
+    initiative: int | None = field(default=None,kw_only=True)
+    awareness: int | None = field(default=None,kw_only=True)
+    reason: int | None = field(default=None,kw_only=True)
+    recall: int | None = field(default=None,kw_only=True)
+    dexterity: int | None = field(default=None,kw_only=True)
     fellowship: int | None = field(default=None,kw_only=True)
     leadership: int | None = field(default=None,kw_only=True)
     tools: tuple[ToolItemSource, ...] = field(default=(),kw_only=True)
     shield_hand: PcWeaponHand | None = field(default=None,kw_only=True)
     oath_context: OathBattleContext | None = field(default=None,kw_only=True)
+    medical: MedicalPreparationFacts | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
@@ -110,7 +117,9 @@ class EncounterCharacter:
             self.athletics, self.endurance, self.weapon,
             body_resilience_bonus(self.armour)+helmet_resilience_bonus(self.armour),
             ranged=self.ranged,throwing=self.throwing,brawn=self.brawn,ballistic_skill=self.ballistic_skill,
-            fellowship=self.fellowship,leadership=self.leadership,tools=self.tools)
+            initiative=self.initiative,awareness=self.awareness,
+            reason=self.reason,recall=self.recall,dexterity=self.dexterity,
+            fellowship=self.fellowship,leadership=self.leadership,tools=self.tools,medical=self.medical)
         from towr.domain.pc_combat_equipment_models import PcItemLocation
         held=(None if self.combat_equipment is None else
             next((item for item in self.combat_equipment if item.location is PcItemLocation.HELD),None))
@@ -136,7 +145,10 @@ class EncounterCharacter:
             PcGloriousPolicy((Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE,
                 *((Skill.LEADERSHIP,) if has_talent(self.talents,TalentId.BATTLEFIELD_MUSICIAN)
                     and self.leadership is not None else ()),
-                *((Skill.SHOOTING,Skill.DEXTERITY) if self.ranged is not None else ()),
+                *((Skill.SHOOTING,) if self.ranged is not None else ()),
+                *((Skill.DEXTERITY,) if self.dexterity is not None else ()),
+                *((Skill.RECALL,) if self.recall is not None else ()),
+                *((Skill.AWARENESS,) if self.awareness is not None else ()),
                 *((Skill.THROWING,) if self.throwing is not None else ()),
                 *((Skill.BRAWN,) if self.brawn is not None else ()),
                 *((Skill.WILLPOWER,) if self.wizard is not None else ())), 0, 0),

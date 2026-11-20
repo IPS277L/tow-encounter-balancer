@@ -10,7 +10,8 @@ from jsonschema import Draft202012Validator, ValidationError
 from referencing import Registry, Resource
 
 from towr.adapters._json_common import build_value, parse_seed, read_request
-from towr.adapters._pc_melee_scenario_json import scenario_document,parse_airspace,generated_components_document
+from towr.adapters._pc_melee_scenario_json import (scenario_document,parse_airspace,generated_components_document,
+    parse_medical_preparation,parse_surgery_risk,parse_generated_medical_sources,generated_medical_sources_document,parse_npc_allies)
 from towr.adapters.ranged_json_errors import RangedInputError, RangedInputErrorCode as Code
 from towr.application.dynamic_encounter import (
     DynamicEncounterRequest, DynamicEncounterResult, NpcSearchSpace,
@@ -34,6 +35,7 @@ from towr.domain.minion_defeat_models import NpcDefeatDisposition
 from towr.domain.pc_melee_models import (PcMeleeFacts,PcMeleeWeapon,PcRangedProfile,PC_THROWING_WEAPONS,
     PcRangedReloadHandPolicy,PcRepeaterBonusPolicy)
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
+from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec
 from towr.domain.pc_single_combat_models import PcSingleCombatPair
 from towr.adapters._pc_melee_scenario_json import parse_scene_features
@@ -211,19 +213,13 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 if not required_stats<=characteristics.keys() or not required_skills<=skills.keys():
                     raise DynamicEncounterInputError(Code.INVALID_INPUT,
                         'Не заполнены характеристики/навыки стрельбы, зарядки или прицеливания (Shooting/Reload/Aim).',path=path)
-                awareness=skills.pop('awareness',None)
-                initiative=characteristics.pop('initiative',None)
-                dexterity=skills.pop('dexterity',None)
-                if not requirements.exacting:
-                    dexterity=None
-                    if awareness is None:initiative=None
                 if not requirements.firearm and any(prep.get(key) is not None
                         for key in ('has_blackpowder_lore','has_blackpowder_kit')):
                     raise DynamicEncounterInputError(Code.INVALID_INPUT,
                         'Lore/Kit относятся к огнестрельному оружию (Firearms) в инвентаре.',path=path+'/ranged')
                 ranged=build_value(DynamicEncounterInputError,path+'/ranged',PcRangedProfile,
-                    ballistic_skill=characteristics.pop('ballistic_skill'),initiative=initiative,
-                    shooting=skills.pop('shooting'),dexterity=dexterity,awareness=awareness,
+                    ballistic_skill=characteristics.pop('ballistic_skill'),
+                    shooting=skills.pop('shooting'),
                     **prep,reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS if requirements.exacting else None,
                     repeater_bonus_policy=PcRepeaterBonusPolicy.AUTOMATIC if requirements.repeater else None)
             elif 'ranged' in raw:
@@ -232,22 +228,19 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
             elif not throwing_inventory:
                 # Inactive character facts remain in the editable source echo
                 # and individual character file; this loadout cannot use them.
-                for name in ('ballistic_skill','initiative'):characteristics.pop(name,None)
-                for name in ('shooting','dexterity','awareness'):skills.pop(name,None)
+                characteristics.pop('ballistic_skill',None)
+                skills.pop('shooting',None)
             if throwing_inventory:
                 characteristics.pop('ballistic_skill',None)
                 if requirements is None:
-                    characteristics.pop('initiative',None)
-                    for name in ('shooting','dexterity','awareness'):
-                        skills.pop(name,None)
+                    skills.pop('shooting',None)
             throwing=skills.pop('throwing',None)
             if 'magic' in raw:
                 magic = raw['magic']
                 wizard = build_value(DynamicEncounterInputError, path + '/magic', PcWizardProfile,
-                    **dict(magic, reason=characteristics.pop('reason'), willpower=skills.pop('willpower'),
+                    **dict(magic, willpower=skills.pop('willpower'),
                         lores=tuple(magic['lores']), memorised_spells=tuple(PcSpellId(value)
                             for value in magic['memorised_spells'])))
-            characteristics.pop('reason',None)
             character = build_value(DynamicEncounterInputError, f'/party/{index}', EncounterCharacter,
                 throwing=throwing if throwing_inventory else None,
                 ballistic_skill=supplied_bs if throwing_inventory else None,
@@ -262,6 +255,7 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 rider_kind=None if raw.get('rider_kind') is None else RiderKind(raw['rider_kind']),
                 agilulf_code_confirmed=raw.get('agilulf_code_confirmed'),
                 ranged=ranged,
+                medical=parse_medical_preparation(raw.get('medical'),path=path+'/medical',error_type=DynamicEncounterInputError),
                 consumables=consumables, wizard=wizard,
                 armour_worn=armour_is_worn(loadout['armour']))
             party.append(character.participant(document['request_id'] + ':session', disposition))
@@ -270,8 +264,9 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
             airspace=parse_airspace(document['scene'].get('airspace'),path='/scene/airspace',
                 error_type=DynamicEncounterInputError),
             **parse_scene_features(document['scene'],path='/scene',error_type=DynamicEncounterInputError))
+        npc_allies=parse_npc_allies(document.get('npc_allies',[]),path_prefix='/npc_allies',error_type=DynamicEncounterInputError)
         options = document.get('search_space')
-        space = automatic_npc_search_space(tuple(party),battlefield=battlefield) if options is None else build_value(
+        space = automatic_npc_search_space(tuple(party),npc_allies=npc_allies,battlefield=battlefield) if options is None else build_value(
             DynamicEncounterInputError, '/search_space', NpcSearchSpace,
             **{name: (tuple(GeneratedWeapon(v) for v in values) if name == 'weapon' else
                 tuple(RangedWeaponHands(v) for v in values) if name == 'weapon_grip' else
@@ -282,16 +277,22 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 tuple(RiderKind(v) for v in values) if name == 'rider_kind' else
                 tuple(tuple(GeneratedAbility(a) for a in group) for group in values) if name == 'abilities' else
                 tuple(TalentId(v) for v in values) if name == 'allowed_talents' else
+                tuple(TargetInjuryPolicy(v) for v in values) if name == 'injury_policy' else
                 parse_generated_oath_sources(values,path='/search_space/allowed_oath_sources',error_type=DynamicEncounterInputError) if name == 'allowed_oath_sources' else
+                parse_generated_medical_sources(values,path='/search_space/allowed_medical_sources',error_type=DynamicEncounterInputError) if name == 'allowed_medical_sources' else
                 values if name in ('agilulf_code_confirmed','ogre_fit_confirmed') else tuple(values))
                 for name, values in options.items()})
         search = dict(document['search'])
         search['master_seed'] = parse_seed(search['master_seed'], DynamicEncounterInputError, '/search/master_seed')
         request = build_value(DynamicEncounterInputError, '/', DynamicEncounterRequest,
-            party=tuple(party), facts=PcMeleeFacts('arena', battlefield.initial_range is RangedWeaponRange.CLOSE, True, True, True,
+            party=tuple(party),npc_allies=npc_allies,
+            player_side_activation_order=(None if document.get('player_side_activation_order') is None
+                else tuple(document['player_side_activation_order'])), facts=PcMeleeFacts('arena', battlefield.initial_range is RangedWeaponRange.CLOSE, True, True, True,
                 True, True, True, True, True, True,
                 daylight_confirmed=True if any(member.wizard is not None for member in party) else None),
             day_id=document['request_id'] + ':day', space=space,battlefield=battlefield,
+            surgery_risk=parse_surgery_risk(document['scene'].get('surgery_risk'),
+                path='/scene/surgery_risk',error_type=DynamicEncounterInputError),
             music_acoustics=parse_music_acoustics(document['scene'].get('music_acoustics'),
                 path='/scene/music_acoustics', error_type=DynamicEncounterInputError),
             single_combat_pairs=tuple(build_value(DynamicEncounterInputError,
@@ -331,6 +332,8 @@ def candidate_document(request,candidate):
         replay=dict(schema_version='1', kind='pc_melee_simulation', request_id=source.scenario.id,
             ruleset='towr-pg1.4-gmg1.1', scenario=scenario_document(source.scenario),
             simulation=dict(master_seed=str(source.master_seed), trials=source.trials), execution=dict(mode='sequential')))
+    if candidate.summary.npc_ally_counts is not None:
+        document['npc_ally_counts']=[asdict(item) for item in candidate.summary.npc_ally_counts]
     if candidate.summary.potion_use_counts is not None:
         document['potion_use_counts'] = [asdict(item) for item in candidate.summary.potion_use_counts]
     if candidate.summary.npc_ranged_counts is not None:
@@ -368,6 +371,7 @@ def encode_dynamic_encounter_result(command, result):
     validate_dynamic_encounter_result(result)
     document = dict(schema_version='1', kind='dynamic_encounter_search_result', request_id=command.request_id,
         source_request=json.loads(command.source_json), resolved_search_space=dict(asdict(command.request.space),
+            allowed_medical_sources=generated_medical_sources_document(command.request.space.allowed_medical_sources),
             allowed_oath_sources=generated_oath_sources_document(command.request.space.allowed_oath_sources)),
         target_criteria=dict(basis='point_estimates',win_rate_tolerance=WIN_RATE_TOLERANCE,
             started_rounds_tolerance=STARTED_ROUNDS_TOLERANCE),target_match_found=result.target_match_found,

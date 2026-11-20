@@ -1,9 +1,10 @@
-"""Composable authored Minions; derived values use PG93,97 and ordinary Tests.
+"""Composable authored NPCs; derived values use PG93,97 and ordinary Tests.
 
 This is an explicit supported component set, not a rule language. Drained is
 an authored encounter permission, not an automatically acquired book talent.
 """
 from dataclasses import dataclass, field, replace
+from towr.domain.medical_preparation_models import MedicalPreparationFacts
 from towr.domain.oath_context_models import OathBattleContext, validate_oath_context
 from enum import Enum
 
@@ -14,7 +15,7 @@ from towr.domain.armour_models import (
     protects_against_mundane_armour_effects,
 )
 from towr.domain.condition_models import Condition,ConditionState
-from towr.domain.injury_models import ProfileInjuryState
+from towr.domain.injury_models import CharacterInjuryState,ProfileInjuryState
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_roster_models import NpcDefinition, NpcParticipantSnapshot, NpcParticipantState, NpcProtectionProfile
 from towr.domain.pc_mount_models import (
@@ -165,31 +166,21 @@ def generated_weapon_allows_shield(weapon: GeneratedWeapon,
 class GeneratedRangedFacts:
     ballistic_skill: int
     shooting: int
-    initiative: int | None
-    dexterity: int | None
     ammunition_supply_confirmed: bool
     has_blackpowder_lore: bool | None
     has_blackpowder_kit: bool | None
-    awareness: int | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         if type(self.ballistic_skill) is not int or self.ballistic_skill < 1:
             raise ValueError('ballistic_skill must be a positive exact integer')
         if type(self.shooting) is not int or not 2 <= self.shooting <= 6:
             raise ValueError('shooting must be an exact integer in 2..6')
-        if self.initiative is not None and (type(self.initiative) is not int or self.initiative < 1):
-            raise ValueError('initiative must be a positive exact integer or None')
-        if self.dexterity is not None and (type(self.dexterity) is not int or not 2 <= self.dexterity <= 6):
-            raise ValueError('dexterity must be an exact integer in 2..6 or None')
         if self.ammunition_supply_confirmed is not True:
             raise ValueError('generated Shooting requires confirmed ammunition supply')
         for name in ('has_blackpowder_lore', 'has_blackpowder_kit'):
             value=getattr(self,name)
             if value is not None and type(value) is not bool:
                 raise TypeError(f'{name} must be an exact bool or None')
-        if self.awareness is not None and (type(self.awareness) is not int
-                or not 2 <= self.awareness <= 6):
-            raise ValueError('Awareness must be an exact Skill rating in 2..6 or None')
 
 
 class GeneratedAbility(str, Enum):
@@ -204,13 +195,13 @@ def generated_talent_acquisition(talent: TalentId) -> AcquiredTalent:
 
 def generated_talent_requirements_met(talent: TalentId, *, weapon_skill: int,
         strength: int,ballistic_skill: int | None = None,fellowship: int | None = None,
-        agility: int | None = None) -> bool:
+        agility: int | None = None,reason: int | None = None) -> bool:
     if type(talent) is not TalentId:
         raise TypeError('generated Talent requires its typed supported identifier')
     try:
         validate_acquired_talents((generated_talent_acquisition(talent),),
             TalentOwnerFacts(weapon_skill=weapon_skill,strength=strength,
-                ballistic_skill=ballistic_skill,fellowship=fellowship,agility=agility))
+                ballistic_skill=ballistic_skill,fellowship=fellowship,agility=agility,reason=reason))
     except (TypeError,ValueError):
         return False
     return True
@@ -231,6 +222,12 @@ class GeneratedNpc:
     talents: tuple[AcquiredTalent, ...] = field(default=(),kw_only=True)
     talent_facts: TalentOwnerFacts | None = field(default=None,kw_only=True)
     ranged: GeneratedRangedFacts | None = field(default=None,kw_only=True)
+    initiative: int | None = field(default=None,kw_only=True)
+    awareness: int | None = field(default=None,kw_only=True)
+    reason: int | None = field(default=None,kw_only=True)
+    recall: int | None = field(default=None,kw_only=True)
+    dexterity: int | None = field(default=None,kw_only=True)
+    injury_policy: TargetInjuryPolicy = field(default=TargetInjuryPolicy.MINION,kw_only=True)
     mount: CombatMount | None = field(default=None,kw_only=True)
     rider_kind: RiderKind | None = field(default=None,kw_only=True)
     agilulf_code_confirmed: bool | None = field(default=None,kw_only=True)
@@ -242,9 +239,36 @@ class GeneratedNpc:
     leadership: int | None = field(default=None,kw_only=True)
     tools: tuple[ToolItemSource, ...] = field(default=(),kw_only=True)
     oath_context: OathBattleContext | None = field(default=None,kw_only=True)
+    medical: MedicalPreparationFacts | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         tools = initial_tool_inventory('generated:source-validation', self.tools)
+        if self.medical is not None:
+            if type(self.medical) is not MedicalPreparationFacts:
+                raise TypeError('generated medical preparation requires its exact actual source')
+            replace(self.medical)
+            if self.medical.treatment_supplies and not self.medical.anatomy_lore:
+                self.recall_profile
+            if self.medical.surgery_supplies or self.medical.recovery_supports:
+                self.dexterity_profile
+        if type(self.injury_policy) is not TargetInjuryPolicy:
+            raise TypeError('generated injury policy requires its exact typed role')
+        if self.injury_policy not in (TargetInjuryPolicy.MINION,TargetInjuryPolicy.CHAMPION):
+            raise ValueError('generated injury roles support Minion and Champion')
+        if self.injury_policy is TargetInjuryPolicy.CHAMPION and self.endurance is None:
+            raise ValueError('generated Champion requires its actual Endurance skill')
+        if self.initiative is not None and (type(self.initiative) is not int or self.initiative < 1):
+            raise ValueError('Initiative must be a positive exact integer or None')
+        if self.reason is not None and (type(self.reason) is not int or self.reason < 1):
+            raise ValueError('Reason must be a positive exact integer or None')
+        if self.awareness is not None:
+            if type(self.awareness) is not int or not 2 <= self.awareness <= 6:
+                raise ValueError('Awareness must be an exact Skill rating in 2..6 or None')
+            self.awareness_profile
+        if self.recall is not None:
+            self.recall_profile
+        if self.dexterity is not None:
+            self.dexterity_profile
         for name in ('weapon_skill', 'strength', 'toughness', 'agility'):
             value = getattr(self, name)
             if type(value) is not int or value < 1:
@@ -308,15 +332,11 @@ class GeneratedNpc:
                 if getattr(self.ranged,name) is not (True if requirements.firearm else None):
                     raise ValueError('Blackpowder facts must match the whole firearm inventory')
             if requirements.exacting:
-                if self.ranged.initiative is None or self.ranged.dexterity is None:
+                if self.initiative is None or self.dexterity is None:
                     raise ValueError('Exacting inventory requires actual Initiative and Dexterity')
-            elif self.ranged.dexterity is not None:
-                raise ValueError('free-reload-only inventory has no Exacting Dexterity')
             if (any(GeneratedWeapon(item.kind.value) in GENERATED_TWO_HANDED_RANGED_WEAPONS
-                    for item in self.weapons) and self.ranged.awareness is None):
+                    for item in self.weapons) and self.awareness is None):
                 raise ValueError('two-handed generated Shooting requires actual Awareness for Aim')
-            if self.ranged.awareness is not None and self.ranged.initiative is None:
-                raise ValueError('actual NPC Aim requires Initiative with Awareness')
         if has_throwing:
             if self.ranged is None and self.ballistic_skill is None:
                 raise ValueError('Throwing inventory requires its actual Ballistic Skill')
@@ -333,7 +353,39 @@ class GeneratedNpc:
             raise ValueError('on-hit abilities require an actual numeric-Damage weapon source')
         from towr.domain.talent_actor_models import validate_generated_talent_source
         validate_generated_talent_source(self)
+        from towr.domain.talent_catalog import TalentId
+        if (self.medical is not None and self.medical.treatment_supplies
+                and any(t.id is TalentId.COMBAT_SURGEON for t in self.talents)):
+            self.recall_profile
         validate_oath_context(self.talents, self.oath_context)
+
+    @property
+    def awareness_profile(self) -> TestProfile:
+        if self.initiative is None or self.awareness is None:
+            raise ValueError('Aim requires actual Initiative and Awareness')
+        return TestProfile(self.initiative, self.awareness)
+
+    @property
+    def recall_profile(self) -> TestProfile:
+        if self.reason is None or self.recall is None:
+            raise ValueError('Recall requires actual Reason and Recall')
+        if type(self.recall) is not int or not 2 <= self.recall <= 6:
+            raise ValueError('Recall must be an exact Skill rating in 2..6')
+        return TestProfile(self.reason,self.recall)
+
+    @property
+    def dexterity_profile(self) -> TestProfile:
+        if self.initiative is None or self.dexterity is None:
+            raise ValueError('Dexterity requires actual Initiative and Dexterity')
+        if type(self.dexterity) is not int or not 2 <= self.dexterity <= 6:
+            raise ValueError('Dexterity must be an exact Skill rating in 2..6')
+        return TestProfile(self.initiative,self.dexterity)
+
+    @property
+    def endurance_profile(self) -> TestProfile:
+        if self.endurance is None:
+            raise ValueError('Endurance requires its actual generated Skill')
+        return TestProfile(self.toughness,self.endurance)
 
     @property
     def leadership_profile(self) -> TestProfile:
@@ -343,18 +395,23 @@ class GeneratedNpc:
             raise ValueError('Leadership must be an exact Skill rating in 2..6')
         return TestProfile(self.fellowship, self.leadership)
 
-    def participant(self, actor_id: str) -> NpcParticipantSnapshot:
+    def participant(self, actor_id: str, *, side: CombatSide = CombatSide.OPPOSITION) -> NpcParticipantSnapshot:
         """Build fresh state; identity never selects a mechanic."""
+        if type(side) is not CombatSide:
+            raise TypeError('generated NPC side requires its exact CombatSide')
         definition_id = 'generated:' + actor_id
         resilience, attacks, protection = generated_npc_profiles(self)
-        definition = NpcDefinition(definition_id, 'authored:generated-minion', TargetInjuryPolicy.MINION,
-            1, resilience, attacks, protection, generated_components=self,
+        champion = self.injury_policy is TargetInjuryPolicy.CHAMPION
+        definition = NpcDefinition(definition_id,
+            'authored:generated-champion' if champion else 'authored:generated-minion',self.injury_policy,
+            None if champion else 1, resilience, attacks, protection, generated_components=self,
             talents=self.talents, talent_facts=self.talent_facts)
         conditions=ConditionState(frozenset((Condition.BURDENED,))
             if armour_burden_sources(self.armour,self.strength) else frozenset())
         armed = any(item.initial_location is WeaponItemLocation.HELD for item in self.weapons)
-        state = NpcParticipantState(actor_id, definition_id, CombatSide.OPPOSITION,
-            ProfileInjuryState(0, 1,conditions), tuple(attack.id for attack in attacks), resilience, armed, self.shield,
+        injury = CharacterInjuryState(conditions=conditions) if champion else ProfileInjuryState(0,1,conditions)
+        state = NpcParticipantState(actor_id, definition_id, side,
+            injury, tuple(attack.id for attack in attacks if armed or attack.hands is None), resilience, armed, self.shield,
             tool_inventory=initial_tool_inventory(actor_id,self.tools))
         return NpcParticipantSnapshot(definition, state)
 
@@ -548,13 +605,15 @@ def validate_generated_definition(definition: NpcDefinition) -> None:
     """A label alone cannot grant components; rederive every numeric/profile fact."""
     npc = definition.generated_components
     if npc is None:
-        if definition.source_rule_id == 'authored:generated-minion':
+        if definition.source_rule_id in ('authored:generated-minion','authored:generated-champion'):
             raise ValueError('generated NPC source must retain its complete components')
         return
     resilience,attacks,protection = generated_npc_profiles(npc)
-    if (definition.source_rule_id != 'authored:generated-minion'
-            or definition.injury_policy is not TargetInjuryPolicy.MINION
-            or type(definition.wound_limit) is not int or definition.wound_limit != 1
+    champion = npc.injury_policy is TargetInjuryPolicy.CHAMPION
+    if (definition.source_rule_id != ('authored:generated-champion' if champion else 'authored:generated-minion')
+            or definition.injury_policy is not npc.injury_policy
+            or (definition.wound_limit is not None if champion else
+                type(definition.wound_limit) is not int or definition.wound_limit != 1)
             or definition.resilience != resilience or definition.attacks != attacks
             or definition.protection != protection
             or type(definition.talents) is not tuple or definition.talents != npc.talents

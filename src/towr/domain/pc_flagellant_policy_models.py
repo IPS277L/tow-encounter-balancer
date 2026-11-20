@@ -40,7 +40,7 @@ def validate_pc_flagellant_policies(source) -> None:
         if type(policy) is not PcFlagellantPolicy:
             raise TypeError('Flagellant policy must retain its exact type')
         replace(policy)
-        if policy.actor_id not in source.enemy_activation_order:
+        if policy.actor_id not in source.npc_activation_order:
             raise ValueError('Flagellant policy requires an opposition actor')
         definition = source.enemy(policy.actor_id).definition
         validate_pc_book_npc_definition(definition)

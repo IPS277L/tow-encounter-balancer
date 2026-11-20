@@ -23,7 +23,7 @@ class MusicEquipmentView:
     def __getattr__(self, name):
         if name == 'party' and self.proof.actor_id in self.base.source.pc_activation_order:
             return tuple(self.proof.state if member.actor_id == self.proof.actor_id else member for member in self.base.party)
-        if name == 'enemies' and self.proof.actor_id in self.base.source.enemy_activation_order:
+        if name == 'enemies' and self.proof.actor_id in self.base.source.npc_activation_order:
             return tuple(self.proof.state if member.state.actor_id == self.proof.actor_id else member for member in self.base.enemies)
         if name == 'battlefield':
             return self.proof.battlefield
@@ -178,7 +178,7 @@ def current_music_choice(state):
         from towr.domain.pc_tactical_models import select_pc_tactic
         choice = select_pc_tactic(state, turn.actor_id)
         return choice if choice.music_item_id is not None else None
-    if turn.actor_id in state.source.enemy_activation_order:
+    if turn.actor_id in state.source.npc_activation_order:
         return npc_music_choice(state, turn.actor_id)
     return None
 

@@ -27,7 +27,10 @@
               "ballistic_skill": 3,
               "shooting": 4,
               "ammunition_supply_confirmed": true
-            }
+            },
+            "reason": null,
+            "recall": null,
+            "dexterity": null
           },
           "fate": {
             "session_id": "session",
@@ -121,7 +124,10 @@
               "ballistic_skill": 3,
               "shooting": 4,
               "ammunition_supply_confirmed": true
-            }
+            },
+            "reason": null,
+            "recall": null,
+            "dexterity": null
           },
           "fate": {
             "session_id": "session",
@@ -215,7 +221,10 @@
               "ballistic_skill": 3,
               "shooting": 4,
               "ammunition_supply_confirmed": true
-            }
+            },
+            "reason": null,
+            "recall": null,
+            "dexterity": null
           },
           "fate": {
             "session_id": "session",

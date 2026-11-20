@@ -36,11 +36,10 @@ from towr.rules.test_resolution import resolve_test
 def component(weapon=GeneratedWeapon.PISTOL, *, bs=2, shooting=2, initiative=2,
         dexterity=3, ws=1, strength=1, talents=()):
     blackpowder=weapon is not GeneratedWeapon.REPEATER_HANDBOW
-    ranged=(GeneratedRangedFacts(bs,shooting,initiative,dexterity,True,
-        True if blackpowder else None,True if blackpowder else None)
+    ranged=(GeneratedRangedFacts(bs, shooting,  True, True if blackpowder else None, True if blackpowder else None)
         if weapon in GENERATED_RANGED_WEAPONS else None)
     return GeneratedNpc(ws,strength,20,1,2,2,initial_generated_weapons(weapon),light_loadout(light=False, shield=False),
-        defence=2,talents=talents,ranged=ranged)
+        defence=2,talents=talents,ranged=ranged, initiative=initiative if ranged is not None else None,dexterity=dexterity if ranged is not None else None)
 
 
 def scene(*, weapons=(GeneratedWeapon.PISTOL,), rounds=1, automatic=False,

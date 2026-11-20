@@ -65,8 +65,8 @@ def prepared(*, dropped=True, mounted=False):
         (WeaponItemSource('gun', WeaponKind.PISTOL, WeaponItemLocation.HELD,
             WeaponGrip.LEFT, initially_loaded=True),),
         ArmourLoadout(shield=ShieldKind.SHIELD), defence=2,
-        ranged=GeneratedRangedFacts(1, 2, 3, 4, True, True, True),
-        mount=CombatMount.HORSE if mounted else None)
+        ranged=GeneratedRangedFacts(1, 2,  True, True, True),
+        mount=CombatMount.HORSE if mounted else None, initiative=3, dexterity=4)
     distance = R.CLOSE if mounted else R.MEDIUM
     source = replace(base, party=(pc,), enemies=(npc.participant('minion1'),),
         battlefield=PcBattlefieldSpec(distance, R.LONG),

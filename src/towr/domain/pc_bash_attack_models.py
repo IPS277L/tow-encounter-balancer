@@ -1,4 +1,5 @@
 """Battle-owned Bash window, physical readiness and immediate Melee request."""
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import replace
 
 from towr.domain.attack_models import AttackOutcome
@@ -16,7 +17,7 @@ from towr.domain.test_models import Skill
 def _able(state,actor,*,attacking=True):
     from towr.domain.pc_magic_weapon_models import actor_injury
     injury=actor_injury(state,actor)
-    dead=(injury.dead if actor in state.source.pc_activation_order else injury.defeated
+    dead=(injury_is_defeated(injury)
         or actor in state.exited_npc_ids)
     return not dead and (not attacking or not injury.conditions.has(Condition.DEFENCELESS))
 
@@ -84,7 +85,7 @@ def expected_bash_pc_shield_release(state):
 
 def expected_bash_npc_shield_drop(state):
     decision=pending_bash_decision(state)
-    if decision is None or decision.grant.actor_id not in state.source.enemy_activation_order:return None
+    if decision is None or decision.grant.actor_id not in state.source.npc_activation_order:return None
     actor=decision.grant.actor_id
     enemy=state.enemy(actor)
     if not decision.selection.release_shield or not enemy.state.holds_shield:return None
@@ -118,7 +119,7 @@ def expected_bash_pc_swap(state):
 
 def expected_bash_npc_equip(state):
     decision=pending_bash_decision(state)
-    if decision is None or decision.grant.actor_id not in state.source.enemy_activation_order:return None
+    if decision is None or decision.grant.actor_id not in state.source.npc_activation_order:return None
     transition=decision.selection.equip
     if transition is None or state.enemy(decision.grant.actor_id).state.weapon_inventory!=transition.before:return None
     from towr.domain.pc_npc_weapon_inventory import PcNpcWeaponEquipProof

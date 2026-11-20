@@ -1,4 +1,5 @@
 """Aggregate-only PC encounter data for the balance boundary."""
+from towr.simulation.pc_npc_ally_statistics import PcNpcAllyCount,validate_npc_ally_counts
 from towr.simulation.pc_ranged_statistics import PcRangedCount,validate_pc_ranged_counts
 
 from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount,validate_npc_ranged_counts
@@ -88,6 +89,7 @@ class PcMeleeSimulationSummary:
     companion_counts: tuple[PcCompanionCount,...] | None = field(default=None,kw_only=True)
     music_counts: tuple[PcMusicianCount,...] | None = field(default=None,kw_only=True)
     oath_counts: tuple[PcOathCount,...] | None = field(default=None,kw_only=True)
+    npc_ally_counts: tuple[PcNpcAllyCount,...] | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -142,10 +144,13 @@ class PcMeleeSimulationSummary:
         validate_oath_counts(self.oath_counts,self.source_request.scenario,trials=self.trials,
             started_rounds=started,actions=self.total_action_count)
         companion_actions=sum(row.recover_actions+row.movement_actions for row in self.companion_counts or ())
+        validate_npc_ally_counts(self.npc_ally_counts,self.source_request.scenario,trials=self.trials,
+            started_rounds=started,actions=self.total_action_count)
+        allied_actions=sum(row.actions for row in self.npc_ally_counts or ())
         terminal = counts.objective_achieved+counts.party_defeated
         members = len(self.source_request.scenario.party)
         if not max(completed, terminal+limited*budget) <= self.total_action_count <= (
-                members+len(self.source_request.scenario.enemies))*started+self.total_npc_extra_attack_count+pc_extras+seconds+rapid+companion_actions:
+                members+len(self.source_request.scenario.enemies))*started+self.total_npc_extra_attack_count+allied_actions+pc_extras+seconds+rapid+companion_actions:
             raise ValueError('actions contradict outcomes/rounds/actor count')
         if type(self.any_pc_defeated_count) is not int:
             raise TypeError('trials with a confirmed PC death must be an integer')

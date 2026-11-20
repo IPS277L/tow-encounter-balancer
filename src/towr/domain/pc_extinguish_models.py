@@ -5,6 +5,7 @@ healing do not accompany it. This owner prepares and authenticates one action;
 the battle dispatcher owns selecting it and the later end-of-turn Hazard.
 """
 from __future__ import annotations
+from towr.domain.injury_models import injury_is_defeated
 
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
@@ -51,8 +52,8 @@ def pc_extinguish_selected(state):
 
 
 def _enemy_in_zone(state,actor):
-    enemies=(tuple(enemy.state.actor_id for enemy in state.live_enemies)
-        if actor in state.source.pc_activation_order else tuple(member.actor_id for member in state.live_party))
+    from towr.domain.pc_actor_models import pc_opponent_ids
+    enemies=pc_opponent_ids(state,actor)
     if state.battlefield is None:
         return bool(enemies)
     spatial=state.battlefield.spatial
@@ -68,7 +69,7 @@ def _can_extinguish(state,actor):
     if actor in state.source.pc_activation_order:
         from towr.domain.pc_heavy_wound_models import has_ongoing_condition
         return not injury.dead and not has_ongoing_condition(injury,Condition.ABLAZE)
-    return not injury.defeated and actor not in state.exited_npc_ids
+    return not injury_is_defeated(injury) and actor not in state.exited_npc_ids
 
 
 def _extinguish_test(state,actor,test_id,skill,*,environmental=False):
@@ -169,7 +170,7 @@ def extinguish_value(state: PcMeleeState,actor: str) -> float:
     Only the immediate Athletics comparison may use current PC Fate policy.
     Future Endurance is valued without reusing that same finite Fate resource.
     """
-    if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+    if actor not in (*state.source.pc_activation_order,*state.source.npc_activation_order):
         raise ValueError('extinguishing advice requires an actual source actor')
     if not _can_extinguish(state,actor):
         return 0.0

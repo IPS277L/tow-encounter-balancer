@@ -308,7 +308,7 @@ class PcCrossbowTests(unittest.TestCase):
         source = make_pc_crossbow_scenario(pc_count=2,enemy_count=2,max_rounds=1)
         first,second = source.party
         second = replace(second,pc=replace(second.pc,weapon=REPEATER,
-            ranged=crossbow_profile(weapon=REPEATER,repeater_bonus_policy=NEVER)),
+            ranged=crossbow_profile(weapon=REPEATER,repeater_bonus_policy=NEVER), initiative=3, dexterity=4),
             combat_equipment=(replace(second.combat_equipment[0],weapon=REPEATER),
                 *second.combat_equipment[1:]))
         source = replace(source,party=(first,second))

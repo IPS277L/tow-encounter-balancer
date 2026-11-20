@@ -98,9 +98,9 @@ def prepared(kind=W.THROWING_SPEAR, *, actor='pc', shield=False, quantity=2, dis
     npc=GeneratedNpc(3,4,20,3,4,4,
         weapons if actor!='pc' else (WeaponItemSource('staff',W.STAFF,L.HELD,G.LEFT),),
         ArmourLoadout(shield=ShieldKind.SHIELD if shield and actor!='pc' else None),defence=4,
-        ranged=GeneratedRangedFacts(3,4,3,4,True,True,True) if actor!='pc' else None,
+        ranged=GeneratedRangedFacts(3, 4,  True, True, True) if actor!='pc' else None,
         throwing=4 if actor!='pc' else None,ballistic_skill=3 if actor!='pc' else None,
-        brawn=4,endurance=4)
+        brawn=4,endurance=4, initiative=3, dexterity=4)
     enemy=npc.participant('minion1')
     source=replace(source,party=(pc,),enemies=(enemy,),facts=replace(source.facts,
         can_leave_zone=True,all_opponents_close=distance is R.CLOSE),

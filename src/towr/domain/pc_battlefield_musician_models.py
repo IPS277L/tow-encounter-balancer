@@ -1,4 +1,5 @@
 """Native music: actual tools, audience, prepared Leadership and effect receipts."""
+from towr.domain.injury_models import injury_wound_count
 from dataclasses import dataclass, replace
 
 from towr.domain.condition_models import Condition
@@ -44,7 +45,7 @@ def musician_description(state, actor):
     if actor in state.source.pc_activation_order:
         source = state.source.participant(actor)
         return source.pc, source.talent_facts
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         source = state.enemy(actor).definition
         return source.generated_components, source.talent_facts
     return None, None
@@ -186,7 +187,7 @@ def musician_listener_risk(state, musician, ally):
             from towr.domain.pc_npc_ability_models import pc_npc_attack_modifiers
             attack = TestRequest('tactics:music:attack', profile.test_profile,
                 pc_npc_attack_modifiers(enemy.definition, enemy.state.injury.conditions,
-                    target_conditions=injury.conditions, attacker_wounds=enemy.state.injury.wounds))
+                    target_conditions=injury.conditions, attacker_wounds=injury_wound_count(enemy.state.injury)))
             damage = profile.damage.base if profile.damage is not None else 0
         if pc_actor_is_pc(state, ally):
             from towr.domain.pc_shield_models import pc_shield_resilience

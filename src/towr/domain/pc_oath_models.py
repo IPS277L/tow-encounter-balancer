@@ -73,7 +73,7 @@ class PcOathNegationAckProof:
 def oath_context_for(source, actor):
     if actor in source.pc_activation_order:
         return getattr(source.participant(actor), 'oath_context', None)
-    enemy = next((enemy for enemy in source.enemies if enemy.state.actor_id == actor), None)
+    enemy = next((enemy for enemy in source.npc_sources if enemy.state.actor_id == actor), None)
     if enemy is None:
         return None
     return getattr(enemy.definition.generated_components, 'oath_context', None)
@@ -82,7 +82,7 @@ def oath_context_for(source, actor):
 def initial_pc_oaths(source):
     from towr.domain.talent_actor_models import npc_definition_acquired_talents
     rows = []
-    for actor in (*source.pc_activation_order, *source.enemy_activation_order):
+    for actor in (*source.pc_activation_order, *source.npc_activation_order):
         context = oath_context_for(source, actor)
         if context is None:
             continue
@@ -90,7 +90,7 @@ def initial_pc_oaths(source):
             member = source.participant(actor)
             talents, session = member.talents, member.fate.session_id
         else:
-            definition = next(enemy.definition for enemy in source.enemies if enemy.state.actor_id == actor)
+            definition = next(enemy.definition for enemy in source.npc_sources if enemy.state.actor_id == actor)
             talents = npc_definition_acquired_talents(definition)
             session = source.party[0].fate.session_id
         validate_oath_context(talents, context)
@@ -321,7 +321,7 @@ _EVIDENCE_PATHS = frozenset(('request', 'source_request', 'kernel_request', 'res
     'help_test', 'help_test_result', 'leadership_test', 'awareness_test', 'awareness_test_result',
     'athletics_test', 'athletics_test_result', 'casting', 'exacting', 'critical', 'completion',
     'wound_result', 'character_wound', 'profile_wound', 'pending_character_wound', 'targets', 'impact',
-    'casting_request', 'avoidance_test', 'dexterity_test', 'source_test', 'choice', 'condition_removal'))
+    'casting_request', 'avoidance_test', 'dexterity_test', 'recall_test', 'recall_test_result', 'source_test', 'choice', 'condition_removal'))
 
 
 def oath_step_evidence(proof):
@@ -356,7 +356,7 @@ def native_test_actor(state, proof, test_id):
         return None
     for source in (getattr(proof, 'request', None),
             getattr(getattr(proof, 'result', None), 'source_request', None)):
-        actor = getattr(source, 'actor_id', None)
+        actor = getattr(source, 'actor_id', None) or getattr(source,'surgeon_id',None)
         if actor is not None:
             return actor
     if state.pending_actor_id is not None:

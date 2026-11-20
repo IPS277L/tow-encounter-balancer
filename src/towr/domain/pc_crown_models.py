@@ -41,8 +41,10 @@ def build_pc_crown_slot(state):
     before = first.request.kernel_request.target_state
     if first.execution.resolution.attack.outcome is not AttackOutcome.HIT or before.conditions.has(Condition.PRONE):
         return None
-    current = state.participant(target)
-    if current.injury.dead or not current.injury.conditions.has(Condition.PRONE):
+    from towr.domain.pc_actor_models import pc_actor_injury
+    from towr.domain.injury_models import injury_is_defeated
+    current = pc_actor_injury(state,target)
+    if injury_is_defeated(current) or not current.conditions.has(Condition.PRONE):
         return None
     pending = first.execution.resolution.pending_character_wound
     if pending is None:

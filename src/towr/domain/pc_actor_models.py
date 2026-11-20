@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
+from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState,injury_is_defeated
 from towr.domain.pc_companion_models import PcMountCompanionState, _actor_id, _readmit_npc_snapshot
 from towr.domain.pc_mount_models import PcMountedState
 from towr.domain.turn_models import CombatSide
@@ -23,7 +23,7 @@ def _companions(state) -> tuple[PcMountCompanionState, ...]:
         replace(row)
     if len({row.rider_id for row in rows}) != len(rows):
         raise ValueError('each rider owns exactly one actual mount companion')
-    original_ids = (*state.source.pc_activation_order, *state.source.enemy_activation_order)
+    original_ids = (*state.source.pc_activation_order, *state.source.npc_activation_order)
     if any(row.snapshot.state.actor_id in original_ids for row in rows):
         raise ValueError('mount companion identity collides with an original actor')
     if any(row.rider_id not in original_ids for row in rows):
@@ -39,7 +39,7 @@ def pc_companion(state, actor: str) -> PcMountCompanionState | None:
 def _original_npc(state, actor):
     snapshot = state.enemy(actor)
     _readmit_npc_snapshot(snapshot)
-    source = next(row for row in state.source.enemies if row.state.actor_id == actor)
+    source = next(row for row in state.source.npc_sources if row.state.actor_id == actor)
     if snapshot.definition != source.definition or snapshot.state.side is not source.state.side:
         raise ValueError('NPC actor changed its static definition or source side')
     return snapshot
@@ -49,7 +49,7 @@ def pc_actor_npc_snapshot(state, actor: str):
     _actor_id(actor)
     if actor in state.source.pc_activation_order:
         raise ValueError('a PC actor has no profile NPC snapshot')
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         return _original_npc(state, actor)
     row = pc_companion(state, actor)
     if row is not None:
@@ -71,7 +71,7 @@ def pc_actor_side(state, actor: str) -> CombatSide:
     if actor in state.source.pc_activation_order:
         state.participant(actor)
         return CombatSide.PLAYERS_AND_ALLIES
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         return _original_npc(state, actor).state.side
     row = pc_companion(state, actor)
     if row is not None:
@@ -88,6 +88,14 @@ def pc_actor_injury(state, actor: str):
         replace(injury)
         return injury
     return pc_actor_npc_snapshot(state, actor).state.injury
+
+
+def pc_actor_character_body(state,actor:str):
+    """Anatomical view for a PC or actual NPC Champion, never a profile NPC."""
+    if actor in state.source.pc_activation_order:
+        return state.participant(actor)
+    from towr.domain.pc_npc_champion_models import npc_champion_body
+    return npc_champion_body(state,actor)
 
 
 def pc_actor_inventory(state, actor: str):
@@ -111,7 +119,7 @@ def _detached_alive(state, row: PcMountCompanionState) -> bool:
     mounted, = matches
     replace(mounted)
     return (row.retained_since_round is not None and not mounted.mounted
-        and not row.snapshot.state.injury.defeated)
+        and not injury_is_defeated(row.snapshot.state.injury))
 
 
 def pc_companion_turn_eligible(state, actor: str) -> bool:
@@ -132,11 +140,12 @@ def pc_active_actor_ids(state, side: CombatSide | None = None) -> tuple[str, ...
     for current_side in CombatSide:
         if side is not None and current_side is not side:
             continue
-        for actor in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
+        order=(state.source.player_activation_order if current_side is CombatSide.PLAYERS_AND_ALLIES
+            else state.source.enemy_activation_order)
+        for actor in order:
             if pc_actor_side(state, actor) is current_side:
                 injury = pc_actor_injury(state, actor)
-                alive = (not injury.dead if type(injury) is CharacterInjuryState
-                    else not injury.defeated and actor not in state.exited_npc_ids)
+                alive = not injury_is_defeated(injury) and actor not in state.exited_npc_ids
                 if alive:
                     ordered.append(actor)
             # A dead/departed rider does not erase an independently living NPC.

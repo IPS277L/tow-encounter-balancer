@@ -55,8 +55,8 @@ class PcShortOpeningJsonTests(unittest.TestCase):
                     self.assertEqual(scenario_document(source), raw[key])
                     member = source.party[0]
                     self.assertIs(member.initial_weapon_hand, PcTwoHandedGrip.BOTH)
-                    self.assertIsNone(member.pc.ranged.initiative)
-                    self.assertIsNone(member.pc.ranged.dexterity)
+                    self.assertIsNone(member.pc.initiative)
+                    self.assertIsNone(member.pc.dexterity)
                     self.assertEqual(raw[key]['party'][0]['pc']['ranged'], {
                         'ballistic_skill':3, 'shooting':4, 'ammunition_supply_confirmed':True})
                     self.assertEqual(raw[key]['short_range_opening'], {
@@ -70,7 +70,7 @@ class PcShortOpeningJsonTests(unittest.TestCase):
         member = make_pc_bow_scenario().party[0]
         for weapon in PC_BOW_WEAPONS:
             for field, value in (('has_blackpowder_lore',True), ('has_blackpowder_kit',True),
-                    ('initiative',3), ('dexterity',4),
+                    ('dexterity',4),
                     ('reload_hand_policy','two_available_hands'), ('repeater_bonus_policy','never'),
                     ('ballistic_skill',True), ('shooting',True), ('ammunition_supply_confirmed',1)):
                 raw = request_document(weapon=weapon)
@@ -99,7 +99,7 @@ class PcShortOpeningJsonTests(unittest.TestCase):
             mutations += [lambda pc,field=field:pc['ranged'].pop(field)
                 for field in ('ballistic_skill','shooting','ammunition_supply_confirmed')]
             mutations += [lambda pc,field=field:pc['ranged'].update({field:None})
-                for field in ('initiative','dexterity','initially_loaded','has_blackpowder_lore',
+                for field in ('dexterity','initially_loaded','has_blackpowder_lore',
                     'has_blackpowder_kit','reload_hand_policy','repeater_bonus_policy')]
             for index, mutate in enumerate(mutations):
                 raw = deepcopy(base)

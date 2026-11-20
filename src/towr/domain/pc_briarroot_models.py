@@ -175,22 +175,22 @@ class PcBriarrootReleaseProof:
 
 
 def _actors(state):
-    return (*state.source.pc_activation_order,*state.source.enemy_activation_order,
+    return (*state.source.pc_activation_order,*state.source.npc_activation_order,
         *(row.snapshot.state.actor_id for row in state.companions if row.retained_since_round is not None))
 
 
 def _known(state,actor):
     _id(actor,'Briarroot actor')
-    if actor in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
+    if actor in (*state.source.pc_activation_order, *state.source.npc_activation_order):
         return
     if actor not in _actors(state):
         raise ValueError('Briarroot actor must belong to the complete encounter source')
 
 
 def _alive(state,actor):
+    from towr.domain.injury_models import injury_is_defeated
     injury = _injury(state, actor)
-    return (not injury.dead if actor in state.source.pc_activation_order else
-        not injury.defeated and actor not in state.exited_npc_ids)
+    return not injury_is_defeated(injury) and actor not in state.exited_npc_ids
 
 
 def _injury(state,actor):
@@ -296,7 +296,7 @@ def _attack_weapon(state,proof):
         from towr.domain.pc_mount_attack_models import PcMountedAttackMode
         if proof.mount_attack.mode is PcMountedAttackMode.MOUNT:
             return proof.mount_attack.weapon_instance_id,BriarrootWeaponKind.MOUNT_NATURAL
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         from towr.domain.pc_melee_result_models import pc_selected_npc_attack_profile
         profile=pc_selected_npc_attack_profile(state,actor)
         if profile.hands is None:
@@ -320,7 +320,7 @@ def _binding_has_source(state,binding,proof):
         from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory
         identifiers=tuple(item.id for item in initial_pc_weapon_inventory(source).items)
         return binding.kind is BriarrootWeaponKind.HELD and binding.weapon_id in identifiers
-    source=next(enemy for enemy in state.source.enemies if enemy.state.actor_id==actor)
+    source=next(enemy for enemy in state.source.npc_sources if enemy.state.actor_id==actor)
     if binding.kind is BriarrootWeaponKind.HELD:
         inventory=state.enemy(actor).state.weapon_inventory
         identifiers=(tuple(item.id for item in inventory.items) if inventory is not None else
@@ -435,7 +435,7 @@ def _independent_burden(state,actor):
     if actor in state.source.pc_activation_order:
         from towr.domain.pc_heavy_wound_models import has_ongoing_condition
         return has_ongoing_condition(_injury(state,actor),Condition.BURDENED)
-    source=next(enemy for enemy in state.source.enemies if enemy.state.actor_id==actor)
+    source=next(enemy for enemy in state.source.npc_sources if enemy.state.actor_id==actor)
     return source.definition.generated_components is None and source.state.injury.conditions.has(Condition.BURDENED)
 
 

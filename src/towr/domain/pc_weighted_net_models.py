@@ -123,7 +123,7 @@ def initial_weighted_nets(source):
             if item.weapon is PcMeleeWeapon.WEIGHTED_NET:
                 location=PcNetLocation.HELD if item.location is PcItemLocation.HELD else PcNetLocation.CARRIED
                 result.append(PcWeightedNetState(item.id,member.actor_id,location))
-    for enemy in source.enemies:
+    for enemy in source.npc_sources:
         components=enemy.definition.generated_components
         if enemy.definition.id==NET_DEFINITION_ID:
             result.append(PcWeightedNetState(enemy.state.actor_id+':weapon',enemy.state.actor_id,PcNetLocation.HELD))
@@ -135,7 +135,7 @@ def initial_weighted_nets(source):
                         PcNetLocation.HELD if unit.location is PcItemLocation.HELD else PcNetLocation.CARRIED))
     if len({item.item_id for item in result}) != len(result):
         raise ValueError('physical Net instances must have distinct source-bound identities')
-    if {item.marker_id for item in result} & {*source.pc_activation_order,*source.enemy_activation_order}:
+    if {item.marker_id for item in result} & {*source.pc_activation_order,*source.npc_activation_order}:
         raise ValueError('Net marker identities must not collide with combat participants')
     return tuple(result)
 
@@ -152,7 +152,7 @@ def weighted_net_for_actor(state,actor):
             found = weighted_net_item(state,active)
             if found is not None:
                 return found
-    elif actor in state.source.enemy_activation_order:
+    elif actor in state.source.npc_activation_order:
         inventory=state.enemy(actor).state.weapon_inventory
         if inventory is not None:
             found=weighted_net_item(state,inventory.active_item_id)
@@ -167,10 +167,10 @@ def weighted_net_condition_sources(state,target_id,*,bank=None):
 
 def _actors(state):
     originals = (*state.source.pc_activation_order,
-        *(actor for actor in state.source.enemy_activation_order if actor not in state.exited_npc_ids))
+        *(actor for actor in state.source.npc_activation_order if actor not in state.exited_npc_ids))
     from towr.domain.pc_actor_models import pc_active_actor_ids
     return (*originals, *(actor for actor in pc_active_actor_ids(state)
-        if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order)))
+        if actor not in (*state.source.pc_activation_order,*state.source.npc_activation_order)))
 
 
 def _ground_position(state,anchor):
@@ -249,7 +249,7 @@ class PcNetThrowLanding:
 def complete_weighted_net_throw(state,request,execution):
     if not is_net_impact(request.kernel_request.attack.impact_spec):
         return None
-    if request.actor_id not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+    if request.actor_id not in (*state.source.pc_activation_order,*state.source.npc_activation_order):
         raise ValueError('a passive mount body cannot throw or acquire its rider\'s Net')
     item = weighted_net_for_actor(state,request.actor_id)
     if item is None or item.location is not PcNetLocation.HELD:
@@ -304,7 +304,7 @@ def _recover_actor(state):
             or turn.action_slots[-1].declaration.kind is not CombatActionKind.RECOVER
             or state.pending or state.pending_wound is not None or state.magic_pending is not None):
         raise ValueError('Net recovery requires the actual unused Recover action after mandatory work')
-    if turn.actor_id not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+    if turn.actor_id not in (*state.source.pc_activation_order,*state.source.npc_activation_order):
         raise ValueError('a passive mount body has no alternate Net Recover policy')
     if _conditions(state,turn.actor_id).has(Condition.DEFENCELESS):
         raise ValueError('Defenceless actors cannot perform a Net Recover')
@@ -454,7 +454,7 @@ class PcNetRecoveryIntent:
 
 def weighted_net_recovery_options(state,actor):
     """Pure legal alternatives; the owner binds the final automatic intent."""
-    if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+    if actor not in (*state.source.pc_activation_order,*state.source.npc_activation_order):
         return ()
     turn = state.round_state.active_turn
     if (turn is None or turn.actor_id != actor or state.pending or state.pending_wound is not None
@@ -488,15 +488,15 @@ def selected_weighted_net_recovery(state,actor):
         if option.kind is not PcNetRecoverKind.RELEASE or state.battlefield is None:
             continue
         target = option.target_id
-        if target not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+        if target not in (*state.source.pc_activation_order,*state.source.npc_activation_order):
             continue  # A passive creature has no Attack tactic to repair here.
-        enemies = (tuple(enemy.state.actor_id for enemy in state.live_enemies)
-            if target in state.source.pc_activation_order else tuple(member.actor_id for member in state.live_party))
+        from towr.domain.pc_actor_models import pc_opponent_ids
+        enemies = pc_opponent_ids(state,target)
         if not any(pc_battlefield_attack_available(state,target,enemy) for enemy in enemies):
             return option
-    if actor in state.source.enemy_activation_order and state.enemy(actor).definition.id == NET_DEFINITION_ID:
+    if actor in state.source.npc_activation_order and state.enemy(actor).definition.id == NET_DEFINITION_ID:
         return None  # Keep the explicit printed Throw-once-then-Spear tactic.
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         from towr.domain.pc_npc_weapon_inventory import npc_attack_weapon_use
         if state.enemy(actor).definition.generated_components is not None and npc_attack_weapon_use(state,actor) is not None:
             return None  # A ready alternate implement remains a genuine Attack choice.
@@ -512,7 +512,7 @@ def weighted_net_has_usable_attack(state,actor):
         if pc_active_weapon(state,actor) is not PcMeleeWeapon.WEIGHTED_NET:
             return True
         held = usable_weapon_hand(state.participant(actor)) is PcTwoHandedGrip.BOTH
-    elif actor in state.source.enemy_activation_order:
+    elif actor in state.source.npc_activation_order:
         from towr.domain.pc_melee_result_models import pc_selected_npc_attack_profile
         profile = pc_selected_npc_attack_profile(state,actor)
         if not is_net_impact(profile.condition_impact):
@@ -521,7 +521,7 @@ def weighted_net_has_usable_attack(state,actor):
     else:
         raise ValueError('Net availability requires an actual encounter actor')
     item = weighted_net_for_actor(state,actor)
-    if (actor in state.source.enemy_activation_order and item is not None
+    if (actor in state.source.npc_activation_order and item is not None
             and item.location is PcNetLocation.CARRIED
             and state.enemy(actor).definition.id == NET_DEFINITION_ID
             and 'weighted_net' in state.enemy(actor).state.available_attack_ids):
@@ -563,11 +563,11 @@ def expected_weighted_net_incidental_pickup(state):
             or state.magic_pending is not None):
         return None
     actor = turn.actor_id
-    if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+    if actor not in (*state.source.pc_activation_order,*state.source.npc_activation_order):
         return None
     if (any(_conditions(state,actor).has(condition) for condition in (Condition.DEFENCELESS,Condition.BROKEN))
             or _has_close_enemy(state,actor) or not _pickup_hands(state,actor)
-            or actor in state.source.enemy_activation_order and state.enemy(actor).definition.id == NET_DEFINITION_ID):
+            or actor in state.source.npc_activation_order and state.enemy(actor).definition.id == NET_DEFINITION_ID):
         return None
     item = next((item for item in state.weighted_nets if item.owner_id == actor
         and weighted_net_item_close(state,actor,item.item_id)),None)
@@ -647,7 +647,7 @@ def _independent_burden(state,target):
     from towr.domain.pc_inventory_conditions import external_inventory_conditions
     from towr.domain.pc_briarroot_models import external_briarroot_conditions
     from towr.domain.pc_magic_models import external_magic_conditions
-    if target not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+    if target not in (*state.source.pc_activation_order,*state.source.npc_activation_order):
         from towr.domain.pc_companion_effect_models import companion_profile
         from towr.domain.pc_mount_companion_owner import initial_pc_companions
         companion_profile(state,target)  # Exact own species/Barding source, not rider equipment.
@@ -799,10 +799,11 @@ def _expected_net_drops(state,proof):
     from towr.domain.pc_melee_result_models import PcHandDropProof,PcBodyConsequenceProof,PcMinionStaggerDefeatProof
     from towr.domain._pc_heavy_wound_projection import body_consequence
     from towr.domain.pc_warped_form_models import PcWarpedFormMinionDefeatProof
+    from towr.domain.pc_cleaving_blow_models import PcCleavingMinionDefeatProof
     actor = None
     if type(proof) is PcMinionStaggerDefeatProof:
         actor = proof.source.target_id
-    elif type(proof) is PcWarpedFormMinionDefeatProof:
+    elif type(proof) in (PcWarpedFormMinionDefeatProof,PcCleavingMinionDefeatProof):
         actor = proof.target_id
     elif type(proof) in (PcHandDropProof,PcBodyConsequenceProof):
         actor = state.pending_actor_id
@@ -821,6 +822,7 @@ def _expected_net_drops(state,proof):
         return ()
     after = replace(item,location=PcNetLocation.FREE,ground=_ground_position(state,actor))
     source_id = (proof.source.source_id if type(proof) is PcMinionStaggerDefeatProof else
+        proof.wave_id if type(proof) is PcCleavingMinionDefeatProof else
         proof.activation_id if type(proof) is PcWarpedFormMinionDefeatProof else
         'wound:'+str(proof.source.wound_sequence)+':'+proof.source.consequence.value)
     return (PcNetDrop(item.item_id,actor,source_id,item,after,state.battlefield,_add_marker(state.battlefield,after)),)

@@ -7,13 +7,14 @@ is created by the next turn, a reload receipt or a source profile identifier.
 """
 from __future__ import annotations
 
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING
 
 from towr.domain.armour_models import ShieldKind
 from towr.domain.condition_models import Condition
-from towr.domain.injury_models import ProfileInjuryState
+from towr.domain.injury_models import ProfileInjuryState,CharacterInjuryState
 from towr.domain.magic_models import WizardMagicState
 from towr.domain.npc_roster_models import NpcParticipantSnapshot
 from towr.domain.pc_battlefield_models import PcBattlefieldState, battlefield_range
@@ -36,6 +37,7 @@ from towr.domain.weapon_catalog import weapon_profile
 
 if TYPE_CHECKING:
     from towr.domain.pc_melee_result_models import PcMeleeState
+    from towr.domain.pc_npc_champion_models import NpcChampionBody
 
 
 NPC_SHIELD_DROP_RULE_ID = 'RULE-EQUIPMENT-006:npc-shield-reload-drop'
@@ -111,15 +113,24 @@ def _shield_transition(previous, current, *, picked_up):
         raise ValueError('NPC Shield transition repeats or reverses the required physical change')
 
 
-def _free_shield_hand(enemy):
-    inventory = enemy.state.weapon_inventory
+def _free_shield_hand(enemy,champion_body=None):
+    return _free_shield_grip(enemy.state.weapon_inventory,enemy.state.tool_inventory,champion_body)
+
+
+def _free_shield_grip(inventory,tools,champion_body=None):
     if inventory is None:
         return None
     occupied = {hand for item in inventory.items if item.location is WeaponItemLocation.HELD
         for hand in ((WeaponGrip.LEFT,WeaponGrip.RIGHT)
             if item.grip is WeaponGrip.BOTH else (item.grip,))}
-    occupied.update(enemy.state.tool_inventory.occupied_hands)
-    return next((hand for hand in (WeaponGrip.RIGHT,WeaponGrip.LEFT) if hand not in occupied),None)
+    occupied.update(tools.occupied_hands)
+    available=(WeaponGrip.RIGHT,WeaponGrip.LEFT)
+    if champion_body is not None:
+        from towr.domain.pc_heavy_wound_models import usable_hands,injured_hands
+        usable=usable_hands(champion_body);injured=injured_hands(champion_body)
+        available=tuple(hand for hand in available if hand.value in {side.value for side in usable})
+        available=tuple(sorted(available,key=lambda hand: hand.value in {side.value for side in injured}))
+    return next((hand for hand in available if hand not in occupied),None)
 
 
 def _source_unit_witness(enemy, unit):
@@ -143,15 +154,27 @@ def _pickup_weapon_witness(enemy):
     return unit
 
 
-def _with_shield(enemy, held, *, mount_source, armour_bane_sources, injury=None):
+def _with_shield(enemy, held, *, mount_source, armour_bane_sources, injury=None,champion_body=None):
     if type(enemy) is not NpcParticipantSnapshot or type(held) is not bool:
         raise TypeError('NPC Shield equipment projection requires its exact participant and bool')
     replace(enemy)
+    if champion_body is not None:
+        from towr.domain.pc_npc_champion_models import NpcChampionBody
+        if type(champion_body) is not NpcChampionBody or champion_body.actor_id!=enemy.state.actor_id:
+            raise TypeError('Champion Shield source requires this actor exact anatomy')
+        replace(champion_body)
+        if champion_body.weapon_inventory!=enemy.state.weapon_inventory:
+            raise ValueError('Champion Shield anatomy changed the actual physical inventory')
+    elif type(enemy.state.injury) is CharacterInjuryState:
+        raise ValueError('Champion Shield transition requires its actual anatomical witness')
     if enemy.state.holds_shield is held:
         raise ValueError('NPC Shield equipment is already in the requested state')
     from towr.domain.pc_armour_bane_models import armour_bane_resilience_from_sources
+    from towr.domain.pc_heavy_wound_models import usable_hands
+    working=enemy.state.holds_shield and (champion_body is None or
+        enemy.state.weapon_inventory.shield_hand.value in {side.value for side in usable_hands(champion_body)})
     before_base = npc_equipment_resilience(enemy.definition, enemy.state.actor_id,
-        shield_held=enemy.state.holds_shield, mount_source=mount_source)
+        shield_held=working, mount_source=mount_source)
     before = armour_bane_resilience_from_sources(before_base, armour_bane_sources)
     for application in armour_bane_sources:
         if application.target_id != enemy.state.actor_id:
@@ -168,7 +191,7 @@ def _with_shield(enemy, held, *, mount_source, armour_bane_sources, injury=None)
         raise ValueError('NPC held Shield differs from its actual occupied inventory hand')
     shield_hand = None
     if held:
-        shield_hand = _free_shield_hand(enemy)
+        shield_hand = _free_shield_hand(enemy,champion_body)
         if shield_hand is None:
             raise ValueError('NPC Shield pickup requires an actual free hand')
     return replace(enemy, state=replace(enemy.state, holds_shield=held,
@@ -202,6 +225,7 @@ class PcNpcShieldDropProof:
     rule_id: str = NPC_SHIELD_DROP_RULE_ID
     mount_source: PcMountedState | None = field(kw_only=True)
     armour_bane_sources: tuple[ArmourBaneApplication,...] = field(kw_only=True)
+    champion_body: NpcChampionBody | None = field(default=None,kw_only=True)
 
     @property
     def actor_id(self):
@@ -232,17 +256,33 @@ class PcNpcShieldDropProof:
         else:
             _held_weapon_witness(self.previous_enemy,self.weapon)
         _same(self.enemy, _with_shield(self.previous_enemy, False,
-            mount_source=self.mount_source,armour_bane_sources=self.armour_bane_sources),
+            mount_source=self.mount_source,armour_bane_sources=self.armour_bane_sources,champion_body=self.champion_body),
             'NPC Shield drop changed something besides held Shield and its Resilience source')
 
 
-def _standard_injury(before, result):
-    if type(before) is not ProfileInjuryState:
-        raise TypeError('NPC Shield Recover requires its exact profile injury')
+def _standard_injury(before, result,champion_body=None):
+    if type(before) not in (ProfileInjuryState,CharacterInjuryState):
+        raise TypeError('NPC Shield Recover requires its exact actual injury')
     conditions = before.conditions
     for change in result.resolution.condition_changes:
-        conditions = change.conditions
-    return replace(before, conditions=conditions)
+        for condition in change.removed_conditions:
+            conditions=conditions.without_condition(condition)
+    injury=replace(before,conditions=conditions)
+    if champion_body is not None:
+        from towr.domain.pc_heavy_wound_models import critical_for_action
+        from towr.domain.pc_melee_models import PcWeaponHand
+        hand=_free_shield_hand_from_body(champion_body)
+        priced=critical_for_action(champion_body,CombatActionKind.RECOVER,
+            removes_prone=before.conditions.has(Condition.PRONE) and not injury.conditions.has(Condition.PRONE),
+            used_hand=None if hand is None else PcWeaponHand(hand.value))
+        new=tuple(effect for effect in priced.active_wound_effects if effect not in champion_body.injury.active_wound_effects)
+        injury=replace(injury,active_wound_effects=(*injury.active_wound_effects,*(effect for effect in new if effect not in injury.active_wound_effects)),
+            conditions=injury.conditions.with_condition(Condition.CRITICALLY_INJURED) if new else injury.conditions)
+    return injury
+
+
+def _free_shield_hand_from_body(body):
+    return _free_shield_grip(body.weapon_inventory,body.tool_inventory,body)
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,6 +296,7 @@ class PcNpcShieldRecoverProof:
     enemy: NpcParticipantSnapshot
     mount_source: PcMountedState | None = field(kw_only=True)
     armour_bane_sources: tuple[ArmourBaneApplication,...] = field(kw_only=True)
+    champion_body: NpcChampionBody | None = field(default=None,kw_only=True)
 
     @property
     def actor_id(self):
@@ -293,25 +334,26 @@ class PcNpcShieldRecoverProof:
                 or interaction.object_in_close_range is not True):
             raise ValueError('NPC Shield pickup must interact with its real nearby item')
         if (self.previous_enemy.state.actor_id != self.actor_id
-                or self.request.actor_conditions != self.previous_injury.conditions):
+                or self.request.actor_conditions != (self.previous_injury.conditions
+                    if self.champion_body is None else self.champion_body.injury.conditions)):
             raise ValueError('NPC Shield Recover is detached from its actor or previous injury')
         for target in (self.request.choice.staggered_target, self.request.choice.prone_target):
             if target is not None and (target.entity_id != self.actor_id
-                    or target.conditions != self.previous_injury.conditions):
+                    or target.conditions != self.request.actor_conditions):
                 raise ValueError('NPC Shield Recover uses only standard self condition benefits')
         from towr.domain.pc_ally_recover_models import expected_pc_standard_recover
         _same(self.result, expected_pc_standard_recover(self.request),
             'NPC Shield pickup changed its actual paid standard Recover receipt')
         _same(self.enemy, _with_shield(self.previous_enemy, True,
-            injury=_standard_injury(self.previous_injury, self.result),
-            mount_source=self.mount_source,armour_bane_sources=self.armour_bane_sources),
+            injury=_standard_injury(self.previous_injury,self.result,self.champion_body),
+            mount_source=self.mount_source,armour_bane_sources=self.armour_bane_sources,champion_body=self.champion_body),
             'NPC Shield pickup changed unrelated equipment, Resilience or injuries')
 
 
 def initial_npc_shields(source):
     from towr.domain.generated_npc_models import validate_generated_definition
     result = []
-    for enemy in source.enemies:
+    for enemy in source.npc_sources:
         components = enemy.definition.generated_components
         if components is None or components.armour.shield is None:
             continue
@@ -330,7 +372,7 @@ def initial_npc_shields(source):
 
 
 def npc_shield_item(state, actor):
-    if actor not in state.source.enemy_activation_order:
+    if actor not in state.source.npc_activation_order:
         return None
     return next((item for item in state.npc_shields if item.actor_id == actor), None)
 
@@ -339,7 +381,7 @@ def _ready_actor(state, kind):
     if state.pending or state.pending_wound is not None or state.magic_pending is not None:
         return None
     turn = state.round_state.active_turn
-    if turn is None or turn.actor_id not in state.source.enemy_activation_order:
+    if turn is None or turn.actor_id not in state.source.npc_activation_order:
         return None
     if len(turn.action_slots) > 1 or (turn.action_slots
             and (turn.action_slots[0].executed or turn.action_slots[0].declaration.kind is not kind)):
@@ -348,9 +390,11 @@ def _ready_actor(state, kind):
     enemy = state.enemy(actor)
     inventory = enemy.state.weapon_inventory
     weapon = inventory.active if inventory is not None else None
-    if (enemy.state.injury.defeated or actor in state.exited_npc_ids
+    from towr.domain.pc_medical_models import effective_medical_injury
+    injury=effective_medical_injury(state,actor)
+    if (injury_is_defeated(enemy.state.injury) or actor in state.exited_npc_ids
             or not enemy.state.wields_weapon or weapon is None or weapon.location is not WeaponItemLocation.HELD
-            or any(enemy.state.injury.conditions.has(condition)
+            or any(injury.conditions.has(condition)
                 for condition in (Condition.BROKEN, Condition.DEFENCELESS))):
         return None
     return actor
@@ -358,7 +402,7 @@ def _ready_actor(state, kind):
 
 def _actors(state):
     return (*state.source.pc_activation_order,
-        *(actor for actor in state.source.enemy_activation_order if actor not in state.exited_npc_ids))
+        *(actor for actor in state.source.npc_activation_order if actor not in state.exited_npc_ids))
 
 
 def _drop_position(state, actor):
@@ -382,7 +426,13 @@ def _drop_id(source, actor, index):
 def _resilience_witness(state,actor):
     from towr.domain.pc_armour_bane_models import armour_bane_applications
     return dict(mount_source=npc_mount_resilience_source(state,actor),
-        armour_bane_sources=armour_bane_applications(state,actor))
+        armour_bane_sources=armour_bane_applications(state,actor),champion_body=_champion_body(state,actor))
+
+
+def _champion_body(state,actor):
+    if type(state.enemy(actor).state.injury) is not CharacterInjuryState:return None
+    from towr.domain.pc_medical_models import medical_effective_body
+    return medical_effective_body(state,actor)
 
 
 def expected_npc_shield_drop(state):
@@ -442,15 +492,20 @@ def build_npc_shield_pickup(state):
         return None
     enemy = state.enemy(actor)
     weapon = _pickup_weapon_witness(enemy)
-    if weapon is None or _free_shield_hand(enemy) is None:
+    if weapon is None or _free_shield_hand(enemy,_champion_body(state,actor)) is None:
         return None
     item = npc_shield_item(state, actor)
     if enemy.state.holds_shield:
         raise ValueError('a dropped NPC Shield cannot already grant held protection')
     from towr.domain.pc_melee_result_models import pc_melee_action_id
     action = pc_melee_action_id(state, actor)+':shield:recover'
-    conditions = enemy.state.injury.conditions
-    target = lambda condition: RecoverConditionTarget(actor, conditions, None) if conditions.has(condition) else None
+    from towr.domain.pc_medical_models import effective_medical_injury
+    effective=effective_medical_injury(state,actor)
+    conditions=effective.conditions
+    from towr.domain.pc_heavy_wound_models import has_ongoing_condition
+    target=lambda condition: (RecoverConditionTarget(actor,conditions,None)
+        if conditions.has(condition) and (type(enemy.state.injury) is not CharacterInjuryState
+            or not has_ongoing_condition(effective,condition)) else None)
     in_zone = (any(not state.participant(pc).injury.dead for pc in state.source.pc_activation_order)
         if state.battlefield is None else any(not state.participant(pc).injury.dead
             and state.battlefield.spatial.placement_for(pc).zone_id == state.battlefield.spatial.placement_for(actor).zone_id
@@ -468,8 +523,8 @@ def complete_npc_shield_pickup(state, request, result):
     _same(request, canonical, 'NPC Shield pickup changed its actual action source')
     item = npc_shield_item(state, request.actor_id)
     enemy = state.enemy(request.actor_id)
-    injury = _standard_injury(enemy.state.injury, result)
     witness = _resilience_witness(state,request.actor_id)
+    injury = _standard_injury(enemy.state.injury,result,witness['champion_body'])
     return PcNpcShieldRecoverProof(request, result, item,
         replace(item, location=NpcShieldLocation.HELD, ground=None),
         _pickup_weapon_witness(enemy), enemy, _with_shield(enemy, True, injury=injury,**witness),**witness)
@@ -539,21 +594,38 @@ def validate_npc_shields(state):
         for enemy in initial_pc_npc_weapon_inventories(state.source)
         if enemy.state.weapon_inventory is not None for item in enemy.state.weapon_inventory.items}
     weapons = {key:npc_ranged_weapon_from_unit(item) for key,item in units.items()}
-    from towr.domain.pc_melee_result_models import PcAttackProof
+    from towr.domain.pc_melee_result_models import PcAttackProof,PcHandDropProof,PcBodyConsequenceProof,PcWoundCompletionProof
+    from towr.domain.pc_npc_champion_models import NpcChampionShieldDrop
     from towr.domain.pc_npc_ranged_models import PcNpcRangedReloadProof
     from towr.domain.pc_mount_models import PcDismountProof
     from towr.domain.pc_armour_bane_models import armour_bane_applications
     mount_sources={enemy.state.actor_id:(None if enemy.definition.generated_components is None
         or enemy.definition.generated_components.mount is None else PcMountedState(
             enemy.state.actor_id,enemy.definition.generated_components.mount,True))
-        for enemy in state.source.enemies}
+        for enemy in state.source.npc_sources}
     ledgers={}
     preceding_attacks=set()
+    wound_target=None
     from towr.domain.pc_immediate_attack_models import PcImmediateStrikeProof
     from towr.domain.pc_musician_equipment_models import PcMusicianEquipmentProof
     from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
+    from towr.domain.pc_medical_equipment_models import PcMedicalEquipmentProof,PcMedicalToolRecoverProof
     for index, proof in enumerate(state.history):
-        if type(proof) is PcMusicianRecoverProof:
+        if type(proof) is PcWoundCompletionProof:
+            wound_target=proof.completion.source_request.roll.source_request.target_id
+        if type(proof) in (PcHandDropProof,PcBodyConsequenceProof) and proof.npc_shield_drop is not None:
+            loss=proof.npc_shield_drop
+            if type(loss) is not NpcChampionShieldDrop:
+                raise TypeError('Champion Shield loss needs its exact attached physical receipt')
+            replace(loss)
+            actor=loss.actor_id
+            from towr.domain.resolution_models import TargetInjuryPolicy
+            if (actor not in bank or actor!=wound_target or loss.source!=proof.source
+                    or state.source.enemy(actor).definition.injury_policy is not TargetInjuryPolicy.CHAMPION):
+                raise ValueError('Champion Shield loss changed its actual Wound patient or consequence')
+            _same(loss.previous,bank[actor],'Champion Shield loss detached from its physical prefix')
+            bank[actor]=loss.state
+        if type(proof) in (PcMusicianRecoverProof,PcMedicalEquipmentProof,PcMedicalToolRecoverProof):
             replace(proof)
             proof=proof.equipment
         if type(proof) is PcMusicianEquipmentProof and proof.actor_id in bank:

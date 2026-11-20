@@ -94,7 +94,7 @@ class PcRangedJsonTests(unittest.TestCase):
         self.assertIsNone(profile.has_blackpowder_lore)
         self.assertIsNone(profile.has_blackpowder_kit)
         with self.assertRaises(ValueError):
-            PcRangedProfile(3,4,3,4)
+            PcRangedProfile(3, 4)
         for changes in ({'repeater_bonus_policy':'never'}, {'repeater_bonus_policy':Alias.NEVER},
                 {'reload_hand_policy':'two_available_hands'}, {'shooting':True},
                 {'ammunition_supply_confirmed':False}):
@@ -113,8 +113,7 @@ class PcRangedJsonTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             replace(member,pc=replace(pc,weapon=PcMeleeWeapon.PISTOL,
                 ranged=replace(pistol,repeater_bonus_policy=PcRepeaterBonusPolicy.NEVER)))
-        self.assertIs(PcRangedProfile(3,4,3,4,True,True,True,
-            PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS).reload_hand_policy,
+        self.assertIs(PcRangedProfile(3, 4,  True, True, True, PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS).reload_hand_policy,
             PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
 
     def test_conditional_json_fields_and_retired_pc_key_fail_before_rng(self):
@@ -129,7 +128,7 @@ class PcRangedJsonTests(unittest.TestCase):
             lambda pc: pc['ranged'].update(has_engineering_lore=True),
             lambda pc: pc['ranged'].update(ammunition_supply_confirmed=False),
             lambda pc: pc['ranged'].update(initially_loaded=1),
-            lambda pc: pc['ranged'].update(dexterity=True),
+            lambda pc: pc.update(dexterity=True),
             lambda pc: pc['ranged'].update(reload_hand_policy='one_hand'),
             lambda pc: pc.update(weapon='sword'),
         )

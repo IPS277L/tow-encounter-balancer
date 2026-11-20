@@ -114,11 +114,11 @@ def _action_source(state, request, execution, use):
     actor = request.actor_id
     if actor in state.source.pc_activation_order:
         inventory = state.participant(actor).weapon_inventory
-    elif actor in state.source.enemy_activation_order:
+    elif actor in state.source.npc_activation_order:
         inventory = state.enemy(actor).state.weapon_inventory
     else:
         raise ValueError('Throwing actor does not belong to the source encounter')
-    if request.target_id not in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
+    if request.target_id not in (*state.source.pc_activation_order, *state.source.npc_activation_order):
         raise ValueError('Throwing target does not belong to the source encounter')
     if use.inventory != inventory:
         raise ValueError('Throwing source changed the actual current physical inventory')

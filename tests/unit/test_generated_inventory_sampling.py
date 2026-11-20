@@ -89,13 +89,13 @@ class GeneratedInventorySamplingTests(unittest.TestCase):
             self.assertTrue(all(type(item.initially_loaded) is bool for item in member.weapons))
             firearm=any(item.kind is WeaponKind.PISTOL for item in member.weapons)
             self.assertIs(member.ranged.has_blackpowder_lore,True if firearm else None)
-            self.assertEqual((member.ranged.initiative,member.ranged.dexterity),(3,4))
+            self.assertEqual((member.initiative,member.dexterity),(3,4))
             self.assertFalse(hasattr(member.ranged,'initially_loaded'))
 
     def test_free_bow_uses_awareness_without_exacting_dexterity_or_charge(self):
         member=space(weapon=(GeneratedWeapon.SHORTBOW,),weapon_count=(2,)).sample(Random(1))
-        self.assertEqual((member.ranged.initiative,member.ranged.awareness),(3,4))
-        self.assertIsNone(member.ranged.dexterity)
+        self.assertEqual((member.initiative,member.awareness),(3,4))
+        self.assertIsNone(member.dexterity)
         self.assertTrue(all(item.initially_loaded is None for item in member.weapons))
 
     def test_mixed_melee_shooting_net_prepares_shared_bs_for_every_item(self):

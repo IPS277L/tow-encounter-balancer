@@ -39,8 +39,8 @@ def npc_falling_source(disposition=NpcDefeatDisposition.KNOCKED_OUT):
         mount=CombatMount.PEGASUS,rider_kind=RiderKind.HUMAN,
         defeat_decisions=tuple(replace(decision,disposition=disposition) for decision in member.defeat_decisions))
     npc=GeneratedNpc(1,1,20,1,2,2,initial_generated_weapons(GeneratedWeapon.PISTOL),ArmourLoadout(),defence=2,
-        ranged=GeneratedRangedFacts(6,6,3,4,True,True,True,awareness=2),
-        mount=CombatMount.PEGASUS,rider_kind=RiderKind.HUMAN)
+        ranged=GeneratedRangedFacts(6, 6,  True, True, True),
+        mount=CombatMount.PEGASUS,rider_kind=RiderKind.HUMAN, initiative=3, awareness=2, dexterity=4)
     ground_gunner=replace(npc,weapons=initial_generated_weapons(GeneratedWeapon.HANDGUN),mount=None,rider_kind=None)
     actors=source.enemy_activation_order
     return replace(source,party=(member,),enemies=(npc.participant(actors[0]),ground_gunner.participant(actors[1])),

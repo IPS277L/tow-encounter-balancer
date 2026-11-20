@@ -39,7 +39,7 @@ def book_source():
 def configured_source(skill=Skill.MELEE):
     source = book_source()
     party = tuple(replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,
-        ranged=pistol_profile()),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True)) for member in source.party)
+        ranged=pistol_profile(), initiative=3, dexterity=4),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True)) for member in source.party)
     policies = tuple(Policy(actor,skill) for actor in source.enemy_activation_order)
     return replace(source,party=party,npc_close_shooting_protection_policies=policies)
 

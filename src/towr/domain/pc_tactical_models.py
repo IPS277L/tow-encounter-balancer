@@ -5,6 +5,7 @@ One defeated Minion is worth 1, a first Staggered is worth 0.5. Future wounds,
 Fate rolls and other hidden outcomes are never inspected.
 """
 from __future__ import annotations
+from towr.domain.injury_models import injury_wound_count
 
 from towr.domain.reload_models import ranged_weapon_is_loaded
 from dataclasses import dataclass, field, replace
@@ -12,6 +13,7 @@ from functools import lru_cache
 from math import comb
 from typing import TYPE_CHECKING
 
+from towr.domain.pc_medical_models import medical_effective_body
 from towr.domain.condition_models import Condition
 from towr.domain.test_models import DiceModifier, Skill, TestQuality, TestRequest, _expected_initial_roll_parameters
 from towr.domain.turn_models import CombatActionKind, ManoeuvreKind
@@ -142,7 +144,9 @@ def validate_automatic_combat_scenario(scenario: PcMeleeScenario) -> None:
     if scenario.battlefield is None and (not scenario.facts.all_opponents_close or scenario.short_range_opening is not None
             or any(member.pc.weapon in PC_RANGED_WEAPONS and member.pc.weapon not in supported for member in scenario.party)):
         raise ValueError('automatic combat requires all-Close melee or supported one-handed ranged weapons')
-    if any(enemy.definition.injury_policy is not TargetInjuryPolicy.MINION
+    if any(enemy.definition.injury_policy not in (TargetInjuryPolicy.MINION,TargetInjuryPolicy.CHAMPION)
+            or enemy.definition.injury_policy is TargetInjuryPolicy.CHAMPION
+                and enemy.definition.generated_components is None
             or enemy.definition.generated_components is None and len(enemy.definition.attacks) != 1
             or (enemy.definition.attacks[0].skill not in (Skill.MELEE,Skill.BRAWN)
                 and not (enemy.definition.attacks[0].skill is Skill.SHOOTING
@@ -154,11 +158,11 @@ def validate_automatic_combat_scenario(scenario: PcMeleeScenario) -> None:
             or len(enemy.definition.protection) != ((2+int(enemy.definition.generated_components.endurance is not None))
                 if enemy.definition.generated_components is not None else 1)
             or enemy.definition.protection[0].skill not in (Skill.ATHLETICS, Skill.DEFENCE, Skill.MELEE)
-            for enemy in scenario.enemies):
-        raise ValueError('automatic melee tactics require ordinary Melee or complete generated Shooting Minions')
+            for enemy in scenario.npc_sources):
+        raise ValueError('automatic tactics require ordinary Minions or complete generated Minion/Champion sources')
     if any(member.wizard is not None for member in scenario.party):
         if scenario.facts.daylight_confirmed is not True or (scenario.facts.can_leave_zone and scenario.battlefield is None) or any(not enemy.definition.source_rule_id.startswith('authored:')
-                for enemy in scenario.enemies):
+                for enemy in scenario.npc_sources):
             raise ValueError('PC magic requires the closed numeric/generated Minion scene')
 
 
@@ -227,7 +231,7 @@ def _select_pc_tactic_without_music(state: PcMeleeState, actor_id: str | None = 
             return 0.0,None  # The unavailable rider weapon supplies no imaginary Attack.
         from towr.domain.pc_ranged_advice import pc_attack_value
         from towr.domain.pc_weapon_inventory import pc_weapon_inventory_view
-        inventory=state.participant(actor).weapon_inventory
+        inventory=medical_effective_body(state,actor).weapon_inventory
         item_key=(inventory.active_item_id if weapon_item_id is None and inventory is not None
             else weapon_item_id)
         key = (actor, extra, enhancement, wild, item_key, ranged_bonus)
@@ -310,8 +314,10 @@ def _select_pc_tactic_without_music(state: PcMeleeState, actor_id: str | None = 
                       enhancement: str | None, stagger_added: bool) -> float:
         # NPC target order is a source fact. Future deaths/target changes are not
         # anticipated. Prospective Protection Help applies to ONE exact Test.
+        from towr.domain.pc_actor_models import pc_actor_injury
+        from towr.domain.injury_models import injury_is_defeated
         first = next((actor for actor in forecast.source.enemy_target_priority
-            if not forecast.participant(actor).injury.dead), None)
+            if not injury_is_defeated(pc_actor_injury(forecast,actor))), None)
         if target != first:
             return 0.0
         member = forecast.participant(target)
@@ -341,7 +347,7 @@ def _select_pc_tactic_without_music(state: PcMeleeState, actor_id: str | None = 
                 from towr.domain.ranged_weapon_profiles import (RangedWeaponId,
                     ranged_weapon_reload_profile,REPEATER_SHOOTING_BONUS_RULE_ID)
                 modifiers = list(pc_npc_attack_modifiers(enemy.definition,enemy.state.injury.conditions,
-                    target_conditions=target_conditions,attacker_wounds=enemy.state.injury.wounds))
+                    target_conditions=target_conditions,attacker_wounds=injury_wound_count(enemy.state.injury)))
                 if target_conditions.has(Condition.PRONE):
                     modifiers.append(DiceModifier('RULE-HEALTH-008:prone-shooting',-1))
                 modifiers.extend(pc_npc_distraction_test_modifiers(forecast,enemy_id,target))
@@ -382,7 +388,7 @@ def _select_pc_tactic_without_music(state: PcMeleeState, actor_id: str | None = 
             if attack.skill is not Skill.THROWING and pc_battlefield_allows_outnumbering(forecast,enemy_id):
                 modifiers.append(pc_npc_outnumbering_modifier(enemy.definition))
             modifiers.extend(pc_npc_attack_modifiers(enemy.definition, attack_conditions,
-                target_conditions=target_conditions, attacker_wounds=enemy.state.injury.wounds))
+                target_conditions=target_conditions, attacker_wounds=injury_wound_count(enemy.state.injury)))
             from towr.domain.pc_generated_equipment import generated_attack_modifiers,generated_damage_modifiers
             from towr.domain.pc_npc_weapon_inventory import npc_attack_weapon_use
             npc_use=(npc_attack_weapon_use(forecast,enemy_id,target) if enemy.definition.generated_components is not None else None)
@@ -465,7 +471,7 @@ def _select_pc_tactic_without_music(state: PcMeleeState, actor_id: str | None = 
     def plan(actor: str) -> PcTacticalChoice:
         if actor in plans:
             return plans[actor]
-        member = state.participant(actor)
+        member = medical_effective_body(state,actor)
         if state.battlefield is not None and member.injury.conditions.has(Condition.BROKEN):
             from towr.domain.pc_broken_battlefield_models import pc_broken_has_enemy_in_zone
             unsafe=pc_broken_has_enemy_in_zone(state,actor)
@@ -732,7 +738,7 @@ def _select_pc_tactic_without_music(state: PcMeleeState, actor_id: str | None = 
                         from towr.domain.pc_generated_ranged_advice import pc_brawn_protection
                         skill,_=pc_brawn_protection(state,ally_id,pc_melee_action_id(state,incoming)+':protection')
                     else:
-                        skill=pc_protection_skill(state.participant(ally_id),attack_skill)
+                        skill=pc_protection_skill(medical_effective_body(state,ally_id),attack_skill)
                 policy = PcHelpPolicy(ally_id, kind, skill)
                 eligibility_state=state
                 if intended is not None and (intended.weapon_item_id is not None or intended.unarmed_attack):
@@ -798,6 +804,25 @@ def _select_pc_tactic_without_music(state: PcMeleeState, actor_id: str | None = 
                     value = sum(probability*max(0.0, before-incoming_risk(ally_id, successes))
                         for successes, probability in enumerate(pc_test_distribution(state,actor,skill,test(actor,skill))))
                 consider(CombatActionKind.HELP, ally_id, value, 'improve_exact_upcoming_test', policy)
+        # Fixed allied NPCs use the same finite expected benefit as other Help
+        # recipients; their profile role never creates a PC resource owner.
+        from towr.domain.pc_help_models import help_recipient_attack,help_side_order
+        from towr.domain.pc_npc_weapon_inventory import _utility as npc_attack_value
+        for ally_source in state.source.npc_allies:
+            ally_id=ally_source.state.actor_id
+            order=help_side_order(state,actor)
+            if ally_id in unavailable or order.index(ally_id)<=order.index(actor):continue
+            prepared=help_recipient_attack(state,ally_id)
+            if prepared is None:continue
+            view,skill,_,_=prepared
+            policy=PcHelpPolicy(ally_id,PcHelpTarget.ATTACK,skill)
+            if eligible_pc_help_beneficiary(view,policy,actor) is None:continue
+            try:help_test=test(actor,skill)
+            except (KeyError,ValueError):continue
+            before=npc_attack_value(view,ally_id)
+            value=sum(probability*max(0.0,npc_attack_value(view,ally_id,help_successes=successes)-before)
+                for successes,probability in enumerate(pc_test_distribution(state,actor,skill,help_test)))
+            consider(CombatActionKind.HELP,ally_id,value,'help_allied_npc_attack',policy)
         wizard = state.source.participant(actor).wizard
         if wizard is not None:
             from towr.domain.pc_magic_models import magic_hand,spell_choice
@@ -833,6 +858,15 @@ def select_pc_tactic(state: PcMeleeState, actor_id: str | None = None) -> PcTact
     from towr.domain.pc_oath_models import lady_prayer_selected
     if state.round_state.active_turn is not None and state.round_state.active_turn.actor_id == actor and lady_prayer_selected(state):
         return PcTacticalChoice(actor, CombatActionKind.IMPROVISE, None, None, 0.0, 'seek_lady_blessing')
+    from towr.domain.pc_medical_tactics import current_medical_choice,MedicalActionKind
+    medical=(current_medical_choice(state) if state.round_state.active_turn is not None
+        and state.round_state.active_turn.actor_id==actor else None)
+    if medical is not None:
+        kind=(CombatActionKind.IMPROVISE if medical.kind is MedicalActionKind.SURGERY
+            and not medical.pickup_tool else CombatActionKind.RECOVER)
+        return PcTacticalChoice(actor,kind,medical.target_id,None,float(medical.utility),
+            'recover_medical_kit' if medical.pickup_tool else 'combat_surgery' if medical.kind is MedicalActionKind.SURGERY
+            else 'treat_actual_wound')
     from towr.domain.pc_musician_tactics import (
         committed_musician_intent, music_cleanup_view, best_music_option, music_tactical_choice,
     )

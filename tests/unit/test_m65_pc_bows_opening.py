@@ -294,7 +294,7 @@ class PcBowShortOpeningTests(unittest.TestCase):
             source = make_pc_bow_scenario(max_rounds=2,npc_toughness=10)
             member = source.party[0]
             member = replace(member,pc=replace(member.pc,weapon=weapon,
-                ranged=ranged_profile(weapon=weapon,repeater_bonus_policy=mode)),
+                ranged=ranged_profile(weapon=weapon,repeater_bonus_policy=mode), initiative=3, dexterity=4),
                 initial_weapon_hand=PcWeaponHand.RIGHT,combat_equipment=initial_weapon_items(
                     weapon,PcWeaponHand.RIGHT,member.backup_weapon_policy,initially_loaded=True))
             source = replace(source,party=(member,))

@@ -49,8 +49,7 @@ def view(*, shield=ShieldKind.SHIELD, weapon=GeneratedWeapon.PISTOL,
     firearm = weapon is not GeneratedWeapon.REPEATER_HANDBOW
     facts = GeneratedNpc(3, 3, 4, 3, 4, 4, initial_generated_weapons(weapon),
         ArmourLoadout(shield=shield) if armour is None else armour, defence=4, mount=mount,
-        ranged=GeneratedRangedFacts(3, 4, 3, 4,  True,
-            True if firearm else None, True if firearm else None))
+        ranged=GeneratedRangedFacts(3, 4,  True, True if firearm else None, True if firearm else None), initiative=3, dexterity=4)
     enemy = facts.participant('enemy')
     policy = pc_npc_ranged_policy_for_generated(facts, 'enemy')
     source = SimpleNamespace(id='shield-fixture', enemies=(enemy,),

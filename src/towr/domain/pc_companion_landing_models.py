@@ -48,6 +48,7 @@ def _bound_wound(receipt, producer, body_id):
     from towr.domain.pc_demigryph_models import pc_kernel_attack_types, pc_kernel_resolution
     from towr.domain.pc_blunderbuss_models import PcBlunderbussProfileProof, PcBlunderbussTargetProof
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof, PcWarpedFormTargetProof
+    from towr.domain.pc_cleaving_blow_models import PcCleavingProfileProof, PcCleavingTargetProof
     from towr.domain.pc_weapon_area_models import PcWeaponHazardProof
     from towr.domain.pc_magic_models import PcMagicEffectProof
     from towr.domain.pc_magic_miscast_plan import PcMagicTask, PcMagicTaskKind
@@ -69,6 +70,12 @@ def _bound_wound(receipt, producer, body_id):
     elif type(receipt) is PcWarpedFormProfileProof:
         if (type(producer) is not PcWarpedFormTargetProof or receipt.target_id != body_id
                 or producer.request.target_id != body_id or producer.activation_id != receipt.activation_id):
+            return None
+        result, previous, policy = producer.result.profile_wound, producer.request.target_state, producer.request.target_policy
+        change = receipt.source
+    elif type(receipt) is PcCleavingProfileProof:
+        if (type(producer) is not PcCleavingTargetProof or receipt.target_id != body_id
+                or producer.request.target_id != body_id or producer.wave_id != receipt.wave_id):
             return None
         result, previous, policy = producer.result.profile_wound, producer.request.target_state, producer.request.target_policy
         change = receipt.source
@@ -131,6 +138,7 @@ def _wound_events(history, body_id):
     from towr.domain.pc_demigryph_models import pc_kernel_attack_types
     from towr.domain.pc_blunderbuss_models import PcBlunderbussProfileProof, PcBlunderbussTargetProof
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof, PcWarpedFormTargetProof
+    from towr.domain.pc_cleaving_blow_models import PcCleavingProfileProof, PcCleavingTargetProof
     from towr.domain.pc_weapon_area_models import PcWeaponHazardProof
     from towr.domain.pc_magic_models import PcMagicEffectProof
     events = []
@@ -148,6 +156,11 @@ def _wound_events(history, body_id):
             producer_index = next((i for i in range(index-1, -1, -1)
                 if type(history[i]) is PcWarpedFormTargetProof
                 and history[i].activation_id == receipt.activation_id
+                and history[i].request.target_id == receipt.target_id), None)
+        elif type(receipt) is PcCleavingProfileProof:
+            producer_index = next((i for i in range(index-1, -1, -1)
+                if type(history[i]) is PcCleavingTargetProof
+                and history[i].wave_id == receipt.wave_id
                 and history[i].request.target_id == receipt.target_id), None)
         elif type(receipt) in (PcWeaponHazardProof, PcMagicEffectProof):
             producer_index = index

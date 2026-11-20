@@ -1,4 +1,5 @@
 """Generated NPC equipment choices and source-bound incidental transitions."""
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass,replace
 from towr.domain.pc_musician_effect_models import musician_defends_ties
 
@@ -29,9 +30,28 @@ def npc_selected_weapon_profile(state,actor):
     return generated_weapon_attack_profile(source,item.source_item_id,grip)
 
 
-def _usable_npc_grips(enemy):
-    return tuple(hand for hand in (WeaponGrip.LEFT,WeaponGrip.RIGHT)
+def _usable_npc_grips(state,enemy):
+    from towr.domain.injury_models import CharacterInjuryState
+    if type(enemy.state.injury) is CharacterInjuryState:
+        from towr.domain.pc_medical_models import medical_effective_body
+        from towr.domain.pc_heavy_wound_models import usable_hands
+        body=medical_effective_body(state,enemy.state.actor_id)
+        available=tuple(WeaponGrip(hand.value) for hand in usable_hands(body))
+    else:
+        available=(WeaponGrip.LEFT,WeaponGrip.RIGHT)
+    return tuple(hand for hand in available
         if hand not in enemy.state.tool_inventory.occupied_hands)
+
+
+def npc_has_working_shield(state,actor):
+    enemy=state.enemy(actor)
+    if not enemy.state.holds_shield:
+        return False
+    from towr.domain.injury_models import CharacterInjuryState
+    if type(enemy.state.injury) is not CharacterInjuryState:
+        return True
+    inventory=enemy.state.weapon_inventory
+    return inventory is not None and inventory.shield_hand in _usable_npc_grips(state,enemy)
 
 
 def npc_attack_weapon_use(state,actor,target=None):
@@ -40,34 +60,36 @@ def npc_attack_weapon_use(state,actor,target=None):
     inventory=enemy.state.weapon_inventory
     primary=None if inventory is None else inventory.active
     if primary is None or primary.location is not WeaponItemLocation.HELD:
-        return build_weapon_use(actor,inventory,None,usable_hands=_usable_npc_grips(enemy)) if enemy.definition.generated_components.brawn is not None else None
+        return build_weapon_use(actor,inventory,None,usable_hands=_usable_npc_grips(state,enemy)) if enemy.definition.generated_components.brawn is not None else None
     from towr.domain.pc_armour_models import actor_bound_to_chivalric_combat
     if (weapon_profile(primary.kind).group in (WeaponGroup.SHOOTING,WeaponGroup.THROWING)
             and actor_bound_to_chivalric_combat(state,actor)):
         return None
-    try:base=build_weapon_use(actor,inventory,primary.id,usable_hands=_usable_npc_grips(enemy))
+    try:base=build_weapon_use(actor,inventory,primary.id,usable_hands=_usable_npc_grips(state,enemy))
     except ValueError:return None
     from towr.domain.weapon_effect_preparation import weapon_test_modifiers,weapon_damage_preparation
     from towr.domain.pc_shield_models import pc_shield_resilience
     from towr.domain.pc_mount_models import pc_is_mounted
-    from towr.domain.pc_actor_models import pc_actor_injury, pc_actor_npc_snapshot
-    conditions=None if target is None else pc_actor_injury(state,target).conditions
+    from towr.domain.pc_actor_models import pc_actor_npc_snapshot
+    from towr.domain.pc_medical_models import effective_medical_injury
+    conditions=None if target is None else effective_medical_injury(state,target).conditions
+    actor_conditions=effective_medical_injury(state,actor).conditions
     resilience=(None if target is None else pc_shield_resilience(state,target)
         if target in state.source.pc_activation_order else pc_actor_npc_snapshot(state,target).state.current_resilience)
     def value(use):
-        mods=weapon_test_modifiers(use,enemy.state.injury.conditions,target_conditions=conditions,
+        mods=weapon_test_modifiers(use,actor_conditions,target_conditions=conditions,
             target_mounted=target is not None and pc_is_mounted(state,target),
             talents=enemy.definition.generated_components.talents).modifiers
         prepared=None if resilience is None else weapon_damage_preparation(use,
             enemy.definition.generated_components.strength,resilience)
         from towr.domain.pc_magic_weapon_models import magic_contributor_value
-        return sum(mod.amount for mod in mods if mod.amount<0 or not enemy.state.injury.conditions.has(Condition.DRAINED))*.25+(
+        return sum(mod.amount for mod in mods if mod.amount<0 or not actor_conditions.has(Condition.DRAINED))*.25+(
             0 if prepared is None else sum(mod.amount for mod in prepared.modifiers))+(
                 0 if target is None else magic_contributor_value(state,use,target))
     best,score=base,value(base)
     for item in inventory.items:
         if item.id==primary.id or item.location is not WeaponItemLocation.HELD:continue
-        try:use=build_weapon_use(actor,inventory,primary.id,(item.id,),_usable_npc_grips(enemy))
+        try:use=build_weapon_use(actor,inventory,primary.id,(item.id,),_usable_npc_grips(state,enemy))
         except ValueError:continue
         candidate=value(use)
         if candidate>score+1e-12:best,score=use,candidate
@@ -76,21 +98,23 @@ def npc_attack_weapon_use(state,actor,target=None):
 
 def npc_protection_weapon_use(state,actor,skill,attack_skill=Skill.MELEE):
     enemy=state.enemy(actor);inventory=enemy.state.weapon_inventory
+    from towr.domain.pc_medical_models import effective_medical_injury
+    actor_conditions=effective_medical_injury(state,actor).conditions
     if inventory is None or skill not in (Skill.DEFENCE,Skill.MELEE):return None
     held=tuple(item.id for item in inventory.items if item.location is WeaponItemLocation.HELD)
-    shield=enemy.state.holds_shield
+    shield=npc_has_working_shield(state,actor)
     if skill is Skill.DEFENCE and attack_skill in (Skill.SHOOTING,Skill.THROWING):
         if not shield:return None
     candidates=(held, *((identifier,) for identifier in held), ())
     from towr.domain.weapon_effect_preparation import weapon_test_modifiers
     best=None;score=float('-inf')
     for ids in candidates:
-        try:use=build_weapon_protection_use(actor,inventory,skill,ids,shield,_usable_npc_grips(enemy))
+        try:use=build_weapon_protection_use(actor,inventory,skill,ids,shield,_usable_npc_grips(state,enemy))
         except ValueError:continue
         source=enemy.definition.generated_components
-        mods=weapon_test_modifiers(use,enemy.state.injury.conditions,
+        mods=weapon_test_modifiers(use,actor_conditions,
             talents=() if source is None else source.talents).modifiers
-        value=sum(mod.amount for mod in mods if mod.amount<0 or not enemy.state.injury.conditions.has(Condition.DRAINED))
+        value=sum(mod.amount for mod in mods if mod.amount<0 or not actor_conditions.has(Condition.DRAINED))
         if value>score:best,score=use,value
     return best
 
@@ -103,7 +127,7 @@ class _NpcInventoryView:
     def enemy(self,actor):return next(enemy for enemy in self.enemies if enemy.state.actor_id==actor)
     @property
     def live_enemies(self):
-        return tuple(enemy for enemy in self.enemies if not enemy.state.injury.defeated
+        return tuple(enemy for enemy in self.enemies if not injury_is_defeated(enemy.state.injury)
             and enemy.state.actor_id not in self.exited_npc_ids)
 
 
@@ -123,7 +147,7 @@ def npc_inventory_attack_ids(definition,inventory):
 
 def _plan(state,actor,item,grip,*,reload=False):
     inventory=state.enemy(actor).state.weapon_inventory
-    usable=_usable_npc_grips(state.enemy(actor))
+    usable=_usable_npc_grips(state,state.enemy(actor))
     if reload and len(usable)!=2:
         raise ValueError('Reload cannot use a hand occupied by an actual instrument')
     needed={WeaponGrip.LEFT,WeaponGrip.RIGHT} if grip is WeaponGrip.BOTH else {grip}
@@ -145,7 +169,7 @@ def _plan(state,actor,item,grip,*,reload=False):
     return transition
 
 
-def _utility(view,actor,*,help_successes=0):
+def _utility(view,actor,*,help_successes=0,aim_bonus=0,ignore_aim=False):
     from towr.domain.pc_oath_models import npc_oath_attack_blocked
     if npc_oath_attack_blocked(view, actor):
         return -1.0
@@ -158,10 +182,10 @@ def _utility(view,actor,*,help_successes=0):
     from towr.domain.pc_shield_models import pc_shield_resilience
     from towr.domain.weapon_effect_preparation import weapon_test_modifiers,weapon_damage_preparation
     from towr.domain.pc_mount_models import pc_is_mounted
-    from towr.domain.test_models import TestRequest
+    from towr.domain.test_models import TestRequest, DiceModifier
     profile=npc_selected_weapon_profile(view,actor)
-    target=next((target for target in view.source.enemy_target_priority
-        if not view.participant(target).injury.dead),None)
+    from towr.domain.pc_battlefield_movement_models import _enemies
+    target=next(iter(_enemies(view,actor)),None)
     if profile is None or target is None:return -1.0
     use=npc_attack_weapon_use(view,actor,target)
     if use is None:return -1.0
@@ -169,17 +193,29 @@ def _utility(view,actor,*,help_successes=0):
     # a Close-forbidden shot cannot be manufactured in the stationary scene.
     available=pc_battlefield_attack_available(view,actor,target)
     if not available and (profile.skill not in (Skill.MELEE,Skill.BRAWN,Skill.THROWING) or view.battlefield is None):return -1.0
-    enemy=view.enemy(actor);member=view.participant(target)
-    mods=weapon_test_modifiers(use,enemy.state.injury.conditions,
+    from towr.domain.pc_medical_models import effective_medical_injury,medical_effective_body
+    enemy=view.enemy(actor);member=medical_effective_body(view,target)
+    actor_conditions=effective_medical_injury(view,actor).conditions
+    mods=weapon_test_modifiers(use,actor_conditions,
         target_conditions=member.injury.conditions,target_mounted=pc_is_mounted(view,target),
         talents=enemy.definition.generated_components.talents).modifiers
-    if enemy.state.injury.conditions.has(Condition.DRAINED):mods=tuple(mod for mod in mods if mod.amount<=0)
-    if help_successes and not enemy.state.injury.conditions.has(Condition.DRAINED):
+    if actor_conditions.has(Condition.DRAINED):mods=tuple(mod for mod in mods if mod.amount<=0)
+    if help_successes and not actor_conditions.has(Condition.DRAINED):
         from towr.domain.help_models import HELP_BONUS_RULE_ID
-        from towr.domain.test_models import DiceModifier
         mods=(*mods,DiceModifier(HELP_BONUS_RULE_ID,help_successes))
+    if profile.skill in (Skill.SHOOTING, Skill.THROWING) and not actor_conditions.has(Condition.DRAINED):
+        from towr.domain.aim_models import AIM_FOLLOW_UP_RULE_ID
+        from towr.domain.pc_npc_aim_models import npc_aim_attack_modifiers
+        if aim_bonus:
+            mods = (*mods, DiceModifier(AIM_FOLLOW_UP_RULE_ID, aim_bonus))
+        elif not ignore_aim:
+            mods = (*mods, *npc_aim_attack_modifiers(view, actor, target))
     attacker=TestRequest('tactics:npc-inventory',profile.test_profile,mods)
-    if profile.skill in (Skill.SHOOTING,Skill.THROWING):
+    target_is_pc=target in view.source.pc_activation_order
+    if not target_is_pc:
+        from towr.domain.pc_generated_equipment import npc_protection_test
+        _,protection=npc_protection_test(view,target,actor,'tactics:npc-inventory:defence',attack_skill=profile.skill)
+    elif profile.skill in (Skill.SHOOTING,Skill.THROWING):
         _,protection=pc_shooting_protection(view,target,actor,'tactics:npc-inventory:defence',attack_skill=profile.skill)
     elif profile.skill is Skill.BRAWN and view.source.participant(target).policy.value=='automatic_combat':
         from towr.domain.pc_generated_ranged_advice import pc_brawn_protection
@@ -200,7 +236,7 @@ def _utility(view,actor,*,help_successes=0):
         from towr.domain.pc_weapon_area_models import throwing_special_value
         special=throwing_special_value(view,actor,target,use.kind,_distribution(attacker),opposed)
         if special is not None:return special
-    resilience=pc_shield_resilience(view,target)
+    resilience=(pc_shield_resilience(view,target) if target_is_pc else view.enemy(target).state.current_resilience)
     damage=weapon_damage_preparation(use,enemy.definition.generated_components.strength,resilience)
     value=_impact_value(_distribution(attacker),opposed,
         damage.damage.base+sum(mod.amount for mod in damage.modifiers),
@@ -216,7 +252,7 @@ def _utility(view,actor,*,help_successes=0):
     if profile.skill is Skill.SHOOTING:
         weapon=pc_npc_ranged_weapon(view,actor)
         if not ranged_weapon_is_loaded(weapon):
-            facts=enemy.definition.generated_components.ranged
+            facts=enemy.definition.generated_components
             remaining=max(1,weapon.required_successes-weapon.exacting.accumulated_successes)
             mean=facts.initiative*facts.dexterity/10
             value/=1+remaining/max(mean,.1)
@@ -234,17 +270,21 @@ class PcNpcWeaponEquipProof:
 
 
 def expected_npc_weapon_equip(state):
+    from towr.domain.pc_medical_tactics import committed_medical_intent
+    if committed_medical_intent(state) is not None:return None
     from towr.domain.pc_bash_attack_models import expected_bash_npc_equip
     bash=expected_bash_npc_equip(state)
     if bash is not None:return bash
     turn=state.round_state.active_turn
-    if (turn is None or turn.actor_id not in state.source.enemy_activation_order or turn.action_slots
+    if (turn is None or turn.actor_id not in state.source.npc_activation_order or turn.action_slots
             or state.pending or state.pending_wound is not None or state.magic_pending is not None):return None
     actor=turn.actor_id;enemy=state.enemy(actor);inventory=enemy.state.weapon_inventory
-    if enemy.state.injury.conditions.has(Condition.BROKEN):
+    from towr.domain.pc_medical_models import effective_medical_injury
+    actor_conditions=effective_medical_injury(state,actor).conditions
+    if actor_conditions.has(Condition.BROKEN):
         return None
-    if (enemy.definition.generated_components is None or inventory is None or enemy.state.injury.defeated
-            or any(enemy.state.injury.conditions.has(condition) for condition in (Condition.DEFENCELESS,Condition.BROKEN))):return None
+    if (enemy.definition.generated_components is None or inventory is None or injury_is_defeated(enemy.state.injury)
+            or any(actor_conditions.has(condition) for condition in (Condition.DEFENCELESS,Condition.BROKEN))):return None
     if (len(inventory.items)==1 and inventory.active is not None
             and inventory.active.location is WeaponItemLocation.HELD
             and not weapon_profile(inventory.active.kind).variable_grip
@@ -293,7 +333,7 @@ def apply_npc_weapon_equip(state,proof):
 def npc_shield_release_weapon(state):
     """Propose a weapon-first release; its physical receipt belongs to Shield."""
     turn=state.round_state.active_turn
-    if turn is None or turn.actor_id not in state.source.enemy_activation_order:return None
+    if turn is None or turn.actor_id not in state.source.npc_activation_order:return None
     actor=turn.actor_id;enemy=state.enemy(actor);inventory=enemy.state.weapon_inventory
     if inventory is None or not enemy.state.holds_shield:return None
     without=_view(state,actor,replace(inventory,shield_hand=None))

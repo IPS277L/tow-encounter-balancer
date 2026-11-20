@@ -34,10 +34,10 @@ def item(kind, *, quantity=1, carried=False):
 
 
 def npc(kind=W.ROCK, *, strength=3, throwing=5, ballistic_skill=2, weapons=None,
-        ranged=None, abilities=()):
+        ranged=None, abilities=(),initiative=3,dexterity=None):
     return GeneratedNpc(4,strength,3,3,4,4,(item(kind),) if weapons is None else weapons,
         ArmourLoadout(),defence=4,throwing=throwing,ballistic_skill=ballistic_skill,
-        ranged=ranged,abilities=abilities)
+        ranged=ranged,abilities=abilities,initiative=initiative,dexterity=dexterity)
 
 
 def profile(kind, **kwargs):
@@ -120,13 +120,13 @@ class ThrowingWeaponSourceTests(unittest.TestCase):
         with self.assertRaises(ValueError):npc(weapons=(item(W.SWORD),))
 
     def test_mixed_shooting_throwing_uses_one_actual_ballistic_skill(self):
-        ranged=GeneratedRangedFacts(4,3,3,4,True,True,True)
+        ranged=GeneratedRangedFacts(4, 3,  True, True, True)
         weapons=(item(W.THROWING_AXE),WeaponItemSource('pistol',W.PISTOL,L.CARRIED,None,initially_loaded=True))
-        source=npc(weapons=weapons,ballistic_skill=None,ranged=ranged)
+        source=npc(weapons=weapons,ballistic_skill=None,ranged=ranged,dexterity=4)
         attacks=generated_npc_profiles(source)[1]
         self.assertTrue(all(attack.test_profile==InlineProfile(4,5 if attack.skill is Skill.THROWING else 3)
             for attack in attacks))
-        with self.assertRaises(ValueError):npc(weapons=weapons,ballistic_skill=2,ranged=ranged)
+        with self.assertRaises(ValueError):npc(weapons=weapons,ballistic_skill=2,ranged=ranged,dexterity=4)
 
     def test_rock_uses_one_real_hand_with_optional_shield_without_changing_printed_hands(self):
         from towr.domain.weapon_catalog import weapon_profile

@@ -131,7 +131,7 @@ class PcMusicianEquipmentProof:
 def _body(state, actor):
     if actor in state.source.pc_activation_order:
         value = state.participant(actor)
-    elif actor in state.source.enemy_activation_order:
+    elif actor in state.source.npc_activation_order:
         value = state.enemy(actor)
         if value.definition.generated_components is None:
             return None

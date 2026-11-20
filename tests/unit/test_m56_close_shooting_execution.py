@@ -41,7 +41,7 @@ def close_shooting_scene(profile=PcBookNpcProfile.EMPIRE_KNIGHT_LANCE,
     source = book_pc_scenario(footpads=0, townsfolk=0, pc_count=pc_count,
         max_rounds=rounds, **{keyword: 1})
     party = tuple(member if member.actor_id in melee_actor_ids else replace(member,
-        pc=replace(member.pc, weapon=PcMeleeWeapon.PISTOL, ranged=pistol_profile()),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
+        pc=replace(member.pc, weapon=PcMeleeWeapon.PISTOL, ranged=pistol_profile(), initiative=3, dexterity=4),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
         for member in source.party)
     return replace(source, party=party,
         facts=replace(source.facts, outnumbering_bonus_approved=False),

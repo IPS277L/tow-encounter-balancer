@@ -1,4 +1,5 @@
 """Bounded weapon-assisted Help for a named allied Attack or Protection Test."""
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import replace
 
 from towr.domain.condition_models import Condition
@@ -28,112 +29,139 @@ def pc_selected_help_policy(state):
     return source.help_policy
 
 
-def eligible_pc_help_beneficiary(state, strategy, actor=None, *, planned_choice=None):
-    from towr.domain.pc_melee_result_models import _pc_recover_needed
-    actor = actor or state.round_state.active_turn.actor_id
-    if actor not in state.source.pc_activation_order:
-        return None
-    if strategy is None:
-        return None
-    from towr.domain.pc_armour_models import actor_bound_to_chivalric_combat
-    if strategy.skill in (Skill.SHOOTING,Skill.THROWING) and actor_bound_to_chivalric_combat(state,actor):
-        return None
-    member = state.participant(actor)
-    body_help=strategy.skill in (Skill.BRAWN,Skill.ENDURANCE,Skill.ATHLETICS)
-    if strategy.skill is Skill.BRAWN and state.source.participant(actor).pc.brawn is None:
-        return None
-    if (member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS)
-            or member.injury.conditions.has(Condition.DEAFENED)
-            or _pc_recover_needed(member,unarmed_available=body_help)
-            or not body_help and usable_weapon_hand(member) is None):
-        return None
-    ally = state.participant(strategy.beneficiary_id)
-    from towr.domain.pc_allies_in_arms_models import allies_in_arms_choice
-    if (ally.injury.dead or ally.injury.conditions.has(Condition.DEFENCELESS)
-            or ally.injury.conditions.has(Condition.DRAINED)
-                and allies_in_arms_choice(state,actor,ally.actor_id)[0] is None):
-        return None
-    if strategy.target is PcHelpTarget.ATTACK:
-        from towr.domain.pc_melee_result_models import pc_attack_skill
-        from towr.domain.turn_models import CombatActionKind
-        recipient=state.source.participant(ally.actor_id)
-        view=state
-        if recipient.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
-            if state.source.pc_activation_order.index(actor)>=state.source.pc_activation_order.index(ally.actor_id):
-                return None
+def help_side_order(state,actor):
+    from towr.domain.pc_actor_models import pc_actor_side
+    from towr.domain.turn_models import CombatSide
+    return (state.source.player_activation_order if pc_actor_side(state,actor) is CombatSide.PLAYERS_AND_ALLIES
+        else state.source.enemy_activation_order)
+
+
+def help_recipient_attack(state,actor,*,planned_choice=None):
+    """Current attainable Attack and physical item, with no resource mutation."""
+    from towr.domain.pc_medical_models import effective_medical_injury
+    from towr.domain.pc_melee_result_models import pc_attack_skill,pc_selected_npc_attack_profile,_pc_recover_needed
+    from towr.domain.turn_models import CombatActionKind
+    injury=effective_medical_injury(state,actor)
+    if injury_is_defeated(injury) or any(injury.conditions.has(c) for c in
+            (Condition.DEFENCELESS,Condition.BROKEN)):return None
+    if actor in state.source.pc_activation_order:
+        source=state.source.participant(actor);view=state
+        if source.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
             if planned_choice is None:
                 from towr.domain.pc_tactical_models import select_pc_tactic
-                planned_choice=select_pc_tactic(state,ally.actor_id)
-            if planned_choice.action is not CombatActionKind.ATTACK:
-                return None
+                planned_choice=select_pc_tactic(state,actor)
+            if planned_choice.action is not CombatActionKind.ATTACK:return None
             if planned_choice.weapon_item_id is not None or planned_choice.unarmed_attack:
                 from towr.domain.pc_weapon_inventory import pc_weapon_inventory_view
-                view=pc_weapon_inventory_view(state,ally.actor_id,planned_choice.weapon_item_id)
-                if view is None:
-                    return None
-        if pc_attack_skill(view,ally.actor_id) is not strategy.skill:
-            return None
+                view=pc_weapon_inventory_view(state,actor,planned_choice.weapon_item_id)
+                if view is None:return None
+        elif source.help_policy is not None:return None
+        if _pc_recover_needed(view.participant(actor),unarmed_available=source.pc.brawn is not None):return None
+        member=view.participant(actor);skill=pc_attack_skill(view,actor)
+        if skill is Skill.SHOOTING and (member.ranged is None or not ranged_weapon_is_loaded(member.ranged)):return None
+        inventory=member.weapon_inventory
+    else:
+        if injury.conditions.has(Condition.PRONE):return None
+        from towr.domain.pc_medical_tactics import choose_medical_action
+        if choose_medical_action(state,actor) is not None:return None
+        from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
+        weapon=pc_npc_ranged_weapon(state,actor)
+        if weapon is not None and not ranged_weapon_is_loaded(weapon):return None
+        view=state;skill=pc_selected_npc_attack_profile(state,actor).skill
+        inventory=state.enemy(actor).state.weapon_inventory
+    return view,skill,None if inventory is None else inventory.active_item_id,planned_choice
+
+
+def help_recipient_protection(state,actor,incoming,test_id):
+    """One actual Protection Test, selected by injury role rather than side."""
+    from towr.domain.pc_melee_result_models import pc_attack_skill,pc_selected_npc_attack_profile,_pc_test,pc_protection_skill
+    incoming_skill=(pc_attack_skill(state,incoming) if incoming in state.source.pc_activation_order else
+        pc_selected_npc_attack_profile(state,incoming).skill)
+    if actor not in state.source.pc_activation_order:
+        from towr.domain.pc_generated_equipment import npc_protection_test
+        profile,test=npc_protection_test(state,actor,incoming,test_id,attack_skill=incoming_skill)
+        return profile.skill,test
+    source=state.source.participant(actor)
+    if source.policy is PcMeleePolicy.AUTOMATIC_COMBAT and incoming_skill in (Skill.SHOOTING,Skill.THROWING):
+        from towr.domain.pc_generated_ranged_advice import pc_shooting_protection
+        return pc_shooting_protection(state,actor,incoming,test_id,attack_skill=incoming_skill)
+    if source.policy is PcMeleePolicy.AUTOMATIC_COMBAT and incoming_skill is Skill.BRAWN:
+        from towr.domain.pc_generated_ranged_advice import pc_brawn_protection
+        return pc_brawn_protection(state,actor,test_id)
+    skill=pc_protection_skill(state.participant(actor),incoming_skill,source.close_shooting_protection_skill)
+    return skill,_pc_test(state,actor,test_id,skill,oppose_attack=True,incoming_attack_skill=incoming_skill)
+
+
+def eligible_pc_help_beneficiary(state,strategy,actor=None,*,planned_choice=None):
+    from towr.domain.pc_melee_result_models import _pc_recover_needed
+    from towr.domain.pc_actor_models import pc_actor_side,pc_actor_injury
+    actor=actor or state.round_state.active_turn.actor_id
+    if actor not in state.source.pc_activation_order or strategy is None:return None
+    beneficiary=strategy.beneficiary_id
+    if (beneficiary==actor or beneficiary not in (*state.source.pc_activation_order,*state.source.npc_activation_order)
+            or pc_actor_side(state,actor) is not pc_actor_side(state,beneficiary)):return None
+    from towr.domain.pc_armour_models import actor_bound_to_chivalric_combat
+    if strategy.skill in (Skill.SHOOTING,Skill.THROWING) and actor_bound_to_chivalric_combat(state,actor):return None
+    member=state.participant(actor);body_help=strategy.skill in (Skill.BRAWN,Skill.ENDURANCE,Skill.ATHLETICS)
+    if strategy.skill is Skill.BRAWN and state.source.participant(actor).pc.brawn is None:return None
+    if (member.injury.dead or any(member.injury.conditions.has(c) for c in (Condition.DEFENCELESS,Condition.DEAFENED))
+            or _pc_recover_needed(member,unarmed_available=body_help)
+            or not body_help and usable_weapon_hand(member) is None):return None
+    from towr.domain.pc_medical_models import effective_medical_injury
+    ally=effective_medical_injury(state,beneficiary)
+    from towr.domain.pc_allies_in_arms_models import allies_in_arms_choice
+    if (injury_is_defeated(ally) or ally.conditions.has(Condition.DEFENCELESS)
+            or ally.conditions.has(Condition.DRAINED) and allies_in_arms_choice(state,actor,beneficiary)[0] is None):return None
+    if strategy.target is PcHelpTarget.ATTACK:
+        order=help_side_order(state,actor)
+        if order.index(actor)>=order.index(beneficiary):return None
+        if beneficiary in (*state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids):return None
+        selected=help_recipient_attack(state,beneficiary,planned_choice=planned_choice)
+        if selected is None or selected[1] is not strategy.skill:return None
+        view,skill,item,planned_choice=selected
         if strategy.skill is Skill.SHOOTING:
             from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
             from towr.domain.pc_backup_weapon_models import pc_active_weapon
             if (pc_active_weapon(state,actor) not in PC_RANGED_WEAPONS
-                    or member.ranged is None or not ranged_weapon_is_loaded(member.ranged)):
-                return None
+                    or member.ranged is None or not ranged_weapon_is_loaded(member.ranged)):return None
             from towr.domain.pc_short_opening_models import pc_has_close_enemy
             from towr.domain.pc_weapon_models import pc_weapon_allows_close_shooting
-            if not pc_weapon_allows_close_shooting(pc_active_weapon(state,actor)) and pc_has_close_enemy(state,actor):
-                return None
+            if not pc_weapon_allows_close_shooting(pc_active_weapon(state,actor)) and pc_has_close_enemy(state,actor):return None
         elif strategy.skill is Skill.THROWING:
             from towr.domain.pc_melee_models import PC_THROWING_WEAPONS
             from towr.domain.pc_backup_weapon_models import pc_active_weapon
-            if pc_active_weapon(state,actor) not in PC_THROWING_WEAPONS:
-                return None
+            if pc_active_weapon(state,actor) not in PC_THROWING_WEAPONS:return None
         if strategy.skill in (Skill.SHOOTING,Skill.THROWING) and planned_choice is not None:
             from towr.domain.pc_battlefield_movement_models import pc_battlefield_attack_available
-            if not pc_battlefield_attack_available(state,actor,planned_choice.target_id):
-                return None
-        if (_pc_recover_needed(view.participant(ally.actor_id),
-                unarmed_available=recipient.pc.brawn is not None) or strategy.beneficiary_id in (
-                *state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)):
-            return None
+            if not pc_battlefield_attack_available(state,actor,planned_choice.target_id):return None
     else:
-        from towr.domain.pc_melee_result_models import pc_protection_skill,pc_selected_npc_attack_profile
-        incoming = pc_help_incoming_actor(state, strategy)
-        skill = (pc_protection_skill(ally,pc_selected_npc_attack_profile(state,incoming).skill,
-            state.source.participant(ally.actor_id).close_shooting_protection_skill)
-            if incoming is not None else None)
-        if (incoming is not None and pc_selected_npc_attack_profile(state,incoming).skill in (Skill.SHOOTING,Skill.THROWING)
-                and state.source.participant(ally.actor_id).policy is PcMeleePolicy.AUTOMATIC_COMBAT):
-            from towr.domain.pc_generated_ranged_advice import pc_close_shooting_protection
-            from towr.domain.pc_melee_result_models import pc_melee_action_id
-            skill,_=pc_close_shooting_protection(state,ally.actor_id,incoming,
-                pc_melee_action_id(state,incoming)+':protection')
-        elif (incoming is not None and pc_selected_npc_attack_profile(state,incoming).skill is Skill.BRAWN
-                and state.source.participant(ally.actor_id).policy is PcMeleePolicy.AUTOMATIC_COMBAT):
-            from towr.domain.pc_generated_ranged_advice import pc_brawn_protection
-            from towr.domain.pc_melee_result_models import pc_melee_action_id
-            skill,_=pc_brawn_protection(state,ally.actor_id,pc_melee_action_id(state,incoming)+':protection')
-        if skill is not strategy.skill or incoming is None:
-            return None
-    return strategy.beneficiary_id
+        incoming=pc_help_incoming_actor(state,strategy)
+        if incoming is None:return None
+        from towr.domain.pc_melee_result_models import pc_melee_action_id
+        skill,_=help_recipient_protection(state,beneficiary,incoming,pc_melee_action_id(state,incoming)+':protection')
+        if skill is not strategy.skill:return None
+    return beneficiary
 
 
-def pc_help_incoming_actor(state, strategy=None):
-    """Select the first current live NPC, without anticipating future PC outcomes."""
-    strategy = strategy or pc_selected_help_policy(state)
-    if strategy is None:
-        return None
-    target = next((pc for pc in state.source.enemy_target_priority
-        if not state.participant(pc).injury.dead),None)
-    if target != strategy.beneficiary_id:
-        return None
-    unavailable = (*state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)
+def pc_help_incoming_actor(state,strategy=None):
+    """First actual opposing NPC intending this recipient, never a friendly NPC."""
+    strategy=strategy or pc_selected_help_policy(state)
+    if strategy is None:return None
+    from towr.domain.pc_actor_models import pc_opponent_ids
+    from towr.domain.pc_battlefield_movement_models import _enemies,pc_battlefield_attack_available
+    opponents=pc_opponent_ids(state,strategy.beneficiary_id)
+    unavailable=(*state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)
     from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
-    from towr.domain.reload_models import ranged_weapon_is_loaded
-    return next((enemy for enemy in state.source.enemy_activation_order
-        if not state.enemy(enemy).state.injury.defeated and enemy not in state.exited_npc_ids
-        and enemy not in unavailable and (pc_npc_ranged_weapon(state,enemy) is None
-            or ranged_weapon_is_loaded(pc_npc_ranged_weapon(state,enemy)))),None)
+    for incoming in state.source.npc_activation_order:
+        if incoming not in opponents or incoming in unavailable:continue
+        weapon=pc_npc_ranged_weapon(state,incoming)
+        if weapon is not None and not ranged_weapon_is_loaded(weapon):continue
+        targets=_enemies(state,incoming)
+        if not targets:continue
+        predicted=next((target for target in targets if state.battlefield is not None
+            and pc_battlefield_attack_available(state,incoming,target)),targets[0])
+        if predicted==strategy.beneficiary_id:return incoming
+    return None
 
 
 def build_pc_help_action(state):
@@ -249,11 +277,10 @@ def pc_help_beneficiary_weapon(state,strategy):
     if strategy is None:
         return None
     target=strategy.beneficiary_id
-    inventory=state.participant(target).weapon_inventory
-    if inventory is None or strategy.skill in (Skill.ATHLETICS,Skill.ENDURANCE):
-        return None
-    if strategy.target is PcHelpTarget.ATTACK and state.source.participant(target).policy is PcMeleePolicy.AUTOMATIC_COMBAT:
-        from towr.domain.pc_tactical_models import select_pc_tactic
-        selected=select_pc_tactic(state,target)
-        return None if selected.unarmed_attack else selected.weapon_item_id or inventory.active_item_id
+    from towr.domain.pc_magic_weapon_models import actor_inventory
+    inventory=actor_inventory(state,target)
+    if inventory is None or strategy.skill in (Skill.ATHLETICS,Skill.ENDURANCE):return None
+    if strategy.target is PcHelpTarget.ATTACK:
+        selected=help_recipient_attack(state,target)
+        if selected is not None:return selected[2]
     return inventory.active_item_id

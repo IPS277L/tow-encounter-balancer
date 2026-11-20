@@ -26,9 +26,8 @@ def source(*, weapon=GeneratedWeapon.REPEATER_PISTOL, rounds=3, initiative=1, de
     member=replace(original.party[0],pc=replace(original.party[0].pc,
         weapon_skill=1,agility=1,melee=2,defence=2,athletics=2,toughness=20))
     firearm=weapon is not GeneratedWeapon.REPEATER_HANDBOW
-    facts=GeneratedRangedFacts(1,2,initiative,dexterity,True,
-        True if firearm else None,True if firearm else None)
-    npc=GeneratedNpc(2,3,3,2,3,3,initial_generated_weapons(weapon),light_loadout(light=False, shield=False),defence=3,ranged=facts)
+    facts=GeneratedRangedFacts(1, 2,  True, True if firearm else None, True if firearm else None)
+    npc=GeneratedNpc(2,3,3,2,3,3,initial_generated_weapons(weapon),light_loadout(light=False, shield=False),defence=3,ranged=facts, initiative=initiative,dexterity=dexterity)
     return replace(original,party=(member,),enemies=(npc.participant('minion1'),),
         npc_ranged_policies=(pc_npc_ranged_policy_for_generated(npc,'minion1'),))
 

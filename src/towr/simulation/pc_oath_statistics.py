@@ -144,7 +144,8 @@ def oath_observations(result):
     actors = oath_count_actors(result.source)
     if not actors:
         return None
-    if type(result.steps) is not tuple or tuple(row.actor_id for row in result.state.oaths) != actors:
+    allies={ally.state.actor_id for ally in result.source.npc_allies}
+    if type(result.steps) is not tuple or tuple(row.actor_id for row in result.state.oaths if row.actor_id not in allies) != actors:
         raise ValueError('Oath observations require the actual complete immutable owner journal')
     totals = {actor:dict.fromkeys(_FIELDS,0) for actor in actors}
     seen = set()
@@ -154,6 +155,7 @@ def oath_observations(result):
             replace(proof)
             source = proof.result.source_request
             actor = source.blessing.actor_id
+            if actor in allies:continue
             key = (actor,source.id)
             if actor not in totals or key in seen:
                 raise ValueError('ordinary prayer observation replaced or duplicated an actual owner receipt')
@@ -161,6 +163,7 @@ def oath_observations(result):
             totals[actor]['prayers'] += 1
     for row in result.state.oaths:
         replace(row)
+        if row.actor_id in allies:continue
         counted = totals[row.actor_id]
         use_ids = set()
         for activation in row.honour_uses:

@@ -29,7 +29,7 @@ def validate_pc_npc_grudge_policies(source) -> None:
         if type(policy) is not PcNpcGrudgePolicy:
             raise TypeError('NPC grudge policy must be its exact typed pair')
         replace(policy)
-        if policy.actor_id not in source.enemy_activation_order:
+        if policy.actor_id not in source.npc_activation_order:
             raise ValueError('NPC grudge actor must belong to the source opposition')
         definition=source.enemy(policy.actor_id).definition
         validate_pc_book_npc_definition(definition)

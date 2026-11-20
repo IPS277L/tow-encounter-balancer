@@ -1,6 +1,7 @@
 """Explicit book profile-Wound effects and the Official's actual Broken-turn boundary."""
 from __future__ import annotations
 
+from towr.domain.injury_models import injury_is_defeated
 from towr.domain.pc_demigryph_models import pc_kernel_attack_types
 
 from dataclasses import dataclass, replace
@@ -155,10 +156,10 @@ def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupp
     from towr.domain.pc_melee_result_models import PcAttackProof, PcProfileWoundProof, pc_melee_next_actor
     from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
     actor = pc_melee_next_actor(state)
-    if actor not in state.source.enemy_activation_order:
+    if actor not in state.source.npc_activation_order:
         return None
     enemy = state.enemy(actor)
-    if (enemy.definition.id not in OFFICIAL_DEFINITION_IDS or enemy.state.injury.defeated
+    if (enemy.definition.id not in OFFICIAL_DEFINITION_IDS or injury_is_defeated(enemy.state.injury)
             or not enemy.state.injury.conditions.has(Condition.BROKEN)):
         return None
     validate_pc_book_npc_definition(enemy.definition)
@@ -167,13 +168,22 @@ def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupp
     attack = None
     cause = None
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
+    from towr.domain.pc_cleaving_blow_models import PcCleavingProfileProof,cleaving_wave_receipt
     wave_cause = False
-    for proof in state.history:
+    for index,proof in enumerate(state.history):
         if type(proof) is PcWarpedFormProfileProof and proof.target_id==actor and _first_wound(proof.source):
             if cause is not None:
                 raise ValueError('Official first-Wound Broken was acknowledged twice')
             cause=(proof.activation_id,proof.source)
             wave_cause = True
+        elif type(proof) is PcCleavingProfileProof and proof.target_id==actor and _first_wound(proof.source):
+            wave,_=cleaving_wave_receipt(state.history[:index],proof)
+            if proof.decision is not None:
+                raise ValueError('living Broken Official cannot receive a defeat disposition')
+            if cause is not None:
+                raise ValueError('Official first-Wound Broken was acknowledged twice')
+            cause=(wave.wave_id,proof.source)
+            wave_cause=True
         if type(proof) in pc_kernel_attack_types():
             attack = proof
         elif (type(proof) is PcProfileWoundProof and attack is not None

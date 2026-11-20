@@ -140,7 +140,7 @@ class HonourOutcomeNativeTests(unittest.TestCase):
         npc=replace(enemy.definition.generated_components,agility=1)
         original=replace(original,enemies=(npc.participant(enemy.state.actor_id),))
         member=replace(original.party[0],pc=replace(original.party[0].pc,
-            ranged=replace(original.party[0].pc.ranged,dexterity=3)))
+            dexterity=3))
         equipment=(replace(member.combat_equipment[0],initially_loaded=False),*member.combat_equipment[1:])
         original=replace(original,party=(replace(member,combat_equipment=equipment),))
         source=with_native_outcome_owner(original)

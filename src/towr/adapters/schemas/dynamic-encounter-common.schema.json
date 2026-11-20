@@ -115,6 +115,11 @@
               ],
               "minimum": 1,
               "maximum": 10
+            },
+            "recall": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
             }
           },
           "required": [
@@ -214,6 +219,16 @@
         },
         "oath_context": {
           "$ref": "urn:towr:talent:common:1#/$defs/oath_context"
+        },
+        "medical": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/medical_preparation"
+            }
+          ]
         }
       },
       "required": [
@@ -450,6 +465,197 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "skills": {
+                "required": [
+                  "awareness"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "characteristics": {
+                "required": [
+                  "initiative"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "skills": {
+                "required": [
+                  "recall"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "characteristics": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "skills": {
+                "required": [
+                  "dexterity"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "characteristics": {
+                "required": [
+                  "initiative"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "anyOf": [
+              {
+                "required": [
+                  "medical"
+                ],
+                "properties": {
+                  "medical": {
+                    "type": "object",
+                    "required": [
+                      "treatment_supplies",
+                      "anatomy_lore"
+                    ],
+                    "properties": {
+                      "treatment_supplies": {
+                        "const": true
+                      },
+                      "anatomy_lore": {
+                        "const": false
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "allOf": [
+                  {
+                    "required": [
+                      "talents"
+                    ],
+                    "properties": {
+                      "talents": {
+                        "contains": {
+                          "required": [
+                            "id"
+                          ],
+                          "properties": {
+                            "id": {
+                              "const": "combat_surgeon"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "medical"
+                    ],
+                    "properties": {
+                      "medical": {
+                        "type": "object",
+                        "required": [
+                          "treatment_supplies"
+                        ],
+                        "properties": {
+                          "treatment_supplies": {
+                            "const": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "characteristics": {
+                "required": [
+                  "reason"
+                ]
+              },
+              "skills": {
+                "required": [
+                  "recall"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "medical"
+            ],
+            "properties": {
+              "medical": {
+                "type": "object",
+                "anyOf": [
+                  {
+                    "required": [
+                      "surgery_supplies"
+                    ],
+                    "properties": {
+                      "surgery_supplies": {
+                        "const": true
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "recovery_supports"
+                    ],
+                    "properties": {
+                      "recovery_supports": {
+                        "minItems": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "characteristics": {
+                "required": [
+                  "initiative"
+                ]
+              },
+              "skills": {
+                "required": [
+                  "dexterity"
+                ]
+              }
+            }
+          }
         }
       ]
     },
@@ -623,6 +829,15 @@
           "uniqueItems": true
         },
         "initiative": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "reason": {
           "type": "array",
           "items": {
             "type": "integer",
@@ -857,6 +1072,33 @@
             "$ref": "#/$defs/generated_oath_source"
           },
           "uniqueItems": true
+        },
+        "recall": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "injury_policy": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "minion",
+              "champion"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "allowed_medical_sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/generated_medical_source"
+          }
         }
       },
       "required": [
@@ -1043,6 +1285,13 @@
         },
         "oath_counts": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/summary/properties/oath_counts"
+        },
+        "npc_ally_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/npcAllyCount"
+          }
         }
       },
       "required": [
@@ -1352,6 +1601,9 @@
         },
         {
           "$ref": "#/$defs/oathCandidatePresence"
+        },
+        {
+          "$ref": "#/$defs/npcAllyCandidatePresence"
         }
       ]
     },
@@ -1424,6 +1676,16 @@
         },
         "dismounted_mounts_are_combatants": {
           "type": "boolean"
+        },
+        "surgery_risk": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:towr:pc-melee:common:1#/$defs/surgery_risk"
+            }
+          ]
         }
       },
       "required": [
@@ -1960,6 +2222,32 @@
                         }
                       }
                     }
+                  },
+                  {
+                    "required": [
+                      "npc_allies"
+                    ],
+                    "properties": {
+                      "npc_allies": {
+                        "contains": {
+                          "required": [
+                            "npc"
+                          ],
+                          "properties": {
+                            "npc": {
+                              "required": [
+                                "mount"
+                              ],
+                              "properties": {
+                                "mount": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
                   }
                 ]
               }
@@ -2192,6 +2480,64 @@
         "not": {
           "required": [
             "oath_counts"
+          ]
+        }
+      }
+    },
+    "generated_medical_source": {
+      "type": "object",
+      "properties": {
+        "medical": {
+          "$ref": "urn:towr:pc-melee:common:1#/$defs/medical_preparation"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:towr:pc-melee:common:1#/$defs/tool_item"
+          }
+        }
+      },
+      "required": [
+        "medical",
+        "tools"
+      ],
+      "additionalProperties": false
+    },
+    "npcAllyCandidatePresence": {
+      "if": {
+        "required": [
+          "replay"
+        ],
+        "properties": {
+          "replay": {
+            "required": [
+              "scenario"
+            ],
+            "properties": {
+              "scenario": {
+                "required": [
+                  "npc_allies"
+                ],
+                "properties": {
+                  "npc_allies": {
+                    "type": "array",
+                    "minItems": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "npc_ally_counts"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "npc_ally_counts"
           ]
         }
       }

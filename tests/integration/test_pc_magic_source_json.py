@@ -39,7 +39,7 @@ class PcMagicSourceJsonTests(unittest.TestCase):
             command = parse_dynamic_encounter_request(json.dumps(document))
         search.assert_not_called()
         wizard = command.request.party[0].wizard
-        self.assertEqual((wizard.reason,wizard.willpower,wizard.wizard_level),(3,5,1))
+        self.assertEqual((command.request.party[0].pc.reason,wizard.willpower,wizard.wizard_level),(3,5,1))
         self.assertEqual(wizard.memorised_spells,(PcSpellId.LIGHTNING_BLAST,PcSpellId.FIRE_BREATH))
         self.assertEqual(json.loads(command.source_json),document)
         self.assertIs(command.request.facts.daylight_confirmed,True)
@@ -131,8 +131,8 @@ class DynamicMagicObservationSchemaTests(unittest.TestCase):
     def candidate(self, *, wizard):
         source = automatic_source(pc_count=1)
         if wizard:
-            profile = PcWizardProfile('human',3,5,1,('elementalism',),(PcSpellId.LIGHTNING_BLAST,),True)
-            source = replace(source,party=(replace(source.party[0],wizard=profile,
+            profile = PcWizardProfile('human',5,1,('elementalism',),(PcSpellId.LIGHTNING_BLAST,),True)
+            source = replace(source,party=(replace(source.party[0],wizard=profile,pc=replace(source.party[0].pc,reason=3),
                 talents=(paid_talent(TalentId.WIZARD),)),),
                 facts=replace(source.facts,daylight_confirmed=True))
         return dict(npcs=[dict(weapon_skill=3,strength=3,toughness=3,agility=3,

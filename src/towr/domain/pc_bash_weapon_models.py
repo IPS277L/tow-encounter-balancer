@@ -7,6 +7,7 @@ replaced to forecast an inventory arrangement.
 """
 from __future__ import annotations
 
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, replace
 from math import isfinite
 
@@ -94,7 +95,7 @@ def select_bash_weapon(state, actor_id: str, target_id: str) -> BashWeaponSelect
     for actor in (actor_id, target_id):
         if type(actor) is not str or not actor.strip():
             raise TypeError('Bash selection requires exact nonempty actor identifiers')
-    pcs, npcs = state.source.pc_activation_order, state.source.enemy_activation_order
+    pcs, npcs = state.source.pc_activation_order, state.source.npc_activation_order
     # Retained creatures are real opposing targets, not new Bash attackers.
     # Their passive policy cannot acquire a weapon, Talent or immediate grant.
     if actor_id not in (*pcs, *npcs):
@@ -122,7 +123,7 @@ def select_bash_weapon(state, actor_id: str, target_id: str) -> BashWeaponSelect
         from towr.domain.generated_npc_models import generated_npc_combat_ratings
         enemy = state.enemy(actor_id)
         source = enemy.definition.generated_components
-        if source is None or enemy.state.injury.defeated or actor_id in state.exited_npc_ids:
+        if source is None or injury_is_defeated(enemy.state.injury) or actor_id in state.exited_npc_ids:
             return None
         if enemy.state.injury.conditions.has(Condition.DEFENCELESS):
             return None
@@ -138,7 +139,7 @@ def select_bash_weapon(state, actor_id: str, target_id: str) -> BashWeaponSelect
         target_conditions, resilience = victim.injury.conditions, pc_shield_resilience(state, target_id)
     else:
         victim = pc_actor_npc_snapshot(state, target_id)
-        if victim.state.injury.defeated or target_id in state.exited_npc_ids:
+        if injury_is_defeated(victim.state.injury) or target_id in state.exited_npc_ids:
             return None
         if target_id not in npcs:
             from towr.domain.pc_actor_models import pc_active_actor_ids

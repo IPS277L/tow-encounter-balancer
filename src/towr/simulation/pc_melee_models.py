@@ -1,4 +1,5 @@
 """Indexed, source-bound observations for the bounded PC encounter (ADR-0065)."""
+from towr.simulation.pc_npc_ally_statistics import PcNpcAllyCount,validate_npc_ally_counts
 from towr.simulation.pc_ranged_statistics import PcRangedCount,validate_pc_ranged_counts
 
 from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount,validate_npc_ranged_counts
@@ -27,7 +28,7 @@ SEED_SCHEME = 'towr:pc-melee-trial:v1'
 
 
 def pc_has_aim_capability(scenario) -> bool:
-    return any(member.pc.ranged is not None and member.pc.ranged.awareness is not None
+    return any(member.pc.awareness is not None
         for member in scenario.party)
 
 
@@ -91,7 +92,7 @@ def validate_aim_counts(counts, scenario, *, trials, actions, started_rounds, gl
     for member,aim,second in zip(scenario.party,counts.action_counts,counts.second_action_spend_counts,strict=True):
         if aim.count > min(started_rounds,trials*scenario.max_rounds):
             raise ValueError('Aim count exceeds the one-Aim-per-own-turn budget')
-        if aim.count and (member.pc.ranged is None or member.pc.ranged.awareness is None):
+        if aim.count and member.pc.awareness is None:
             raise ValueError('Aim counts require this actor actual ranged Awareness source')
         if PcMeleeWeapon.HOCHLAND_LONG_RIFLE not in pc_initial_weapon_kinds(member) and second.count:
             raise ValueError('only the admitted Hochland actor can fund this Second Action')
@@ -743,6 +744,7 @@ class PcMeleeTrialRecord:
     companion_counts: tuple[PcCompanionCount,...] | None = field(default=None,kw_only=True)
     music_counts: tuple[PcMusicianCount,...] | None = field(default=None,kw_only=True)
     oath_counts: tuple[PcOathCount,...] | None = field(default=None,kw_only=True)
+    npc_ally_counts: tuple[PcNpcAllyCount,...] | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -788,8 +790,11 @@ class PcMeleeTrialRecord:
         validate_oath_counts(self.oath_counts,self.source_scenario,trials=1,
             started_rounds=self.started_rounds,actions=self.executed_actions)
         companion_actions=sum(row.recover_actions+row.movement_actions for row in self.companion_counts or ())
+        validate_npc_ally_counts(self.npc_ally_counts,self.source_scenario,trials=1,
+            started_rounds=self.started_rounds,actions=self.executed_actions)
+        allied_actions=sum(row.actions for row in self.npc_ally_counts or ())
         actors = len(self.source_scenario.party) + len(self.source_scenario.enemies)
-        if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds+extras+pc_extras+seconds+rapid+companion_actions:
+        if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds+allied_actions+extras+pc_extras+seconds+rapid+companion_actions:
             raise ValueError('actions contradict the round/actor budget')
         if self.outcome is PcMeleeOutcome.ROUND_LIMIT and self.completed_rounds != self.source_scenario.max_rounds:
             raise ValueError('round limit must complete the full source budget')

@@ -29,5 +29,9 @@
       "location": "held",
       "hand": "left"
     }
-  ]
+  ],
+  "reason": null,
+  "recall": null,
+  "dexterity": null,
+  "injury_policy": "minion"
 }

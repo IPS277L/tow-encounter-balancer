@@ -93,6 +93,60 @@ def parse_armour_loadout(raw, *, path_prefix, error_type):
         raise error_type(Code.INVALID_INPUT, str(error), path=path_prefix) from error
 
 
+def parse_medical_preparation(raw, *, path, error_type):
+    if raw is None:
+        return None
+    from towr.domain.medical_preparation_models import MedicalPreparationFacts
+    from towr.domain.injury_models import WoundEntryId
+    required={'anatomy_lore','treatment_supplies','surgery_supplies'}
+    optional={'recovery_supports','self_treatment_modifier','makeshift_modifier'}
+    if type(raw) is not dict or not required <= raw.keys() or raw.keys()-required-optional:
+        raise error_type(Code.INVALID_INPUT,'medical preparation needs explicit knowledge and supplies',path=path)
+    try:
+        values=dict(raw,recovery_supports=tuple(WoundEntryId(value) for value in raw.get('recovery_supports',())))
+    except (TypeError,ValueError) as error:
+        raise error_type(Code.INVALID_INPUT,str(error),path=path+'/recovery_supports') from error
+    return build_value(error_type,path,MedicalPreparationFacts,**values)
+
+
+def parse_surgery_risk(raw, *, path, error_type):
+    if raw is None:
+        return None
+    from towr.domain.surgery_failure_resolution_models import SurgeryRiskPolicy
+    from towr.domain.injury_models import DecisionOwner
+    required={'id','no_complication','permanent_disfigurement','death'}
+    if type(raw) is not dict or not required <= raw.keys() or raw.keys()-required-{'disfigurement_description','owner'}:
+        raise error_type(Code.INVALID_INPUT,'surgery risk needs an explicit complete GM weight policy',path=path)
+    try:
+        owner=DecisionOwner(raw.get('owner','gm'))
+    except (TypeError,ValueError) as error:
+        raise error_type(Code.INVALID_INPUT,str(error),path=path+'/owner') from error
+    return build_value(error_type,path,SurgeryRiskPolicy,**dict(raw,owner=owner))
+
+
+def parse_generated_medical_sources(raw, *, path, error_type):
+    from towr.application.generated_medical_sources import GeneratedMedicalSource
+    if type(raw) is not list:
+        raise error_type(Code.INVALID_INPUT,'allowed medical sources must be an explicit list',path=path)
+    sources=[]
+    for index,item in enumerate(raw):
+        current=path+'/'+str(index)
+        if type(item) is not dict or set(item)!={'medical','tools'}:
+            raise error_type(Code.INVALID_INPUT,'medical source requires its preparation and physical tools',path=current)
+        sources.append(build_value(error_type,current,GeneratedMedicalSource,
+            parse_medical_preparation(item['medical'],path=current+'/medical',error_type=error_type),
+            parse_tool_item_sources(item['tools'],path_prefix=current+'/tools',error_type=error_type)))
+    return tuple(sources)
+
+
+def generated_medical_sources_document(sources):
+    from towr.application.generated_medical_sources import GeneratedMedicalSource
+    if type(sources) is not tuple or any(type(source) is not GeneratedMedicalSource for source in sources):
+        raise TypeError('medical source documents retain their exact initial source tuple')
+    return [dict(medical=_plain(asdict(source.medical)),tools=tool_item_sources_document(source.tools))
+        for source in sources]
+
+
 def parse_generated_components(raw, *, path_prefix, error_type):
     """Readmit the complete generated source without rebuilding or dropping facts."""
     return build_value(error_type, path_prefix, GeneratedNpc,
@@ -107,6 +161,8 @@ def parse_generated_components(raw, *, path_prefix, error_type):
             rider_kind=None if raw.get('rider_kind') is None else RiderKind(raw['rider_kind']),
             ranged=None if raw.get('ranged') is None else build_value(error_type,
                 path_prefix+'/ranged', GeneratedRangedFacts, **raw['ranged']),
+            medical=parse_medical_preparation(raw.get('medical'),path=path_prefix+'/medical',error_type=error_type),
+            injury_policy=TargetInjuryPolicy(raw.get('injury_policy','minion')),
             abilities=tuple(GeneratedAbility(value) for value in raw['abilities']),
             oath_context=parse_oath_context(raw.get('oath_context'), path=path_prefix+'/oath_context',error_type=error_type),
             talents=parse_acquired_talents(raw['talents'],path=path_prefix+'/talents',error_type=error_type),
@@ -153,6 +209,25 @@ def generated_components_document(npc):
     if npc.talent_facts is None:
         del document['talent_facts']
     return document
+
+
+def parse_npc_allies(raw, *, path_prefix, error_type):
+    """Original same-side NPC actors use the standalone generated NPC source."""
+    if type(raw) is not list:
+        raise error_type(Code.INVALID_INPUT,'NPC allies require an ordered array.',path=path_prefix)
+    allies=[]
+    for index,row in enumerate(raw):
+        path=f'{path_prefix}/{index}'
+        if type(row) is not dict or set(row)!={'actor_id','npc'}:
+            raise error_type(Code.INVALID_INPUT,'An NPC ally requires actor_id and its complete npc source.',path=path)
+        npc=parse_generated_components(row['npc'],path_prefix=path+'/npc',error_type=error_type)
+        allies.append(build_value(error_type,path,npc.participant,row['actor_id'],side=CombatSide.PLAYERS_AND_ALLIES))
+    return tuple(allies)
+
+
+def npc_allies_document(allies):
+    return [dict(actor_id=ally.state.actor_id,npc=generated_components_document(ally.definition.generated_components))
+        for ally in allies]
 
 
 def parse_facts(data: dict) -> PcMeleeFacts:
@@ -305,6 +380,8 @@ def _parse_participant(data, *, path_prefix, error_type):
         path=path_prefix+'/combat_equipment',error_type=error_type)
     requirements=weapon_ranged_requirements(tuple(item.weapon for item in combat_equipment or ()))
     pc_raw = dict(data["pc"])
+    if 'medical' in pc_raw:
+        pc_raw['medical']=parse_medical_preparation(pc_raw['medical'],path=path_prefix+'/pc/medical',error_type=error_type)
     pc_raw['tools'] = parse_tool_item_sources(pc_raw.get('tools', []),
         path_prefix=path_prefix+'/pc/tools', error_type=error_type)
     pc_raw["weapon"] = PcMeleeWeapon(pc_raw["weapon"])
@@ -324,13 +401,11 @@ def _parse_participant(data, *, path_prefix, error_type):
                 path=path_prefix+'/pc/ranged')
         fields = {'ballistic_skill', 'shooting', 'ammunition_supply_confirmed'}
         if requirements.exacting:
-            fields.update(('initiative', 'dexterity', 'reload_hand_policy'))
+            fields.add('reload_hand_policy')
         if requirements.firearm:
             fields.update(('has_blackpowder_lore', 'has_blackpowder_kit'))
         if requirements.repeater:
             fields.add('repeater_bonus_policy')
-        if requirements.requires_aim or 'awareness' in raw:
-            fields.update(('awareness','initiative'))
         if set(raw) != fields:
             raise error_type(Code.INVALID_INPUT, 'ranged requires the complete closed profile for its whole inventory',
                 path=path_prefix + '/pc/ranged')
@@ -657,12 +732,20 @@ def _parse_scenario(data, *, path_prefix, error_type):
         initial_conditions=ConditionState(frozenset((Condition.BURDENED,))
             if generated is not None and armour_burden_sources(generated.armour,generated.strength)
             else frozenset())
+        from towr.domain.injury_models import CharacterInjuryState
+        initial_injury=(CharacterInjuryState(conditions=initial_conditions)
+            if definition.injury_policy is TargetInjuryPolicy.CHAMPION else
+            ProfileInjuryState(0, definition.wound_limit,initial_conditions))
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
-            CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit,initial_conditions), tuple(profile.id for profile in attacks),
+            CombatSide.OPPOSITION, initial_injury, tuple(profile.id for profile in attacks),
             resilience, generated.participant(enemy['actor_id']).state.wields_weapon
                 if generated is not None else attack.hands is not None, enemy["holds_shield"],
             tool_inventory=initial_tool_inventory(enemy['actor_id'], () if generated is None else generated.tools))
         enemies.append(NpcParticipantSnapshot(definition, state))
+    allies=parse_npc_allies(data.get('npc_allies',[]),path_prefix=path_prefix+'/npc_allies',error_type=error_type)
+    from towr.domain.pc_npc_ranged_source_models import pc_npc_ranged_policy_for_generated
+    ranged_policies.extend(pc_npc_ranged_policy_for_generated(ally.definition.generated_components,ally.state.actor_id)
+        for ally in allies if ally.definition.generated_components.ranged is not None)
     return build(path_prefix, PcMeleeScenario, data["id"], party,
         data["day_id"], tuple(enemies), build(path_prefix + "/facts", PcMeleeFacts, **data["facts"]),
         tuple(data["pc_activation_order"]), tuple(data["enemy_activation_order"]),
@@ -672,10 +755,16 @@ def _parse_scenario(data, *, path_prefix, error_type):
         tuple(build(f'{path_prefix}/npc_help_policies/{index}',PcNpcHelpPolicy,**policy)
             for index,policy in enumerate(data['npc_help_policies'])),
         npc_extra_attack_actor_ids=tuple(data['npc_extra_attack_actor_ids']),
+        npc_defeat_decisions=tuple(build(f'{path_prefix}/npc_defeat_decisions/{index}',
+            MinionDefeatDecision,**dict(decision,disposition=NpcDefeatDisposition(decision['disposition'])))
+            for index,decision in enumerate(data.get('npc_defeat_decisions',()))),
+        npc_allies=allies,player_side_activation_order=(None if data.get('player_side_activation_order') is None
+            else tuple(data['player_side_activation_order'])),
         short_range_opening=_parse_short_range_opening(data,path_prefix=path_prefix,error_type=error_type),
         battlefield=_parse_battlefield(data,path_prefix=path_prefix,error_type=error_type),
         music_acoustics=parse_music_acoustics(data.get('music_acoustics'),
             path=path_prefix+'/music_acoustics', error_type=error_type),
+        surgery_risk=parse_surgery_risk(data.get('surgery_risk'),path=path_prefix+'/surgery_risk',error_type=error_type),
         single_combat_pairs=tuple(build(f'{path_prefix}/single_combat_pairs/{index}',
             PcSingleCombatPair,**pair) for index,pair in enumerate(data.get('single_combat_pairs',()))),
         blunderbuss_nearby=_parse_blunderbuss_nearby(data,path_prefix=path_prefix,error_type=error_type),
@@ -796,6 +885,12 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
         "npc_flagellant_policies": _plain([asdict(policy) for policy in scenario.npc_flagellant_policies]),
         "npc_warped_form_policies": _plain([asdict(policy) for policy in scenario.npc_warped_form_policies]),
         "npc_broken_exit_policy": None if scenario.npc_broken_exit_policy is None else asdict(scenario.npc_broken_exit_policy)}
+    if scenario.npc_defeat_decisions:
+        document['npc_defeat_decisions']=_plain([asdict(decision) for decision in scenario.npc_defeat_decisions])
+    if scenario.npc_allies:
+        document['npc_allies']=npc_allies_document(scenario.npc_allies)
+    if scenario.player_side_activation_order is not None:
+        document['player_side_activation_order']=list(scenario.player_side_activation_order)
     if scenario.npc_close_shooting_protection_policies is not None:
         document['npc_close_shooting_protection_policies'] = _plain([
             asdict(policy) for policy in scenario.npc_close_shooting_protection_policies])
@@ -807,6 +902,8 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
         document['battlefield'] = _plain(asdict(scenario.battlefield))
     if scenario.music_acoustics is not None:
         document['music_acoustics'] = _plain(asdict(scenario.music_acoustics))
+    if scenario.surgery_risk is not None:
+        document['surgery_risk'] = _plain(asdict(scenario.surgery_risk))
     if scenario.blunderbuss_nearby is not None:
         document['blunderbuss_nearby'] = {
             'initial_npc_clustered_confirmed':scenario.blunderbuss_nearby.initial_npc_clustered_confirmed,

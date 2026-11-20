@@ -34,9 +34,9 @@ def item(id,kind,grip=None,*,loaded=None):
     return WeaponItemSource(id,kind,L.CARRIED if grip is None else L.HELD,grip,initially_loaded=loaded)
 
 
-def scene(items,*,ranged=None,throwing=None,rounds=3):
+def scene(items,*,ranged=None,throwing=None,initiative=None,awareness=None,dexterity=None,rounds=3):
     source=make_pc_melee_scenario(max_rounds=rounds)
-    npc=GeneratedNpc(1,4,20,1,2,2,items,ArmourLoadout(),defence=2,ranged=ranged,
+    npc=GeneratedNpc(1,4,20,1,2,2,items,ArmourLoadout(),defence=2,ranged=ranged,initiative=initiative,awareness=awareness,dexterity=dexterity,
         throwing=throwing,ballistic_skill=6 if throwing is not None and ranged is None else None)
     actor=source.enemy_activation_order[0]
     pc=source.party[0]
@@ -92,9 +92,9 @@ class GeneratedInventoryExecutionTests(unittest.TestCase):
         raw['scene']['two_handed_max_range']='short'
         command=parse_dynamic_encounter_request(json.dumps(raw))
         npc=replace(command.request.space.sample(Random(1)),brawn=None)
-        self.assertIsNone(npc.ranged.initiative)
-        self.assertIsNone(npc.ranged.dexterity)
-        self.assertIsNone(npc.ranged.awareness)
+        self.assertIsNone(npc.initiative)
+        self.assertIsNone(npc.dexterity)
+        self.assertIsNone(npc.awareness)
         source=command.request.scenario((npc,),'sling')
         restored=parse_pc_melee_simulation_request(json.dumps(native_document(source))).request.scenario
         self.assertEqual(source,restored)
@@ -119,7 +119,7 @@ class GeneratedInventoryExecutionTests(unittest.TestCase):
     def test_initially_empty_shielded_pistol_keeps_its_initial_reload_cycle(self):
         from towr.domain.pc_npc_shield_models import NpcShieldLocation
         source=scene((item('empty-gun',W.PISTOL,G.LEFT,loaded=False),),
-            ranged=GeneratedRangedFacts(6,6,3,6,True,True,True),rounds=1)
+            ranged=GeneratedRangedFacts(6,6,True,True,True),rounds=1, initiative=3,dexterity=6)
         npc=source.enemies[0].definition.generated_components
         npc=replace(npc,armour=ArmourLoadout(shield=ShieldKind.SHIELD))
         source=replace(source,enemies=(npc.participant('minion1'),))
@@ -164,7 +164,7 @@ class GeneratedInventoryExecutionTests(unittest.TestCase):
 
     def test_two_loaded_pistols_shoot_before_reloading_one_actual_instance(self):
         source=scene((item('left',W.PISTOL,G.LEFT,loaded=True),item('right',W.PISTOL,G.RIGHT,loaded=True)),
-            ranged=GeneratedRangedFacts(6,6,3,6,True,True,True))
+            ranged=GeneratedRangedFacts(6,6,True,True,True), initiative=3,dexterity=6)
         result=run_pc_melee_scenario(source,Tens())
         self.assertIsNone(result.unsupported)
         shots=tuple(step for step in result.steps if type(step.proof) is PcAttackProof
@@ -182,7 +182,7 @@ class GeneratedInventoryExecutionTests(unittest.TestCase):
 
     def test_melee_primary_draws_a_ready_carried_gun_and_preserves_source(self):
         source=scene((item('sword',W.SWORD,G.LEFT),item('gun',W.PISTOL,loaded=True)),
-            ranged=GeneratedRangedFacts(6,6,3,6,True,True,True),rounds=1)
+            ranged=GeneratedRangedFacts(6,6,True,True,True),rounds=1, initiative=3,dexterity=6)
         result=run_pc_melee_scenario(source,Tens())
         self.assertIsNone(result.unsupported)
         swaps=tuple(step.proof for step in result.steps if type(step.proof) is PcNpcWeaponEquipProof)
@@ -217,7 +217,7 @@ class GeneratedInventoryExecutionTests(unittest.TestCase):
 
     def test_carried_bow_cannot_create_a_close_shot_without_a_battlefield(self):
         source=scene((item('sword',W.SWORD,G.LEFT),item('bow',W.SHORTBOW)),
-            ranged=GeneratedRangedFacts(6,6,3,None,True,None,None,awareness=4),rounds=1)
+            ranged=GeneratedRangedFacts(6,6,True,None,None),rounds=1, initiative=3, awareness=4)
         result=run_pc_melee_scenario(source,Tens())
         self.assertIsNone(result.unsupported)
         self.assertEqual(result.state.enemy('minion1').state.weapon_inventory.active.source_item_id,'sword')

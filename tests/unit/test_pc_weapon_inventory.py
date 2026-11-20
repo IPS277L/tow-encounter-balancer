@@ -328,8 +328,8 @@ class PcWeaponInventoryNativeTests(unittest.TestCase):
         from towr.domain.pc_shield_models import PcShieldReleaseProof,PcShieldLocation
         from towr.domain.pc_melee_result_models import PcRecoverProof,PcAttackProof
         scene=source(shield=True);member=scene.party[0]
-        member=replace(member,pc=replace(member.pc,toughness=20,
-            ranged=replace(member.pc.ranged,initiative=6,dexterity=6)),
+        member=replace(member,pc=replace(member.pc,toughness=20,initiative=6,
+            dexterity=6),
             backup_weapon_policy=None,combat_equipment=member.combat_equipment[:1])
         enemy=scene.enemies[0]
         attack=replace(enemy.definition.attacks[0],test_profile=InlineProfile(1,2),damage=DamageProfile(1))

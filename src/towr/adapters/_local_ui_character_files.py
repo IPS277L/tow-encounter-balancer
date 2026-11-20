@@ -20,25 +20,28 @@ function draftNpcs(candidate,report){const draft=report===lastResult?npcDrafts.g
 async function validateCharacterText(kind,document){
  const response=await fetch('/api/character',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,document})});const result=await response.json();if(!response.ok)throw Error(result.error?.message||'Не удалось загрузить персонажа.');return result.character;
 }
-function characterFileControls({kind,key,current,apply,downloadable=true}){
- const actions=node('div',undefined,'file-actions character-file-actions');actions.setAttribute('role','group');actions.setAttribute('aria-label',kind==='player'?'Файл игрока':'Файл противника');
- const file=node('input');file.type='file';file.accept='.json,application/json';file.className='hidden';file.dataset.characterFile=key;file.dataset.characterControl='';file.setAttribute('aria-label',kind==='player'?'JSON игрока':'JSON противника');file.disabled=busy;
- const load=resultIconButton('load-'+kind,kind==='player'?'Загрузить игрока':'Загрузить противника',characterUploadPath);load.dataset.characterControl='';load.disabled=busy;load.onclick=()=>file.click();actions.append(load,file);
+function characterFileControls({kind,key,current,apply,downloadable=true,roleName=null}){
+ const characterName=roleName||(kind==='player'?'игрока':'противника');
+ const actions=node('div',undefined,'file-actions character-file-actions');actions.setAttribute('role','group');actions.setAttribute('aria-label','Файл '+characterName);
+ const file=node('input');file.type='file';file.accept='.json,application/json';file.className='hidden';file.dataset.characterFile=key;file.dataset.characterControl='';file.setAttribute('aria-label','JSON '+characterName);file.disabled=busy;
+ const load=resultIconButton('load-'+kind,'Загрузить '+characterName,characterUploadPath);load.dataset.characterControl='';load.disabled=busy;load.onclick=()=>file.click();actions.append(load,file);
  function operation(){const epoch=characterFileEpoch,version=(characterFileVersions.get(key)||0)+1;characterFileVersions.set(key,version);return ()=>!busy&&epoch===characterFileEpoch&&characterFileVersions.get(key)===version;}
  file.onchange=async event=>{
   const selected=event.target.files[0];if(!selected||busy)return;const active=operation();
   try{if(selected.size>2*1024*1024)throw Error('Файл персонажа больше 2 МиБ.');const before=canonical(current()),text=await selected.text();if(!active())return;const character=await validateCharacterText(kind,text);if(!active())return;if(canonical(current())!==before)throw Error('Карточка изменилась во время загрузки. Выберите файл ещё раз.');apply(character);message('');}
   catch(error){if(active())message(error.message,'error');}finally{event.target.value='';}
  };
- if(downloadable){const save=resultIconButton('save-'+kind,kind==='player'?'Скачать игрока':'Скачать противника',characterDownloadPath);save.dataset.characterControl='';save.disabled=busy;save.onclick=async()=>{if(busy)return;const active=operation();try{const character=current(),before=canonical(character);await validateCharacterText(kind,pretty(character));if(active()&&canonical(current())===before)download(pretty(character),'encounter-'+kind+'.json');}catch(error){if(active())message(error.message,'error');}};actions.append(save);}
+ if(downloadable){const save=resultIconButton('save-'+kind,'Скачать '+characterName,characterDownloadPath);save.dataset.characterControl='';save.disabled=busy;save.onclick=async()=>{if(busy)return;const active=operation();try{const character=current(),before=canonical(character);await validateCharacterText(kind,pretty(character));if(active()&&canonical(current())===before)download(pretty(character),'encounter-'+kind+'.json');}catch(error){if(active())message(error.message,'error');}};actions.append(save);}
  return actions;
 }
 function playerFileControls(index){return characterFileControls({kind:'player',key:'player:'+index,current:()=>read().party[index],apply:character=>{
- const data=read();if(data.party.some((member,i)=>i!==index&&member.actor_id===character.actor_id))throw Error('Игрок с ID «'+character.actor_id+'» уже есть в партии.');data.party[index]=character;editRequest(['party'],data.party);
+ const data=read();if(data.party.some((member,i)=>i!==index&&member.actor_id===character.actor_id)||(data.npc_allies||[]).some(member=>member.actor_id===character.actor_id))throw Error('Игрок с ID «'+character.actor_id+'» уже есть в партии.');data.party[index]=character;editRequest(['party'],data.party);
 }});}
 function addPlayerFileControls(){return characterFileControls({kind:'player',key:'player:add',current:()=>read().party.map(member=>member.actor_id),downloadable:false,apply:character=>{
- const data=read();if(data.party.some(member=>member.actor_id===character.actor_id))throw Error('Игрок с ID «'+character.actor_id+'» уже есть в партии. Загрузите файл в его карточку для замены.');editRequest(['party'],[...data.party,character]);
+ const data=read();if([...data.party,...(data.npc_allies||[])].some(member=>member.actor_id===character.actor_id))throw Error('Игрок с ID «'+character.actor_id+'» уже есть в партии. Загрузите файл в его карточку для замены.');editRequest(['party'],[...data.party,character]);
 }});}
+function npcAllyFileControls(index){return characterFileControls({kind:'npc',roleName:'союзного NPC',key:'npc-ally:'+index,current:()=>read().npc_allies[index].npc,apply:character=>editRequest(['npc_allies',index,'npc'],character)});}
+function addNpcAllyFileControls(){return characterFileControls({kind:'npc',roleName:'союзного NPC',key:'npc-ally:add',current:()=>read().npc_allies||[],downloadable:false,apply:character=>appendNpcAlly(character)});}
 function npcFileControls(candidate,index,report){const id=candidate.replay.scenario.id;return characterFileControls({kind:'npc',key:'npc:'+id+':'+index,current:()=>draftNpcs(candidate,report)[index],apply:character=>{
  if(report!==lastResult)throw Error('Результат уже изменился. Выберите файл ещё раз.');const npcs=JSON.parse(JSON.stringify(draftNpcs(candidate,report)));npcs[index]=character;
  if(canonical(npcs)===canonical(candidate.npcs))npcDrafts.delete(id);else npcDrafts.set(id,{original:canonical(candidate.npcs),npcs});updateNpcDraftNotice();renderResultVisual(lastResult);updateFileActions();

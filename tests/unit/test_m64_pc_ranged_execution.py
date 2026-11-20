@@ -276,7 +276,7 @@ class PcRangedExecutionTests(unittest.TestCase):
         source = scene(pc_count=2,rounds=2)
         first,second = source.party
         source = replace(source,party=(first,replace(second,pc=replace(second.pc,weapon=PISTOL,
-            ranged=ranged_profile(weapon=PISTOL,repeater_bonus_policy=NEVER)),
+            ranged=ranged_profile(weapon=PISTOL,repeater_bonus_policy=NEVER), initiative=3, dexterity=4),
                 combat_equipment=initial_weapon_items(PISTOL,second.initial_weapon_hand,initially_loaded=True))))
         result = execute(source,bonus_hit(HANDBOW)+ORDINARY_HIT+NPC_MISS
             +[1]*3+ORDINARY_HIT+NPC_MISS)

@@ -86,10 +86,10 @@ class NumericCompositionSamplingTests(unittest.TestCase):
         melee=GeneratedNpc(3,4,3,3,4,4,initial_generated_weapons(GeneratedWeapon.SWORD),light_loadout(light=True, shield=True),
             (GeneratedAbility.DRAINED_ON_HIT,),defence=4,talents=(paid_talent(stance),paid_talent(wild)))
         pistol=GeneratedNpc(3,4,3,3,4,4,initial_generated_weapons(GeneratedWeapon.PISTOL),light_loadout(light=False, shield=False),(),defence=4,
-            talents=(paid_talent(resistance),),ranged=GeneratedRangedFacts(3,4,3,4,True,True,True))
+            talents=(paid_talent(resistance),),ranged=GeneratedRangedFacts(3, 4,  True, True, True), initiative=3, dexterity=4)
         handbow=GeneratedNpc(3,4,3,3,4,4,initial_generated_weapons(GeneratedWeapon.REPEATER_HANDBOW),light_loadout(light=True, shield=False),(),
             defence=4,talents=(paid_talent(stance),paid_talent(wild)),
-            ranged=GeneratedRangedFacts(3,4,3,4,True,None,None))
+            ranged=GeneratedRangedFacts(3, 4,  True, None, None), initiative=3, dexterity=4)
         composition=(melee,pistol,handbow)
         original=deepcopy(composition)
         rng=Random(42)
@@ -111,7 +111,7 @@ class NumericCompositionSamplingTests(unittest.TestCase):
                         'has_blackpowder_lore','has_blackpowder_kit'):
                     self.assertIs(getattr(after.ranged,field),getattr(before.ranged,field))
                 self.assertEqual((after.ranged.ballistic_skill,after.ranged.shooting,
-                    after.ranged.initiative,after.ranged.dexterity),(5,6,5,6))
+                    after.initiative,after.dexterity),(5,6,5,6))
         self.assertEqual(composition,original)
 
     def test_prerequisites_filter_candidates_before_weighted_selection(self):

@@ -50,7 +50,10 @@
           "$ref": "#/$defs/identifier"
         },
         "kind": {
-          "const": "musicians_gear"
+          "enum": [
+            "musicians_gear",
+            "physickers_kit"
+          ]
         },
         "hands_required": {
           "type": "integer",
@@ -401,11 +404,15 @@
             "injury_policy": {
               "enum": [
                 "minion",
-                "brute"
+                "brute",
+                "champion"
               ]
             },
             "wound_limit": {
-              "type": "integer",
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1
             },
             "resilience": {
@@ -673,7 +680,10 @@
                 ],
                 "properties": {
                   "injury_policy": {
-                    "const": "minion"
+                    "enum": [
+                      "minion",
+                      "champion"
+                    ]
                   },
                   "protection": {
                     "properties": {
@@ -789,6 +799,42 @@
                   "required": [
                     "endurance_protection"
                   ]
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "injury_policy": {
+                    "const": "champion"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "generated_components"
+                ],
+                "properties": {
+                  "wound_limit": {
+                    "type": "null"
+                  },
+                  "generated_components": {
+                    "required": [
+                      "injury_policy"
+                    ],
+                    "properties": {
+                      "injury_policy": {
+                        "const": "champion"
+                      }
+                    }
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "wound_limit": {
+                    "type": "integer"
+                  }
                 }
               }
             }
@@ -1095,6 +1141,54 @@
         "ballistic_skill": {
           "type": "integer",
           "minimum": 1
+        },
+        "initiative": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "awareness": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
+        "reason": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "recall": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
+        "dexterity": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
+        "medical": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/medical_preparation"
+            }
+          ]
         }
       },
       "required": [
@@ -1156,6 +1250,158 @@
               "brawn"
             ]
           }
+        },
+        {
+          "if": {
+            "required": [
+              "awareness"
+            ],
+            "properties": {
+              "awareness": {
+                "type": "integer"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "initiative"
+            ],
+            "properties": {
+              "initiative": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "recall"
+            ],
+            "properties": {
+              "recall": {
+                "type": "integer"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reason"
+            ],
+            "properties": {
+              "reason": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "dexterity"
+            ],
+            "properties": {
+              "dexterity": {
+                "type": "integer"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "initiative"
+            ],
+            "properties": {
+              "initiative": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "medical"
+            ],
+            "properties": {
+              "medical": {
+                "type": "object",
+                "required": [
+                  "treatment_supplies",
+                  "anatomy_lore"
+                ],
+                "properties": {
+                  "treatment_supplies": {
+                    "const": true
+                  },
+                  "anatomy_lore": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reason",
+              "recall"
+            ],
+            "properties": {
+              "reason": {
+                "type": "integer"
+              },
+              "recall": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "medical"
+            ],
+            "properties": {
+              "medical": {
+                "type": "object",
+                "anyOf": [
+                  {
+                    "required": [
+                      "surgery_supplies"
+                    ],
+                    "properties": {
+                      "surgery_supplies": {
+                        "const": true
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "recovery_supports"
+                    ],
+                    "properties": {
+                      "recovery_supports": {
+                        "minItems": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "initiative",
+              "dexterity"
+            ],
+            "properties": {
+              "initiative": {
+                "type": "integer"
+              },
+              "dexterity": {
+                "type": "integer"
+              }
+            }
+          }
         }
       ]
     },
@@ -1167,15 +1413,6 @@
           "minimum": 1
         },
         "shooting": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 10
-        },
-        "initiative": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "dexterity": {
           "type": "integer",
           "minimum": 1,
           "maximum": 10
@@ -1201,11 +1438,6 @@
             "never",
             "automatic"
           ]
-        },
-        "awareness": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 10
         }
       },
       "required": [
@@ -1213,12 +1445,7 @@
         "shooting",
         "ammunition_supply_confirmed"
       ],
-      "additionalProperties": false,
-      "dependentRequired": {
-        "awareness": [
-          "initiative"
-        ]
-      }
+      "additionalProperties": false
     },
     "facts": {
       "type": "object",
@@ -1692,6 +1919,68 @@
           "uniqueItems": true,
           "items": {
             "$ref": "#/$defs/single_combat_pair"
+          }
+        },
+        "surgery_risk": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/surgery_risk"
+            }
+          ]
+        },
+        "npc_allies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/npc_ally"
+          }
+        },
+        "player_side_activation_order": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/identifier"
+              }
+            }
+          ]
+        },
+        "npc_defeat_decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "attacker_id": {
+                "$ref": "#/$defs/identifier"
+              },
+              "target_id": {
+                "$ref": "#/$defs/identifier"
+              },
+              "disposition": {
+                "enum": [
+                  "killed",
+                  "knocked_out",
+                  "disarmed_and_surrendered"
+                ]
+              },
+              "gm_approved": {
+                "const": true
+              }
+            },
+            "required": [
+              "attacker_id",
+              "target_id",
+              "disposition",
+              "gm_approved"
+            ],
+            "additionalProperties": false
           }
         }
       },
@@ -2397,6 +2686,13 @@
           "uniqueItems": true,
           "items": {
             "$ref": "#/$defs/oathCount"
+          }
+        },
+        "npc_ally_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/npcAllyCount"
           }
         }
       },
@@ -3688,12 +3984,20 @@
                 "properties": {
                   "ranged": {
                     "required": [
-                      "initiative",
-                      "dexterity",
                       "reload_hand_policy"
                     ]
+                  },
+                  "initiative": {
+                    "type": "integer"
+                  },
+                  "dexterity": {
+                    "type": "integer"
                   }
-                }
+                },
+                "required": [
+                  "initiative",
+                  "dexterity"
+                ]
               }
             }
           },
@@ -3706,19 +4010,9 @@
                       "anyOf": [
                         {
                           "required": [
-                            "dexterity"
-                          ]
-                        },
-                        {
-                          "required": [
                             "reload_hand_policy"
                           ]
                         }
-                      ]
-                    },
-                    "dependentRequired": {
-                      "initiative": [
-                        "awareness"
                       ]
                     }
                   }
@@ -3878,13 +4172,17 @@
             "properties": {
               "pc": {
                 "properties": {
-                  "ranged": {
-                    "required": [
-                      "initiative",
-                      "awareness"
-                    ]
+                  "initiative": {
+                    "type": "integer"
+                  },
+                  "awareness": {
+                    "type": "integer"
                   }
-                }
+                },
+                "required": [
+                  "initiative",
+                  "awareness"
+                ]
               }
             }
           }
@@ -3989,6 +4287,95 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "required": [
+              "wizard"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "required": [
+                  "talents"
+                ],
+                "properties": {
+                  "talents": {
+                    "contains": {
+                      "required": [
+                        "id"
+                      ],
+                      "properties": {
+                        "id": {
+                          "const": "combat_surgeon"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "required": [
+                  "pc"
+                ],
+                "properties": {
+                  "pc": {
+                    "required": [
+                      "medical"
+                    ],
+                    "properties": {
+                      "medical": {
+                        "type": "object",
+                        "required": [
+                          "treatment_supplies"
+                        ],
+                        "properties": {
+                          "treatment_supplies": {
+                            "const": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "pc": {
+                "required": [
+                  "reason",
+                  "recall"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "integer"
+                  },
+                  "recall": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -4060,7 +4447,9 @@
               "willpower",
               "leadership",
               "throwing",
-              "brawn"
+              "brawn",
+              "awareness",
+              "recall"
             ]
           },
           "minItems": 1,
@@ -4979,10 +5368,6 @@
         "arcane_paraphernalia": {
           "const": true
         },
-        "reason": {
-          "type": "integer",
-          "minimum": 1
-        },
         "willpower": {
           "type": "integer",
           "minimum": 1,
@@ -4995,7 +5380,6 @@
         "lores",
         "memorised_spells",
         "arcane_paraphernalia",
-        "reason",
         "willpower"
       ],
       "additionalProperties": false
@@ -5148,6 +5532,60 @@
         },
         "oath_context": {
           "$ref": "urn:towr:talent:common:1#/$defs/oath_context"
+        },
+        "initiative": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "awareness": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 2,
+          "maximum": 6
+        },
+        "reason": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "recall": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 2,
+          "maximum": 6
+        },
+        "dexterity": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 2,
+          "maximum": 6
+        },
+        "injury_policy": {
+          "enum": [
+            "minion",
+            "champion"
+          ]
+        },
+        "medical": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/medical_preparation"
+            }
+          ]
         }
       },
       "required": [
@@ -5443,28 +5881,17 @@
           },
           "then": {
             "properties": {
-              "ranged": {
-                "properties": {
-                  "initiative": {
-                    "type": "integer"
-                  },
-                  "dexterity": {
-                    "type": "integer"
-                  }
-                }
+              "initiative": {
+                "type": "integer"
+              },
+              "dexterity": {
+                "type": "integer"
               }
-            }
-          },
-          "else": {
-            "properties": {
-              "ranged": {
-                "properties": {
-                  "dexterity": {
-                    "type": "null"
-                  }
-                }
-              }
-            }
+            },
+            "required": [
+              "initiative",
+              "dexterity"
+            ]
           }
         },
         {
@@ -5500,17 +5927,17 @@
           },
           "then": {
             "properties": {
-              "ranged": {
-                "properties": {
-                  "initiative": {
-                    "type": "integer"
-                  },
-                  "awareness": {
-                    "type": "integer"
-                  }
-                }
+              "initiative": {
+                "type": "integer"
+              },
+              "awareness": {
+                "type": "integer"
               }
-            }
+            },
+            "required": [
+              "initiative",
+              "awareness"
+            ]
           }
         },
         {
@@ -5749,6 +6176,237 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "required": [
+              "awareness"
+            ],
+            "properties": {
+              "awareness": {
+                "type": "integer"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "initiative"
+            ],
+            "properties": {
+              "initiative": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "recall"
+            ],
+            "properties": {
+              "recall": {
+                "type": "integer"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reason"
+            ],
+            "properties": {
+              "reason": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "dexterity"
+            ],
+            "properties": {
+              "dexterity": {
+                "type": "integer"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "initiative"
+            ],
+            "properties": {
+              "initiative": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "injury_policy"
+            ],
+            "properties": {
+              "injury_policy": {
+                "const": "champion"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "endurance"
+            ],
+            "properties": {
+              "endurance": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "medical"
+            ],
+            "properties": {
+              "medical": {
+                "type": "object",
+                "required": [
+                  "treatment_supplies",
+                  "anatomy_lore"
+                ],
+                "properties": {
+                  "treatment_supplies": {
+                    "const": true
+                  },
+                  "anatomy_lore": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reason",
+              "recall"
+            ],
+            "properties": {
+              "reason": {
+                "type": "integer"
+              },
+              "recall": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "medical"
+            ],
+            "properties": {
+              "medical": {
+                "type": "object",
+                "anyOf": [
+                  {
+                    "required": [
+                      "surgery_supplies"
+                    ],
+                    "properties": {
+                      "surgery_supplies": {
+                        "const": true
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "recovery_supports"
+                    ],
+                    "properties": {
+                      "recovery_supports": {
+                        "minItems": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "initiative",
+              "dexterity"
+            ],
+            "properties": {
+              "initiative": {
+                "type": "integer"
+              },
+              "dexterity": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "required": [
+                  "talents"
+                ],
+                "properties": {
+                  "talents": {
+                    "contains": {
+                      "required": [
+                        "id"
+                      ],
+                      "properties": {
+                        "id": {
+                          "const": "combat_surgeon"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "required": [
+                  "medical"
+                ],
+                "properties": {
+                  "medical": {
+                    "type": "object",
+                    "required": [
+                      "treatment_supplies"
+                    ],
+                    "properties": {
+                      "treatment_supplies": {
+                        "const": true
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "required": [
+              "reason",
+              "recall"
+            ],
+            "properties": {
+              "reason": {
+                "type": "integer"
+              },
+              "recall": {
+                "type": "integer"
+              }
+            }
+          }
         }
       ]
     },
@@ -5764,7 +6422,11 @@
         "bash_attack",
         "acrobatic",
         "back_in_the_saddle",
-        "battlefield_musician"
+        "battlefield_musician",
+        "careful_aim",
+        "cleaving_blow",
+        "combat_surgeon",
+        "deep_formation"
       ]
     },
     "generated_ranged_facts": {
@@ -5774,23 +6436,8 @@
           "type": "integer",
           "minimum": 1
         },
-        "initiative": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 1
-        },
         "shooting": {
           "type": "integer",
-          "minimum": 2,
-          "maximum": 6
-        },
-        "dexterity": {
-          "type": [
-            "integer",
-            "null"
-          ],
           "minimum": 2,
           "maximum": 6
         },
@@ -5808,47 +6455,16 @@
             true,
             null
           ]
-        },
-        "awareness": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 2,
-          "maximum": 6
         }
       },
       "required": [
         "ballistic_skill",
         "shooting",
-        "initiative",
-        "dexterity",
         "ammunition_supply_confirmed",
         "has_blackpowder_lore",
         "has_blackpowder_kit"
       ],
-      "additionalProperties": false,
-      "allOf": [
-        {
-          "if": {
-            "required": [
-              "awareness"
-            ],
-            "properties": {
-              "awareness": {
-                "type": "integer"
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "initiative": {
-                "type": "integer"
-              }
-            }
-          }
-        }
-      ]
+      "additionalProperties": false
     },
     "npcRangedCount": {
       "type": "object",
@@ -7614,6 +8230,32 @@
                         }
                       }
                     }
+                  },
+                  {
+                    "required": [
+                      "npc_allies"
+                    ],
+                    "properties": {
+                      "npc_allies": {
+                        "contains": {
+                          "required": [
+                            "npc"
+                          ],
+                          "properties": {
+                            "npc": {
+                              "required": [
+                                "mount"
+                              ],
+                              "properties": {
+                                "mount": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
                   }
                 ]
               }
@@ -7928,6 +8570,260 @@
             "not": {
               "required": [
                 "oath_counts"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "medical_preparation": {
+      "type": "object",
+      "properties": {
+        "anatomy_lore": {
+          "type": "boolean"
+        },
+        "treatment_supplies": {
+          "type": "boolean"
+        },
+        "surgery_supplies": {
+          "type": "boolean"
+        },
+        "recovery_supports": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "superficial_injury",
+              "nicked_arm",
+              "battered_leg",
+              "stomach_blow",
+              "gashed_brow",
+              "shaking_grip",
+              "leg_spasm",
+              "crushed_rib",
+              "ears_ringing",
+              "smashed_hand",
+              "torn_leg",
+              "internal_injury",
+              "scarring_strike",
+              "slashed_forearms",
+              "shattered_knee",
+              "spilling_guts",
+              "blacking_out",
+              "severed_arm",
+              "severed_leg",
+              "ruptured_organs",
+              "ruined_eyes",
+              "appalling_strike",
+              "bisection",
+              "pierced_heart",
+              "decapitation"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "self_treatment_modifier": {
+          "type": "integer",
+          "maximum": 0
+        },
+        "makeshift_modifier": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "maximum": -1
+        }
+      },
+      "required": [
+        "anatomy_lore",
+        "treatment_supplies",
+        "surgery_supplies"
+      ],
+      "additionalProperties": false
+    },
+    "surgery_risk": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "no_complication": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "permanent_disfigurement": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "death": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "disfigurement_description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "owner": {
+          "const": "gm"
+        }
+      },
+      "required": [
+        "id",
+        "no_complication",
+        "permanent_disfigurement",
+        "death"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "properties": {
+                "no_complication": {
+                  "minimum": 1
+                }
+              }
+            },
+            {
+              "properties": {
+                "permanent_disfigurement": {
+                  "minimum": 1
+                }
+              }
+            },
+            {
+              "properties": {
+                "death": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "if": {
+            "properties": {
+              "permanent_disfigurement": {
+                "minimum": 1
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "disfigurement_description"
+            ],
+            "properties": {
+              "disfigurement_description": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "disfigurement_description": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "npc_ally": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "npc": {
+          "$ref": "#/$defs/generated_components"
+        }
+      },
+      "required": [
+        "actor_id",
+        "npc"
+      ],
+      "additionalProperties": false
+    },
+    "npcAllyCount": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "actions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attacks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recover_actions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "defeated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wounds": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "actions",
+        "attacks",
+        "recover_actions",
+        "defeated",
+        "wounds"
+      ],
+      "additionalProperties": false
+    },
+    "npcAllySummaryPresence": {
+      "if": {
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "required": [
+              "scenario"
+            ],
+            "properties": {
+              "scenario": {
+                "required": [
+                  "npc_allies"
+                ],
+                "properties": {
+                  "npc_allies": {
+                    "type": "array",
+                    "minItems": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "required": [
+              "npc_ally_counts"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "summary": {
+            "not": {
+              "required": [
+                "npc_ally_counts"
               ]
             }
           }

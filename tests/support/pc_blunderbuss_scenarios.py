@@ -9,12 +9,8 @@ from towr.domain.pc_melee_models import (
 )
 
 
-def blunderbuss_profile(*, ballistic_skill: int = 3, shooting: int = 4,
-        initiative: int = 3, dexterity: int = 4) -> PcRangedProfile:
-    return PcRangedProfile(ballistic_skill=ballistic_skill, shooting=shooting,
-        initiative=initiative, dexterity=dexterity, has_blackpowder_lore=True,
-        has_blackpowder_kit=True, ammunition_supply_confirmed=True,
-        reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+def blunderbuss_profile(*, ballistic_skill: int=3, shooting: int=4) -> PcRangedProfile:
+    return PcRangedProfile(ballistic_skill=ballistic_skill, shooting=shooting,  has_blackpowder_lore=True, has_blackpowder_kit=True, ammunition_supply_confirmed=True, reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
 
 
 def make_pc_blunderbuss_scenario(*, pc_count: int = 1, enemy_count: int = 1,
@@ -25,8 +21,7 @@ def make_pc_blunderbuss_scenario(*, pc_count: int = 1, enemy_count: int = 1,
     source = make_pc_bow_scenario(pc_count=pc_count, enemy_count=enemy_count,
         max_rounds=max_rounds, backup=backup)
     party = tuple(replace(member, pc=replace(member.pc, weapon=PcMeleeWeapon.BLUNDERBUSS,
-        ranged=blunderbuss_profile(ballistic_skill=ballistic_skill, shooting=shooting,
-            initiative=initiative, dexterity=dexterity)),combat_equipment=initial_weapon_items(
+        ranged=blunderbuss_profile(ballistic_skill=ballistic_skill, shooting=shooting), initiative=initiative, dexterity=dexterity),combat_equipment=initial_weapon_items(
                 PcMeleeWeapon.BLUNDERBUSS,member.initial_weapon_hand,member.backup_weapon_policy,
                 initially_loaded=True)) for member in source.party)
     resilience = ResilienceProfile(npc_toughness, npc_armour_bonus, armoured=npc_armoured)

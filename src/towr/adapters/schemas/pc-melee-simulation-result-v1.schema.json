@@ -59,20 +59,12 @@
                       "properties": {
                         "pc": {
                           "required": [
-                            "ranged"
+                            "awareness"
                           ],
                           "properties": {
-                            "ranged": {
-                              "type": "object",
-                              "required": [
-                                "awareness"
-                              ],
-                              "properties": {
-                                "awareness": {
-                                  "type": "integer",
-                                  "minimum": 1
-                                }
-                              }
+                            "awareness": {
+                              "type": "integer",
+                              "minimum": 1
                             }
                           }
                         }
@@ -126,6 +118,9 @@
     },
     {
       "$ref": "urn:towr:pc-melee:common:1#/$defs/oathSummaryPresence"
+    },
+    {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/npcAllySummaryPresence"
     }
   ]
 }

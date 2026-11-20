@@ -45,7 +45,7 @@ def armour_bane_attack_updates(state,application,updates):
     from towr.domain.pc_npc_resilience_models import npc_base_equipment_resilience
     from towr.domain.pc_actor_models import pc_actor_npc_snapshot,pc_companion
     actor=application.target_id
-    companion=None if actor in state.source.enemy_activation_order else pc_companion(state,actor)
+    companion=None if actor in state.source.npc_activation_order else pc_companion(state,actor)
     if companion is not None:
         rows=updates.get('companions',state.companions)
         current=next(row for row in rows if row.rider_id==companion.rider_id)
@@ -98,7 +98,7 @@ def armour_bane_applications(state,actor_id:str)->tuple[ArmourBaneApplication,..
     """Read complete atomic Attack receipts, not free-standing numeric loss."""
     from towr.domain.pc_melee_result_models import PcAttackProof,validate_pc_melee_source_types
     from towr.domain.pc_actor_models import pc_actor_side
-    if actor_id not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+    if actor_id not in (*state.source.pc_activation_order,*state.source.npc_activation_order):
         pc_actor_side(state,actor_id)  # Inactive mount bodies still retain their own loss ledger.
     result=[]
     for proof in state.history:

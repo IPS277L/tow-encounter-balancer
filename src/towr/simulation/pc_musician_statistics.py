@@ -66,6 +66,8 @@ def validate_musician_counts(counts,scenario,*,trials,started_rounds,actions):
     if sum(row.actions+row.pickups for row in counts or ())>actions:
         raise ValueError('music paid actions and pickups exceed actual executed actions')
     party={member.actor_id for member in scenario.party}
+    allied_bodies=len(scenario.npc_allies)+sum(ally.definition.generated_components is not None
+        and ally.definition.generated_components.mount is not None for ally in scenario.npc_allies)
     opposition={enemy.state.actor_id for enemy in scenario.enemies}
     party_bodies=sum(member.mount is not None for member in scenario.party)
     npc_bodies=sum(enemy.definition.generated_components is not None
@@ -76,7 +78,7 @@ def validate_musician_counts(counts,scenario,*,trials,started_rounds,actions):
         budget=started_rounds*(2 if row.actor_id in party else 1)
         if row.actions+row.pickups>budget or row.signals>started_rounds:
             raise ValueError('music observations exceed this actor\'s actual turn/action ceilings')
-        listeners=(len(party)+party_bodies-1 if row.actor_id in party else len(opposition)+npc_bodies-1)
+        listeners=(len(party)+party_bodies+allied_bodies-1 if row.actor_id in party else len(opposition)+npc_bodies-1)
         if row.inspired_allies>row.actions*listeners:
             raise ValueError('music beneficiaries exceed distinct actual allied source bodies per action')
         if row.protected_ties and not row.inspired_allies:
@@ -120,6 +122,7 @@ def musician_observations(result):
     seen=set()
 
     def add(field,actor,identifier,amount=1):
+        if actor in tuple(ally.state.actor_id for ally in result.source.npc_allies):return
         if actor not in totals:
             raise ValueError('music receipt belongs to an actor outside the complete musician source')
         key=(field,actor,identifier)

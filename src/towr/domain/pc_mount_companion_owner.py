@@ -14,7 +14,7 @@ from towr.domain.turn_models import CombatSide
 def initial_pc_companions(source):
     mounts=initial_pc_mounts(source)
     if not mounts:return ()
-    actors=(*source.pc_activation_order,*source.enemy_activation_order)
+    actors=(*source.pc_activation_order,*source.npc_activation_order)
     rows=[]
     for mount in mounts:
         rider=mount.actor_id

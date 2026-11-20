@@ -44,7 +44,7 @@ def npc_equipment_resilience(definition, actor_id, *, shield_held, mount_source)
 
 
 def npc_mount_resilience_source(state, actor_id, *, mounted=None):
-    if not any(enemy.state.actor_id == actor_id for enemy in state.source.enemies):
+    if not any(enemy.state.actor_id == actor_id for enemy in state.source.npc_sources):
         raise ValueError('NPC Resilience queries require an actual source NPC')
     if mounted is not None and type(mounted) is not bool:
         raise TypeError('mount override must retain an exact mounted boolean')
@@ -71,7 +71,7 @@ def npc_base_equipment_resilience(state, actor_id, *, shield_held=None, mounted=
     if shield_held is not None and type(shield_held) is not bool:
         raise TypeError('Shield override must retain an exact held boolean')
     from towr.domain.pc_actor_models import pc_companion
-    if (not any(enemy.state.actor_id == actor_id for enemy in state.source.enemies)
+    if (not any(enemy.state.actor_id == actor_id for enemy in state.source.npc_sources)
             and pc_companion(state,actor_id) is not None):
         if shield_held is not None or mounted is not None:
             raise ValueError('a mount body cannot acquire its rider\'s Shield or mounted override')
@@ -86,8 +86,9 @@ def npc_base_equipment_resilience(state, actor_id, *, shield_held=None, mounted=
         raise ValueError('NPC equipment cannot replace its immutable initial definition')
     if initial.definition.generated_components is None and shield_held is not None:
         raise ValueError('numeric NPC definitions cannot invent a physical Shield transition')
+    from towr.domain.pc_npc_weapon_inventory import npc_has_working_shield
     return npc_equipment_resilience(initial.definition, actor_id,
-        shield_held=enemy.state.holds_shield if shield_held is None else shield_held,
+        shield_held=npc_has_working_shield(state,actor_id) if shield_held is None else shield_held,
         mount_source=mount)
 
 

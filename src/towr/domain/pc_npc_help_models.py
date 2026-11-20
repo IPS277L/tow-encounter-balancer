@@ -66,15 +66,20 @@ def validate_pc_npc_help_policies(source) -> None:
         if type(policy) is not PcNpcHelpPolicy:
             raise TypeError('NPC Help policy must be its exact typed pair')
         replace(policy)
-        if (policy.helper_id not in source.enemy_activation_order
-                or policy.beneficiary_id not in source.enemy_activation_order):
+        if (policy.helper_id not in source.npc_activation_order
+                or policy.beneficiary_id not in source.npc_activation_order):
             raise ValueError('NPC Help must name two opposition actors in the source')
+        from towr.domain.turn_models import CombatSide
+        side=source.enemy(policy.helper_id).state.side
+        if source.enemy(policy.beneficiary_id).state.side is not side:
+            raise ValueError('NPC Help requires actors on the same side')
         if pc_npc_automatic_help_rule(source.enemy(policy.helper_id).definition) is None:
             raise ValueError('NPC Help requires an admitted canonical automatic Help ability')
         if not pc_npc_help_supports_skill(source.enemy(policy.helper_id).definition,
                 source.enemy(policy.beneficiary_id).definition.attacks[0].skill):
             raise ValueError('NPC Help ability does not support the beneficiary attack Skill')
-        if source.enemy_activation_order.index(policy.helper_id)>=source.enemy_activation_order.index(policy.beneficiary_id):
+        order=source.player_activation_order if side is CombatSide.PLAYERS_AND_ALLIES else source.enemy_activation_order
+        if order.index(policy.helper_id)>=order.index(policy.beneficiary_id):
             raise ValueError('NPC Help recipient must activate later in the same round')
         helpers.append(policy.helper_id)
         recipients.append(policy.beneficiary_id)
@@ -91,13 +96,14 @@ def pc_npc_help_beneficiary(state) -> str | None:
     policy=next((p for p in state.source.npc_help_policies if p.helper_id==actor),None)
     if policy is None:return None
     helper=state.enemy(actor).state.injury
-    if helper.defeated or actor in state.exited_npc_ids or any(helper.conditions.has(c) for c in
+    from towr.domain.injury_models import injury_is_defeated
+    if injury_is_defeated(helper) or actor in state.exited_npc_ids or any(helper.conditions.has(c) for c in
             (Condition.DEAFENED,Condition.DEFENCELESS,Condition.BROKEN)):
         return None
     recipient=state.enemy(policy.beneficiary_id).state.injury
     unavailable=(*state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids,
         *state.exited_npc_ids)
-    if (recipient.defeated or policy.beneficiary_id in unavailable
+    if (injury_is_defeated(recipient) or policy.beneficiary_id in unavailable
             or any(recipient.conditions.has(c) for c in (Condition.DEFENCELESS,Condition.BROKEN))):
         return None
     from towr.domain.pc_flagellant_models import pc_flagellant_recover_selected
@@ -161,7 +167,7 @@ def build_pc_npc_attack_help(state,actor,test):
 
 def pc_npc_attack_help_applications(state,attack):
     actor=state.round_state.active_turn.actor_id
-    if actor not in state.source.enemy_activation_order or not state.source.npc_help_policies:return ()
+    if actor not in state.source.npc_activation_order or not state.source.npc_help_policies:return ()
     from towr.domain.pc_mount_attack_models import pc_uses_mount_attack
     if pc_uses_mount_attack(state,actor):return ()
     from towr.domain.pc_net_models import is_net_impact

@@ -1,6 +1,8 @@
 """Source-bound mount Abilities for a rider's ordinary paid Attack (PG124)."""
 from __future__ import annotations
+from towr.domain.injury_models import injury_wound_count
 
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, replace
 from towr.domain.pc_musician_effect_models import musician_defends_ties
 from enum import Enum
@@ -37,7 +39,7 @@ def pc_mount_attack_profile(mount: CombatMount):
 
 def available_pc_attack_mount(state, actor):
     """A composite live rider can use only their current actual ridden mount."""
-    if actor not in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
+    if actor not in (*state.source.pc_activation_order, *state.source.npc_activation_order):
         raise ValueError('mount Attack actor must belong to the complete encounter')
     from towr.domain.pc_oath_models import oath_allows_attack
     if not oath_allows_attack(state,actor,Skill.MELEE):
@@ -47,11 +49,11 @@ def available_pc_attack_mount(state, actor):
         return None
     from towr.domain.pc_actor_models import pc_actor_injury
     injury = pc_actor_injury(state,actor)
-    unavailable = injury.dead if actor in state.source.pc_activation_order else injury.defeated
+    unavailable = injury_is_defeated(injury)
     if unavailable or any(injury.conditions.has(condition) for condition in (Condition.PRONE, Condition.DEFENCELESS)):
         return None
     body,_ = _mounted_body(state,actor)
-    return None if body.snapshot.state.injury.defeated or any(body.snapshot.state.injury.conditions.has(condition)
+    return None if injury_is_defeated(body.snapshot.state.injury) or any(body.snapshot.state.injury.conditions.has(condition)
         for condition in (Condition.PRONE,Condition.DEFENCELESS)) else mount
 
 
@@ -358,7 +360,7 @@ def pc_npc_mount_primary_selected(state, actor):
     from towr.domain.pc_npc_weapon_inventory import npc_attack_weapon_use
     npc_use=(npc_attack_weapon_use(state,actor,target) if enemy.definition.generated_components is not None else None)
     modifiers = (*pc_npc_attack_modifiers(enemy.definition, enemy.state.injury.conditions,
-        target_conditions=target_injury.conditions, attacker_wounds=enemy.state.injury.wounds),
+        target_conditions=target_injury.conditions, attacker_wounds=injury_wound_count(enemy.state.injury)),
         *generated_attack_modifiers(enemy.definition, enemy.state.injury.conditions, target_injury.conditions,weapon_use=npc_use),
         *pc_npc_distraction_test_modifiers(state, actor, target), *magic_test_modifiers(state, actor, profile.skill)[0])
     if enemy.state.injury.conditions.has(Condition.DRAINED):

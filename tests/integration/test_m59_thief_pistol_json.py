@@ -23,7 +23,7 @@ from towr.domain.pc_melee_models import PcMeleeWeapon
 def request_document(*, balance=False):
     source = book_pc_scenario(footpads=1,townsfolk=0,thieves=2,pc_count=1,max_rounds=4)
     source = replace(source,party=tuple(replace(member,pc=replace(member.pc,
-        weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()),combat_equipment=initial_weapon_items(
+        weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile(), initiative=3, dexterity=4),combat_equipment=initial_weapon_items(
             PcMeleeWeapon.PISTOL,member.initial_weapon_hand,initially_loaded=True)) for member in source.party))
     raw = document(balance=balance)
     raw['template' if balance else 'scenario'] = scenario_document(source)

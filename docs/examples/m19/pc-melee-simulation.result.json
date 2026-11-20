@@ -22,7 +22,10 @@
             "athletics": 4,
             "endurance": 4,
             "weapon": "greataxe",
-            "armour_bonus": 0
+            "armour_bonus": 0,
+            "reason": null,
+            "recall": null,
+            "dexterity": null
           },
           "fate": {
             "session_id": "session",
@@ -90,7 +93,10 @@
             "athletics": 4,
             "endurance": 4,
             "weapon": "greathammer",
-            "armour_bonus": 0
+            "armour_bonus": 0,
+            "reason": null,
+            "recall": null,
+            "dexterity": null
           },
           "fate": {
             "session_id": "session",
@@ -158,7 +164,10 @@
             "athletics": 4,
             "endurance": 4,
             "weapon": "flail",
-            "armour_bonus": 0
+            "armour_bonus": 0,
+            "reason": null,
+            "recall": null,
+            "dexterity": null
           },
           "fate": {
             "session_id": "session",
@@ -226,7 +235,10 @@
             "athletics": 4,
             "endurance": 4,
             "weapon": "glaive",
-            "armour_bonus": 0
+            "armour_bonus": 0,
+            "reason": null,
+            "recall": null,
+            "dexterity": null
           },
           "fate": {
             "session_id": "session",

@@ -140,7 +140,7 @@ def expected_back_in_saddle_move(state):
             or turn.actor_id in state.battlefield.spatial.free_move_used_entity_ids):
         return None
     actor = turn.actor_id
-    if actor not in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
+    if actor not in (*state.source.pc_activation_order, *state.source.npc_activation_order):
         return None
     available = available_remount(state, actor)
     if available is None:
@@ -178,7 +178,7 @@ def project_back_in_saddle_move(state, proof):
     actor = proof.actor_id
     updates = (dict(party=_party_update(state, actor, injury=proof.injury))
         if actor in state.source.pc_activation_order else pc_actor_npc_update(state, actor, injury=proof.injury))
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         from towr.domain.pc_npc_resilience_models import npc_current_resilience
         updates['enemies'] = tuple(replace(row, state=replace(row.state,
             current_resilience=npc_current_resilience(state, actor, mounted=True))) if row.state.actor_id == actor else row
@@ -273,7 +273,7 @@ def project_back_in_saddle_recover(state, proof):
     updates = dict(mounts=tuple(proof.mount if row.actor_id == actor else row for row in state.mounts),
         companions=tuple(proof.body if row.rider_id == actor else row for row in state.companions),
         battlefield=proof.battlefield, round_state=replace(state.round_state, excluded_turn_entity_ids=excluded))
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         from towr.domain.pc_npc_resilience_models import npc_current_resilience
         updates['enemies'] = tuple(replace(row, state=replace(row.state,
             current_resilience=npc_current_resilience(state, actor, mounted=True))) if row.state.actor_id == actor else row

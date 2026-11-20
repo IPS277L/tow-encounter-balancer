@@ -22,7 +22,10 @@
           "athletics": 4,
           "endurance": 4,
           "weapon": "axe",
-          "armour_bonus": 0
+          "armour_bonus": 0,
+          "reason": null,
+          "recall": null,
+          "dexterity": null
         },
         "fate": {
           "session_id": "session",
@@ -78,7 +81,10 @@
           "athletics": 4,
           "endurance": 4,
           "weapon": "axe",
-          "armour_bonus": 0
+          "armour_bonus": 0,
+          "reason": null,
+          "recall": null,
+          "dexterity": null
         },
         "fate": {
           "session_id": "session",

@@ -1,4 +1,5 @@
 """Bounded Feel No Pain causes and a real self-Recover healing receipt."""
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, replace
 
 from towr.domain.condition_models import Condition, ConditionState
@@ -57,7 +58,7 @@ def pc_flagellant_recover_selected(state, actor_id):
     validate_pc_book_npc_definition(enemy.definition)
     if enemy.definition.id not in FLAGELLANT_DEFINITION_IDS:
         raise ValueError('Flagellant Recover requires its canonical source')
-    return not enemy.state.injury.defeated and enemy.state.injury.wounds == 1 and actor_id not in state.exited_npc_ids
+    return not injury_is_defeated(enemy.state.injury) and enemy.state.injury.wounds == 1 and actor_id not in state.exited_npc_ids
 
 
 def build_pc_npc_recover(state):
@@ -120,7 +121,7 @@ def build_pc_flagellant_miss_wound(state):
             or state.round_state.active_turn is None):
         return None
     actor = state.round_state.active_turn.actor_id
-    if actor not in state.source.enemy_activation_order or pc_flagellant_first_stagger_spec(state, actor) is None:
+    if actor not in state.source.npc_activation_order or pc_flagellant_first_stagger_spec(state, actor) is None:
         return None
     return ProfileWoundRequest(state.pending[0].attack_id+':feel-no-pain:wound', ProfileNpcType.BRUTE,
         state.enemy(actor).state.injury)

@@ -4,6 +4,7 @@ The GM supplies the Hazard rating. This is not a distance-to-damage formula.
 Landing spends no voluntary movement; avoidance, Wounds and Fate remain real.
 """
 from __future__ import annotations
+from towr.domain.injury_models import injury_is_defeated
 
 from dataclasses import dataclass,field,replace
 from typing import TYPE_CHECKING
@@ -51,7 +52,7 @@ def _same(actual,expected,message):
 def _injury(state,actor):
     if actor in state.source.pc_activation_order:
         return state.participant(actor).injury
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         return state.enemy(actor).state.injury
     from towr.domain.pc_actor_models import pc_actor_injury
     return pc_actor_injury(state,actor)
@@ -68,7 +69,7 @@ def falling_npc_disposition(source,actor):
 def validate_pc_falling_scene(source):
     if source.battlefield is None or source.battlefield.airspace is None:
         return
-    for enemy in source.enemies:
+    for enemy in source.npc_sources:
         components=enemy.definition.generated_components
         if components is not None and components.mount is CombatMount.PEGASUS:
             falling_npc_disposition(source,enemy.state.actor_id)
@@ -92,7 +93,7 @@ def prepare_hazard_avoidance(state,actor,exposure,*,environmental=False):
         if state.participant(actor).injury.conditions.has(Condition.DRAINED):
             environmental_bonus=()
         return replace(request,dice_modifiers=(*request.dice_modifiers,*environmental_bonus))
-    if actor not in state.source.enemy_activation_order:
+    if actor not in state.source.npc_activation_order:
         from towr.domain.pc_companion_effect_models import companion_test_request
         return companion_test_request(state,actor,exposure.test_id,exposure.avoidance_skill)
     enemy=state.enemy(actor)
@@ -210,7 +211,7 @@ def expected_pc_falling_request(state):
             True,(Condition.PRONE,),acrobatic_fall=reduction)
         injury=_injury(state,actor)
         is_pc=actor in state.source.pc_activation_order
-        alive=not (injury.dead if is_pc else injury.defeated)
+        alive=not (injury_is_defeated(injury))
         test=prepare_hazard_avoidance(state,actor,exposure,environmental=True) if alive else None
         if is_pc and alive:
             from towr.domain.pc_melee_result_models import pc_after_test

@@ -32,8 +32,9 @@ def build_pc_npc_extra_attack_slot(state) -> CombatActionSlotRequest | None:
         raise ValueError('Enduring Strength requires the actual first Attack in this journal')
     if first.execution.resolution.attack.outcome is not AttackOutcome.HIT:
         return None
-    target = next((actor for actor in state.source.enemy_target_priority
-        if actor != first.request.target_id and not state.participant(actor).injury.dead), None)
+    from towr.domain.pc_battlefield_movement_models import _enemies
+    target = next((actor for actor in _enemies(state,turn.actor_id)
+        if actor != first.request.target_id), None)
     if target is None:
         return None
     receipt = turn.action_slots[0].execution

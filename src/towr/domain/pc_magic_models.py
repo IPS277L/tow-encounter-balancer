@@ -1,5 +1,6 @@
 """Bounded PC Casting, direct spell effects and mandatory Miscast journal phases."""
 from __future__ import annotations
+from towr.domain.injury_models import injury_is_defeated
 
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from typing import TYPE_CHECKING
@@ -181,7 +182,7 @@ def consume_magic_modifiers(modifiers, proof):
     used, removed, visited = set(), set(), set()
     paths = {'execution','resolution','result','casting','test','test_result','attack',
         'attacker_test','defender_test','critical','completion','wound_effect','exacting','awareness_test_result','athletics_test_result',
-        'help_test_result'}
+        'help_test_result','recall_test_result'}
     def visit(value):
         if id(value) in visited:
             return
@@ -408,7 +409,7 @@ def _miscast_tasks_for_state(state, entry, source_id, caster_id, *, support_chec
     live=frozenset(pc_active_actor_ids(state))
     party=tuple(actor for actor in state.source.pc_activation_order
         if actor in live or support_check and actor==caster_id)
-    npcs=(*tuple(actor for actor in state.source.enemy_activation_order if actor in live),
+    npcs=(*tuple(actor for actor in state.source.npc_activation_order if actor in live),
         *tuple(row.snapshot.state.actor_id for row in state.companions
             if row.snapshot.state.actor_id in live))
     ranges={MiscastTableEntryId.SENSE_OF_LOSS:RangedWeaponRange.MEDIUM,
@@ -478,7 +479,7 @@ def build_magic_effect(state, rng):
     injury = pc_actor_injury(state, task.target_id)
     companion = pc_companion(state, task.target_id)
     previous = injury if companion is not None else None
-    if (injury.dead if is_pc else injury.defeated) and task.kind is not PcMagicTaskKind.NOTE:
+    if (injury_is_defeated(injury)) and task.kind is not PcMagicTaskKind.NOTE:
         return PcMagicEffectProof(task, previous_injury=previous)
     result = decision = None
     if task.kind in (PcMagicTaskKind.DAMAGE,PcMagicTaskKind.FIXED_EARS) and not is_pc:
@@ -627,7 +628,7 @@ def project_pc_magic_step(state, proof):
         updates = dict(magic_pending=replace(pending,tasks=pending.tasks[1:]))
         is_pc = task.target_id in state.source.pc_activation_order
         injury = pc_actor_injury(state, task.target_id)
-        active = not (injury.dead if is_pc else injury.defeated)
+        active = not (injury_is_defeated(injury))
         if task.kind in (PcMagicTaskKind.DAMAGE,PcMagicTaskKind.FIXED_EARS) and not is_pc and active:
             changed = result.state
             if pc_companion(state, task.target_id) is not None:

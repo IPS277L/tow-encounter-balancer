@@ -247,7 +247,7 @@ def project_pc_terrain(state,proof):
         if injury.conditions.has(Condition.CRITICALLY_INJURED):
             conditions=conditions.with_condition(Condition.CRITICALLY_INJURED)
         updates['party']=_party_update(state,actor,injury=replace(injury,conditions=conditions),fate=fate)
-    elif actor in state.source.enemy_activation_order:
+    elif actor in state.source.npc_activation_order:
         injury=state.enemy(actor).state.injury
         updates['enemies']=_enemy_update(state,actor,replace(injury,conditions=canonical.conditions))
     else:

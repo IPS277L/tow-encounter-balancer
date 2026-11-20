@@ -44,7 +44,9 @@ def pc_npc_attack_modifiers(definition: NpcDefinition,conditions: ConditionState
     validate_pc_book_npc_definition(definition)
     if type(attacker_wounds) is not int:
         raise TypeError('NPC attack requires its exact actual Wound count')
-    if not 0<=attacker_wounds<definition.wound_limit:
+    from towr.domain.resolution_models import TargetInjuryPolicy
+    if attacker_wounds < 0 or (definition.injury_policy is not TargetInjuryPolicy.CHAMPION
+            and attacker_wounds >= definition.wound_limit):
         raise ValueError('defeated or inconsistent NPC Wound count cannot prepare an attack')
     if attacker_wounds:
         if definition.id=='pc-book-npc:razorgor':

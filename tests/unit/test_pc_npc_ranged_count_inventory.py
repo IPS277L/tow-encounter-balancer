@@ -37,10 +37,8 @@ def scenario(*inventories):
                 else WeaponGrip.LEFT) if index == 0 else None,
             initially_loaded=True if weapon_reload_target(kind) is not None else None)
             for index, kind in enumerate(kinds))
-        facts = GeneratedRangedFacts(3, 4, 3, 4 if requirements.exacting else None,
-            True, True if requirements.firearm else None, True if requirements.firearm else None,
-            awareness=4)
-        npc = GeneratedNpc(3, 4, 3, 3, 4, 4, items, ArmourLoadout(), defence=4, ranged=facts)
+        facts = GeneratedRangedFacts(3, 4,  True, True if requirements.firearm else None, True if requirements.firearm else None)
+        npc = GeneratedNpc(3, 4, 3, 3, 4, 4, items, ArmourLoadout(), defence=4, ranged=facts, initiative=3, awareness=4,dexterity=4 if requirements.exacting else None)
         enemies.append(npc.participant(actor))
         policies.append(pc_npc_ranged_policy_for_generated(npc, actor))
     return replace(base, enemies=tuple(enemies), npc_ranged_policies=tuple(policies),

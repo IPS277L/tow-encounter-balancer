@@ -15,7 +15,7 @@ from towr.domain.weapon_inventory_models import WeaponInventoryState,carrying_bu
 def _actor(state,actor):
     if type(actor) is not str or not actor.strip():
         raise TypeError('inventory Conditions require an actual actor identifier')
-    if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+    if actor not in (*state.source.pc_activation_order,*state.source.npc_activation_order):
         raise ValueError('inventory Conditions require an actual encounter actor')
 
 

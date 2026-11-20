@@ -31,8 +31,8 @@ def scene(*, shield=ShieldKind.SHIELD, weapon=GeneratedWeapon.PISTOL, helmet_onl
             HelmetKind.HUNT, shield))
     firearm = weapon is not GeneratedWeapon.REPEATER_HANDBOW
     npc = GeneratedNpc(1, 1, 20, 10, 2, 6, initial_generated_weapons(weapon), armour, defence=2,
-        ranged=GeneratedRangedFacts(1, 2, 6, 6,  True,
-            True if firearm else None, True if firearm else None))
+        ranged=GeneratedRangedFacts(1, 2,    True,
+            True if firearm else None, True if firearm else None), initiative=6, dexterity=6)
     actor = source.enemy_activation_order[0]
     return replace(source, party=(member,), enemies=(npc.participant(actor),),
         npc_ranged_policies=(pc_npc_ranged_policy_for_generated(npc, actor),))

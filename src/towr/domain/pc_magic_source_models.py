@@ -11,7 +11,6 @@ from enum import Enum
 from towr.domain.magic_models import (
     FormalSpellDefinition, SpellDuration, SpellRange, SpellTargetKind,
 )
-from towr.domain.test_models import TestProfile
 
 
 ELEMENTALISM_LORE_ID = 'elementalism'
@@ -37,7 +36,6 @@ def _spell(value: PcSpellId) -> None:
 @dataclass(frozen=True, slots=True)
 class PcWizardProfile:
     origin: str
-    reason: int
     willpower: int
     wizard_level: int
     lores: tuple[str, ...]
@@ -50,7 +48,6 @@ class PcWizardProfile:
             raise ValueError('Wizard profile requires a supported Origin fact')
         # The paid Talent Requirements belong to its acquisition owner.
         # PG73 explicitly permits the free Character Creation waiver.
-        _integer(self.reason, 'Reason', 1)
         _integer(self.willpower, 'Willpower', 1, 10)
         _integer(self.wizard_level, 'Wizard Level', 1, 4)
         if (type(self.lores) is not tuple or not self.lores
@@ -69,11 +66,6 @@ class PcWizardProfile:
             raise TypeError('Arcane Paraphernalia requires an explicit bool fact')
         if not self.arcane_paraphernalia:
             raise ValueError('this slice requires Arcane Paraphernalia; makeshift tools are outside its scope')
-        self.willpower_profile
-
-    @property
-    def willpower_profile(self) -> TestProfile:
-        return TestProfile(self.reason, self.willpower)
 
 
 def pc_spell_definition(spell: PcSpellId) -> FormalSpellDefinition:

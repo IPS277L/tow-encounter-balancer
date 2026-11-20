@@ -5,6 +5,7 @@ declines a partial-reload Aim: another Reload would consume it without benefit.
 Explicit native callers may still choose that legal option.
 """
 from __future__ import annotations
+from towr.domain.injury_models import injury_wound_count
 
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -132,17 +133,8 @@ def _reload_source(state: PcMeleeState) -> ReloadActionExecutionResult | None:
 
 
 def _aim_available(state: PcMeleeState, actor: str) -> bool:
-    from towr.domain.pc_short_opening_models import pc_has_close_enemy
-    if pc_has_close_enemy(state, actor):
-        return False
-    if actor in state.source.pc_activation_order:
-        from towr.domain.injury_models import WoundRestriction
-        from towr.domain.pc_heavy_wound_models import restriction_sources
-        profile = state.source.participant(actor).pc.ranged
-        return (profile is not None and profile.awareness is not None
-            and not restriction_sources(state.participant(actor).injury, WoundRestriction.CANNOT_AIM))
-    from towr.domain.pc_npc_ranged_source_models import pc_npc_ranged_profile
-    return pc_npc_ranged_profile(state.enemy(actor).definition).awareness_profile is not None
+    from towr.domain.pc_aim_source_models import actor_can_aim
+    return actor_can_aim(state, actor)
 
 
 def _requires_aim(state, actor, target, weapon):
@@ -191,8 +183,9 @@ def rapid_reload_options(state: PcMeleeState) -> tuple[CombatActionSlotRequest, 
         targets = state.source.participant(actor).target_priority
         live = {enemy.state.actor_id for enemy in state.live_enemies}
     else:
-        targets = state.source.enemy_target_priority
-        live = {member.actor_id for member in state.live_party}
+        from towr.domain.pc_battlefield_movement_models import _enemies
+        targets = _enemies(state,actor)
+        live = set(targets)
     profile = ranged_weapon_combat_profile(reload.state.weapon_id)
     if profile.hands is RangedWeaponHands.TWO_HANDED and pc_has_close_enemy(state, actor):
         return ()
@@ -263,13 +256,14 @@ def _npc_automatic_mode(state: PcMeleeState, actor: str, target: str) -> bool:
     from towr.domain.pc_generated_ranged_advice import npc_repeater_bonus
     from towr.domain.pc_mount_models import pc_is_mounted
     from towr.domain.test_models import TestRequest, Skill, DiceModifier
-    enemy, member = state.enemy(actor), state.participant(target)
+    from towr.domain.pc_medical_models import medical_effective_body
+    enemy, member = state.enemy(actor), medical_effective_body(state,target)
     action = f'{state.source.id}:r{state.round_state.round_number}:{actor}:attack2'
     intent = build_pc_explicit_attack_weapon_intent(state, actor, target, action)
     profile = pc_selected_npc_attack_profile(state, actor)
     conditions, target_conditions = enemy.state.injury.conditions, member.injury.conditions
     modifiers = (*pc_npc_attack_modifiers(enemy.definition, conditions,
-        target_conditions=target_conditions, attacker_wounds=enemy.state.injury.wounds),
+        target_conditions=target_conditions, attacker_wounds=injury_wound_count(enemy.state.injury)),
         *generated_attack_modifiers(enemy.definition, conditions, target_conditions,
             target_mounted=pc_is_mounted(state,target), weapon_use=intent.attack_use,
             actor_mounted=pc_is_mounted(state,actor)),
@@ -284,6 +278,12 @@ def _npc_automatic_mode(state: PcMeleeState, actor: str, target: str) -> bool:
     test = TestRequest(action+':attack', profile.test_profile, (*modifiers, *dice), qualities)
     test, _ = build_pc_npc_attack_help(state, actor, test)
     skill = intent.protection_skill
-    defender = None if skill is None else _pc_test(state,target,action+':protection',skill,
-        oppose_attack=True,incoming_attack_skill=Skill.SHOOTING,weapon_use=intent.protection_use)
+    if skill is None:defender=None
+    elif target in state.source.pc_activation_order:
+        defender=_pc_test(state,target,action+':protection',skill,oppose_attack=True,
+            incoming_attack_skill=Skill.SHOOTING,weapon_use=intent.protection_use)
+    else:
+        from towr.domain.pc_generated_equipment import npc_protection_test
+        _,defender=npc_protection_test(state,target,actor,action+':protection',attack_skill=Skill.SHOOTING,
+            weapon_use=intent.protection_use)
     return npc_repeater_bonus(state,actor,test,defender,target,defender_skill=skill)

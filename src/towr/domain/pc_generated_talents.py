@@ -5,6 +5,7 @@ The selected stance trades a genuinely available new Staggered application.
 """
 from __future__ import annotations
 
+from towr.domain.injury_models import injury_is_defeated
 from towr.domain.pc_demigryph_models import pc_kernel_attack_types
 
 from dataclasses import dataclass,field,replace
@@ -113,7 +114,7 @@ def actor_has_combat_talent(state: PcMeleeState,actor_id: str,talent: TalentId) 
 def actor_conditions(state: PcMeleeState,actor_id: str) -> ConditionState:
     if actor_id in state.source.pc_activation_order:
         return state.participant(actor_id).injury.conditions
-    if actor_id in state.source.enemy_activation_order:
+    if actor_id in state.source.npc_activation_order:
         return state.enemy(actor_id).state.injury.conditions
     from towr.domain.pc_actor_models import pc_actor_injury
     return pc_actor_injury(state,actor_id).conditions
@@ -127,7 +128,7 @@ def actor_stagger_removable(state: PcMeleeState,actor_id: str) -> bool:
         member=state.participant(actor_id)
         return not member.injury.dead and not has_ongoing_condition(member.injury,Condition.STAGGERED)
     from towr.domain.pc_actor_models import pc_actor_npc_snapshot
-    return not pc_actor_npc_snapshot(state,actor_id).state.injury.defeated
+    return not injury_is_defeated(pc_actor_npc_snapshot(state,actor_id).state.injury)
 
 
 def pending_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
@@ -191,7 +192,7 @@ def expected_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
         return None
     enemy = state.enemy(turn.actor_id)
     from towr.domain.pc_melee_result_models import pc_selected_npc_attack_profile
-    if (enemy.state.injury.defeated or pc_selected_npc_attack_profile(state,turn.actor_id).skill is not Skill.MELEE
+    if (injury_is_defeated(enemy.state.injury) or pc_selected_npc_attack_profile(state,turn.actor_id).skill is not Skill.MELEE
             or not wild_attack_available(enemy.definition,enemy.state.injury.conditions)):
         return None
     from towr.domain.pc_mount_attack_models import (pc_uses_mount_attack,available_pc_attack_mount,
@@ -202,7 +203,8 @@ def expected_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
     if available_pc_attack_mount(state,turn.actor_id) is not None:
         from towr.domain.pc_short_opening_models import pc_enemy_range
         from towr.domain.ranged_weapon_profiles import RangedWeaponRange
-        target=next(actor for actor in state.source.enemy_target_priority if not state.participant(actor).injury.dead)
+        from towr.domain.pc_battlefield_movement_models import _enemies
+        target=next(iter(_enemies(state,turn.actor_id)))
         if pc_enemy_range(state,turn.actor_id,target) is RangedWeaponRange.CLOSE:
             intent=build_pc_mounted_attack_intent(state,turn.actor_id,target,mode=PcMountedAttackMode.RIDER)
     from towr.domain.pc_weapon_intent_models import build_pc_attack_weapon_intent

@@ -98,6 +98,9 @@ def pc_has_working_shield(member: PcMeleeParticipantState) -> bool:
 
 
 def pc_shield_recover_hand(member: PcMeleeParticipantState, *, state=None) -> PcWeaponHand | None:
+    if state is not None:
+        from towr.domain.pc_medical_models import medical_effective_body
+        member=medical_effective_body(state,member.actor_id)
     from towr.domain.pc_weapon_inventory import equipment_usable_hands
     if member.shield is None or member.shield.location is not PcShieldLocation.DROPPED:
         return None
@@ -118,15 +121,19 @@ def pc_shield_recover_hand(member: PcMeleeParticipantState, *, state=None) -> Pc
         if side is not member.weapon_hand and side not in injured_hands(member)),None)
 
 
-def pc_shield_recover_needed(member: PcMeleeParticipantState) -> bool:
-    return usable_weapon_hand(member) is not None and pc_shield_recover_hand(member) is not None
+def pc_shield_recover_needed(member: PcMeleeParticipantState, *, state=None) -> bool:
+    if state is not None:
+        from towr.domain.pc_medical_models import medical_effective_body
+        member=medical_effective_body(state,member.actor_id)
+    return usable_weapon_hand(member) is not None and pc_shield_recover_hand(member,state=state) is not None
 
 
 def pc_shield_resilience(state: PcMeleeState, actor: str) -> ResilienceProfile:
     from towr.domain.pc_potion_models import pc_effective_definition
     pc = pc_effective_definition(state, actor)
     source = state.source.participant(actor)
-    shield = pc_has_working_shield(state.participant(actor))
+    from towr.domain.pc_medical_models import medical_effective_body
+    shield = pc_has_working_shield(medical_effective_body(state,actor))
     from towr.domain.pc_mount_models import mount_resilience_bonus
     bonus = pc.armour_bonus+int(shield)+mount_resilience_bonus(state,actor)
     # Positive Resilience bonuses already imply armour. Preserve a zero-bonus
@@ -169,7 +176,8 @@ def expected_pc_shield_release(state: PcMeleeState) -> PcShieldReleaseProof | No
     if turn is None or turn.actor_id not in state.source.pc_activation_order or turn.action_slots:
         return None
     actor = turn.actor_id
-    member = state.participant(actor)
+    from towr.domain.pc_medical_models import medical_effective_body
+    member = medical_effective_body(state,actor)
     if (member.injury.dead or member.injury.conditions.has(Condition.DEFENCELESS)
             or not pc_has_working_shield(member)):
         return None
@@ -298,7 +306,7 @@ def _shield_marker_id(actor):
 
 def _shield_actors(state):
     return (*state.source.pc_activation_order,
-        *(actor for actor in state.source.enemy_activation_order if actor not in state.exited_npc_ids))
+        *(actor for actor in state.source.npc_activation_order if actor not in state.exited_npc_ids))
 
 
 def _shield_ground(state, actor):
@@ -433,8 +441,9 @@ def expected_pc_shield_approach(state):
             or turn.action_slots or state.pending or state.pending_wound is not None or state.magic_pending is not None):
         return None
     actor = turn.actor_id
-    member = state.participant(actor)
-    if not pc_shield_recover_needed(member) or pc_shield_is_close(state, actor):
+    from towr.domain.pc_medical_models import medical_effective_body
+    member = medical_effective_body(state,actor)
+    if not pc_shield_recover_needed(member,state=state) or pc_shield_is_close(state, actor):
         return None
     if member.shield.ground is None or any(member.injury.conditions.has(condition)
             for condition in (Condition.PRONE, Condition.DEFENCELESS, Condition.BROKEN)):
@@ -504,8 +513,13 @@ def pc_shield_approach_updates(state, proof):
     from towr.domain.pc_heavy_wound_models import critical_for_action
     from towr.domain.turn_models import CombatActionKind
     validate_pc_melee_source_types(proof, expected_pc_shield_approach(state))
+    from towr.domain.pc_medical_models import medical_effective_body
     member = state.participant(proof.actor_id)
-    injury = critical_for_action(member, CombatActionKind.MANOEUVRE)
+    effective=medical_effective_body(state,proof.actor_id)
+    after=critical_for_action(effective, CombatActionKind.MANOEUVRE)
+    added=tuple(effect for effect in after.active_wound_effects if effect not in effective.injury.active_wound_effects)
+    injury=replace(member.injury,active_wound_effects=tuple(dict.fromkeys((*member.injury.active_wound_effects,*added))),
+        conditions=(member.injury.conditions.with_condition(Condition.CRITICALLY_INJURED) if added else member.injury.conditions))
     return dict(battlefield=proof.state, party=tuple(replace(item, injury=injury)
         if item.actor_id == proof.actor_id else item for item in state.party))
 
@@ -515,9 +529,10 @@ def validate_pc_shields(state):
     from towr.domain.pc_melee_result_models import PcRecoverProof
     from towr.domain.pc_musician_equipment_models import PcMusicianEquipmentProof
     from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
+    from towr.domain.pc_medical_equipment_models import PcMedicalEquipmentProof,PcMedicalToolRecoverProof
     expected = {actor: None for actor in state.source.pc_activation_order}
     for index, proof in enumerate(state.history):
-        if type(proof) is PcMusicianRecoverProof:
+        if type(proof) in (PcMusicianRecoverProof,PcMedicalEquipmentProof,PcMedicalToolRecoverProof):
             replace(proof)
             proof=proof.equipment
         if type(proof) is PcMusicianEquipmentProof and proof.actor_id in expected:

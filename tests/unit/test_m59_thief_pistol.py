@@ -24,7 +24,7 @@ def thief_pistol_scene(*, thieves=1, pc_count=1, melee_actor_ids=(), rounds=1):
     base = book_pc_scenario(footpads=0,townsfolk=0,thieves=thieves,
         pc_count=pc_count,max_rounds=rounds)
     party = tuple(member if member.actor_id in melee_actor_ids else replace(member,
-        pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
+        pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile(), initiative=3, dexterity=4),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
         for member in base.party)
     return replace(base,party=party,facts=replace(base.facts,outnumbering_bonus_approved=False))
 

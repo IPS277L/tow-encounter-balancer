@@ -38,7 +38,7 @@ def pc_source(*, rounds=1, awareness=None):
     source = make_pc_pistol_scenario(max_rounds=rounds, ballistic_skill=4, dexterity=5)
     member = source.party[0]
     member = replace(member, pc=replace(member.pc, toughness=20,
-        ranged=replace(member.pc.ranged, awareness=awareness)),
+        awareness=awareness),
         talents=(paid_talent(TalentId.RAPID_RELOAD),),
         combat_equipment=tuple(replace(item, initially_loaded=False) for item in member.combat_equipment))
     return replace(source, party=(member,), facts=replace(source.facts, outnumbering_bonus_approved=False,
@@ -49,12 +49,11 @@ def pc_source(*, rounds=1, awareness=None):
 def npc_source(*, rounds=1, awareness=None, weapon=GeneratedWeapon.PISTOL):
     source = make_pc_melee_party_scenario(pc_count=1,enemy_count=1,max_rounds=rounds)
     firearm=weapon is not GeneratedWeapon.REPEATER_HANDBOW
-    ranged = GeneratedRangedFacts(4, 4, 3, 5, True,
-        True if firearm else None, True if firearm else None, awareness=awareness)
+    ranged = GeneratedRangedFacts(4, 4,  True, True if firearm else None, True if firearm else None)
     npc = GeneratedNpc(2, 2, 20, 3, 3, 3,
         initial_generated_weapons(weapon, initially_loaded=False),
-        light_loadout(light=False, shield=False), defence=3, ranged=ranged,
-        talents=(paid_talent(TalentId.RAPID_RELOAD),))
+        light_loadout(light=False, shield=False), defence=3, ranged=ranged,dexterity=5,
+        talents=(paid_talent(TalentId.RAPID_RELOAD),), initiative=3, awareness=awareness)
     member = source.party[0]
     return replace(source, party=(replace(member, pc=replace(member.pc,toughness=20)),),
         enemies=(npc.participant('minion1'),),
@@ -193,7 +192,7 @@ class RapidReloadExecutionTests(unittest.TestCase):
         source=npc_source(awareness=4)
         member=source.party[0]
         member=replace(member,policy=PcMeleePolicy.AUTOMATIC_COMBAT,
-            pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()),
+            pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile(), initiative=3, dexterity=4),
             combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,
                 initially_loaded=True))
         source=replace(source,party=(member,),
@@ -301,7 +300,7 @@ class RapidReloadExecutionTests(unittest.TestCase):
         member=source.party[0]
         weapon=PcMeleeWeapon.HOCHLAND_LONG_RIFLE
         member=replace(member,pc=replace(member.pc,weapon=weapon,
-            ranged=replace(member.pc.ranged,initiative=4)),initial_weapon_hand=PcTwoHandedGrip.BOTH,
+            initiative=4),initial_weapon_hand=PcTwoHandedGrip.BOTH,
             combat_equipment=initial_weapon_items(weapon,PcTwoHandedGrip.BOTH,initially_loaded=False))
         source=replace(source,party=(member,))
         state,steps=pc_reload_prefix(source,[1]*4)

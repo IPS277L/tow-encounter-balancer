@@ -45,6 +45,7 @@ WEAPONS = (
     (GeneratedWeapon.HOCHLAND_LONG_RIFLE, 6, R.MEDIUM, R.EXTREME, True, 4),
     (GeneratedWeapon.REPEATER_CROSSBOW, 4, R.SHORT, R.MEDIUM, False, 3),
     (GeneratedWeapon.REPEATER_HANDGUN, 5, R.SHORT, R.LONG, True, 5),
+    (GeneratedWeapon.DRAGON_BOW, 6, R.MEDIUM, R.EXTREME, False, None),
 )
 FIREARMS = frozenset((GeneratedWeapon.HANDGUN,GeneratedWeapon.BLUNDERBUSS,
     GeneratedWeapon.HOCHLAND_LONG_RIFLE,GeneratedWeapon.REPEATER_HANDGUN,
@@ -53,11 +54,9 @@ FIREARMS = frozenset((GeneratedWeapon.HANDGUN,GeneratedWeapon.BLUNDERBUSS,
 
 def component(weapon=GeneratedWeapon.SHORTBOW, **changes):
     firearm = weapon in FIREARMS
-    facts = GeneratedRangedFacts(4,5,2,None if weapon in (GeneratedWeapon.SHORTBOW,GeneratedWeapon.WARBOW,GeneratedWeapon.LONGBOW) else 4,True,
-        True if firearm else None, True if firearm else None,
-        awareness=4 if weapon in GENERATED_TWO_HANDED_RANGED_WEAPONS else None)
+    facts = GeneratedRangedFacts(4, 5,  True, True if firearm else None, True if firearm else None)
     values = dict(weapon_skill=3,strength=3,toughness=4,agility=2,melee=4,
-        athletics=3,defence=4,weapon=weapon,light_armour=False,shield=False,ranged=facts)
+        athletics=3,defence=4,weapon=weapon,light_armour=False,shield=False,ranged=facts,initiative=2,dexterity=None if weapon in (GeneratedWeapon.SHORTBOW,GeneratedWeapon.WARBOW,GeneratedWeapon.LONGBOW,GeneratedWeapon.DRAGON_BOW) else 4,awareness=4 if weapon in GENERATED_TWO_HANDED_RANGED_WEAPONS else None)
     values.update(changes)
     values['armour'] = light_loadout(light=values.pop('light_armour'), shield=values.pop('shield'))
     values['weapons'] = initial_generated_weapons(values.pop('weapon'), values.pop('weapon_grip', None))
@@ -104,7 +103,7 @@ class FirstChoice:
 
 
 class GeneratedTwoHandedShootingSourceTests(unittest.TestCase):
-    def test_complete_inventory_has_nine_literal_profiles_without_catalogue_identity(self):
+    def test_complete_inventory_has_literal_profiles_without_catalogue_identity(self):
         self.assertEqual(GENERATED_TWO_HANDED_RANGED_WEAPONS,tuple(row[0] for row in WEAPONS))
         for weapon,damage,minimum,maximum,ignores,target in WEAPONS:
             with self.subTest(weapon=weapon):
@@ -124,20 +123,20 @@ class GeneratedTwoHandedShootingSourceTests(unittest.TestCase):
                 derived = pc_npc_ranged_profile(definition)
                 self.assertIs(derived.weapon_id,RangedWeaponId(weapon.value))
                 self.assertEqual(derived.dexterity_profile,None if target is None else InlineProfile(2,4))
-                self.assertEqual(derived.awareness_profile,InlineProfile(2,4))
+                self.assertEqual(derived.awareness_profile,InlineProfile(2,4,4))
 
     def test_every_two_handed_shooter_requires_actual_awareness_and_no_shield(self):
         for weapon, *_ in WEAPONS:
             npc = component(weapon)
             with self.subTest(weapon=weapon):
                 with self.assertRaises(ValueError):
-                    replace(npc,ranged=replace(npc.ranged,awareness=None))
+                    replace(npc,awareness=None)
                 with self.assertRaises(ValueError):
                     replace(npc,armour=replace(npc.armour,shield=ShieldKind.SHIELD))
         for value in (True,1,7,4.,'4'):
             with self.subTest(value=value),self.assertRaises(ValueError):
-                replace(component().ranged,awareness=value)
-        self.assertIsNone(component(GeneratedWeapon.PISTOL).ranged.awareness)
+                replace(component(),awareness=value)
+        self.assertIsNone(component(GeneratedWeapon.PISTOL).awareness)
 
     def test_blackpowder_facts_follow_the_actual_weapon_including_crossbows(self):
         for weapon, *_ in WEAPONS:
@@ -161,7 +160,7 @@ class GeneratedTwoHandedShootingSourceTests(unittest.TestCase):
             elif field == 'range':
                 object.__setattr__(attack,'range_min',R.CLOSE)
             else:
-                object.__setattr__(definition.generated_components.ranged,'awareness',None)
+                object.__setattr__(definition.generated_components,'awareness',None)
             with self.subTest(field=field),self.assertRaises((ValueError,TypeError)):
                 validate_generated_definition(definition)
 
@@ -195,7 +194,7 @@ class GeneratedTwoHandedShootingSpaceTests(unittest.TestCase):
         a,b = first.sample(a_rng),second.sample(b_rng)
         self.assertEqual(a,b)
         self.assertEqual(a_rng.draws,b_rng.draws)
-        self.assertIsNone(a.ranged.awareness)
+        self.assertIsNone(a.awareness)
 
     def test_sampling_contains_mutation_and_numeric_resampling_preserve_full_source(self):
         envelope = space(weapon=(GeneratedWeapon.PISTOL,*GENERATED_TWO_HANDED_RANGED_WEAPONS),
@@ -211,7 +210,7 @@ class GeneratedTwoHandedShootingSpaceTests(unittest.TestCase):
                 (original.weapon,None,False,False))
             self.assertEqual(original,component(weapon))
         fixed = space()
-        self.assertFalse(fixed.contains(component(ranged=replace(component().ranged,awareness=5))))
+        self.assertFalse(fixed.contains(component(awareness=5)))
         for seed in range(20):
             proposal = envelope.sample(Random(seed))
             self.assertTrue(envelope.contains(proposal))

@@ -24,12 +24,12 @@ def ranged_source(*,weapon=PcMeleeWeapon.PISTOL,backup=False,rounds=3,bs=4,shoot
         ws=1,melee=2,strength=2,initiative=3,dexterity=5):
     source=make_pc_pistol_scenario(max_rounds=rounds)
     actor=source.party[0]
-    profile=pistol_profile(ballistic_skill=bs,shooting=shooting,initiative=initiative,dexterity=dexterity)
+    profile=pistol_profile(ballistic_skill=bs, shooting=shooting)
     if weapon is not PcMeleeWeapon.PISTOL:
         profile=replace(profile,has_blackpowder_lore=None if weapon is PcMeleeWeapon.REPEATER_HANDBOW else True,
             has_blackpowder_kit=None if weapon is PcMeleeWeapon.REPEATER_HANDBOW else True,
             repeater_bonus_policy=PcRepeaterBonusPolicy.AUTOMATIC)
-    pc=replace(actor.pc,weapon=weapon,ranged=profile,weapon_skill=ws,melee=melee,strength=strength,toughness=20)
+    pc=replace(actor.pc,weapon=weapon,ranged=profile,initiative=initiative,dexterity=dexterity,weapon_skill=ws,melee=melee,strength=strength,toughness=20)
     items=(PcWeaponItem('gun',weapon,PcItemLocation.HELD,actor.initial_weapon_hand,initially_loaded=True),)
     backup_policy=None
     if backup:

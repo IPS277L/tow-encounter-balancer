@@ -142,7 +142,8 @@ def expected_pc_warped_form_activation(state):
     # Unknown initial Wounds, magic and external producers are excluded by source.
     after = replace(before, wounds=before.wounds-1,
         conditions=before.conditions.with_condition(Condition.STAGGERED))
-    live = {m.actor_id for m in state.live_party} | {e.state.actor_id for e in state.live_enemies}
+    from towr.domain.pc_actor_models import pc_active_actor_ids
+    live = set(pc_active_actor_ids(state))
     return PcWarpedFormActivationProof(activation_id, turn.actor_id, before, after,
         (*tuple(actor for actor in policy.close_actor_ids if actor in live),
             *_close_companion_targets(state, turn.actor_id)))

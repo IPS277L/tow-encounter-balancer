@@ -47,13 +47,8 @@ def ranged_source(weapon):
     from tests.support.pc_weapon_sources import initial_weapon_items
     source = make_pc_melee_party_scenario(pc_count=2, enemy_count=1, max_rounds=4)
     free = weapon is PcMeleeWeapon.SHORTBOW
-    profile = PcRangedProfile(ballistic_skill=3, shooting=4,
-        ammunition_supply_confirmed=True, initiative=None if free else 2,
-        dexterity=None if free else 6,
-        has_blackpowder_lore=None if free else True, has_blackpowder_kit=None if free else True,
-        reload_hand_policy=None if free else PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,
-        repeater_bonus_policy=None if free else PcRepeaterBonusPolicy.WHEN_AVAILABLE)
-    party = tuple(replace(member, pc=replace(member.pc, weapon=weapon, ranged=profile),
+    profile = PcRangedProfile(ballistic_skill=3, shooting=4, ammunition_supply_confirmed=True,  has_blackpowder_lore=None if free else True, has_blackpowder_kit=None if free else True, reload_hand_policy=None if free else PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS, repeater_bonus_policy=None if free else PcRepeaterBonusPolicy.WHEN_AVAILABLE)
+    party = tuple(replace(member, pc=replace(member.pc, weapon=weapon, ranged=profile, initiative=None if free else 2,dexterity=None if free else 6),
         initial_weapon_hand=PcTwoHandedGrip.BOTH,combat_equipment=initial_weapon_items(
             weapon,PcTwoHandedGrip.BOTH,initially_loaded=None if free else True))
         for member in source.party)

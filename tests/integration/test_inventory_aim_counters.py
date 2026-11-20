@@ -33,7 +33,7 @@ def carried_source(*,pcs=1,weapon=W.HOCHLAND_LONG_RIFLE):
     party=[]
     for index,member in enumerate(source.party):
         ranged=(member.pc.ranged if weapon is W.HOCHLAND_LONG_RIFLE else
-            PcRangedProfile(3,4,initiative=3,awareness=4,ammunition_supply_confirmed=True)) if index==0 else None
+            PcRangedProfile(3,4,ammunition_supply_confirmed=True)) if index==0 else None
         items=(PcWeaponItem('sword',W.SWORD,L.HELD,H.LEFT),)
         if index==0:
             items+=(PcWeaponItem('carried-gun',weapon,L.CARRIED,None,

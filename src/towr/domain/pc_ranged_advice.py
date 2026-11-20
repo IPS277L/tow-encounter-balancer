@@ -3,6 +3,7 @@
 Prepared views are comparisons only. No rolls, proof receipts or real Fate spends
 are created here. A finite Fate budget follows every forecast Test branch.
 """
+from towr.domain.injury_models import injury_is_defeated
 from towr.domain.reload_models import ranged_weapon_is_loaded
 from towr.domain.reload_models import ReloadableWeaponState
 from dataclasses import replace
@@ -52,7 +53,7 @@ def pc_fate_branches(state,actor,skill,request,budget):
     return tuple((successes,after,chance) for (successes,after),chance in values.items() if chance)
 
 
-def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=False,target_id=None,allow_empty=False):
+def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=False,target_id=None,allow_empty=False,ignore_aim=False):
     """Expected immediate actual prepared Attack, including its best target."""
     from towr.domain.pc_tactical_models import _distribution,_impact_value
     from towr.domain.pc_melee_models import PC_RANGED_WEAPONS, PC_THROWING_WEAPONS
@@ -90,7 +91,7 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
     targets=(target_id,) if target_id is not None else _enemies(state, actor)
     for target in targets:
         enemy=pc_actor_npc_snapshot(state,target)
-        if enemy.state.injury.defeated or target in state.exited_npc_ids:continue
+        if injury_is_defeated(enemy.state.injury) or target in state.exited_npc_ids:continue
         if not pc_battlefield_attack_available(state,actor,target):continue
         use=pc_attack_weapon_use(state,actor,target)
         if use is None:continue
@@ -99,9 +100,7 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
         modifiers=[]
         if shooting:
             from towr.domain.pc_ranged_models import pc_ranged_profile_modifiers
-            from towr.domain.pc_aim_models import pc_aim_attack_modifiers
             modifiers.extend(pc_ranged_profile_modifiers(state,actor,target,require_loaded=False))
-            modifiers.extend(pc_aim_attack_modifiers(state,actor,target))
             if enemy.state.injury.conditions.has(Condition.PRONE):modifiers.append(DiceModifier('RULE-HEALTH-008:prone-shooting',-1))
             if bonus and not member.injury.conditions.has(Condition.DRAINED):
                 modifiers.append(ranged_weapon_reload_profile(RangedWeaponId(weapon.value)).optional_bonus_modifier())
@@ -109,6 +108,9 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
             if pc_battlefield_allows_outnumbering(state,actor):
                 modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering',1))
             if enemy.state.injury.conditions.has(Condition.PRONE) and pc_npc_allows_enemy_higher_ground(enemy.definition):modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground',1))
+        if (shooting or throwing) and not ignore_aim:
+            from towr.domain.pc_aim_models import pc_aim_attack_modifiers
+            modifiers.extend(pc_aim_attack_modifiers(state,actor,target))
         modifiers.extend(pc_weapon_target_modifiers(use,enemy.state.injury.conditions,
             target_mounted=pc_is_mounted(state,target)))
         if extra:modifiers.append(DiceModifier('tactics:prospective-help',extra))
@@ -181,6 +183,14 @@ def net_inventory_action_choices(state,actor,*,incoming_risk=None):
                 and item.location is not PcItemLocation.HELD):continue
         view=pc_weapon_inventory_view(state,actor,item.id)
         if view is None:continue
+        from towr.domain.pc_careful_aim_advice import player_careful_aim_value
+        aim=player_careful_aim_value(view,actor)
+        if aim is not None:
+            aimed_target,aim_value=aim
+            if item.id!=member.weapon_inventory.active_item_id and incoming_risk is not None:
+                aim_value-=max(0.0,incoming_risk(view)-current_risk)
+            result.append(PcTacticalChoice(actor,CombatActionKind.AIM,aimed_target,None,aim_value,
+                'careful_aim_and_next_throw',weapon_item_id=item.id))
         value,target=pc_attack_value(view,actor)
         if target is None:
             if (state.battlefield is not None and actual_net is not None
@@ -311,8 +321,9 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaini
             modifiers=[]
             if skill is Skill.SHOOTING:
                 from towr.domain.pc_ranged_models import pc_ranged_profile_modifiers
-                from towr.domain.pc_aim_models import pc_aim_attack_modifiers
                 modifiers.extend(pc_ranged_profile_modifiers(view,actor,target,require_loaded=False))
+            if skill in (Skill.SHOOTING, Skill.THROWING):
+                from towr.domain.pc_aim_models import pc_aim_attack_modifiers
                 modifiers.extend(pc_aim_attack_modifiers(view,actor,target))
             if skill is Skill.SHOOTING and pc_actor_npc_snapshot(state,target).state.injury.conditions.has(Condition.PRONE):modifiers.append(DiceModifier('RULE-HEALTH-008:prone-shooting',-1))
             if bonus:modifiers.append(ranged_weapon_reload_profile(RangedWeaponId(weapon.value)).optional_bonus_modifier())
@@ -367,9 +378,8 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaini
         from towr.domain.injury_models import WoundRestriction
         from towr.domain.pc_short_opening_models import pc_has_close_enemy
         view=views[item_id]
-        return (view.source.participant(actor).pc.ranged.awareness is not None
-            and not restriction_sources(view.participant(actor).injury,WoundRestriction.CANNOT_AIM)
-            and not pc_has_close_enemy(view,actor))
+        from towr.domain.pc_aim_source_models import actor_can_aim
+        return actor_can_aim(view, actor)
     def needs_aim(item_id,target):
         from towr.domain.pc_short_opening_models import pc_enemy_range
         from towr.domain.ranged_weapon_profiles import RangedWeaponRange
@@ -437,6 +447,13 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaini
         viewed_member=view.participant(actor)
         switch=item_id!=inventory.active_item_id
         cost=(max(0.0,incoming_risk(view)-current_risk) if incoming_risk is not None and switch else 0.0)
+        if not _rapid_follow_up:
+            from towr.domain.pc_careful_aim_advice import player_careful_aim_value
+            aim = player_careful_aim_value(view, actor)
+            if aim is not None:
+                target, value = aim
+                result.append(PcTacticalChoice(actor,CombatActionKind.AIM,target,None,value-cost,
+                    'careful_aim_and_next_attack',weapon_item_id=item_id))
         left=_remaining_for(remaining,item_id)
         if shooting and left:
             if item_id in current_reload_ids:
@@ -460,7 +477,7 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaini
                     from towr.domain.pc_heavy_wound_models import restriction_sources
                     from towr.domain.injury_models import WoundRestriction
                     source=view.source.participant(actor).pc
-                    if (source.ranged.awareness is not None and pc_aim_target(view,actor) == target
+                    if (source.awareness is not None and pc_aim_target(view,actor) == target
                             and not restriction_sources(viewed_member.injury,WoundRestriction.CANNOT_AIM)):
                         value=0.01+pc_attack_value(view,actor,target_id=target)[0]/2-cost
                         result.append(PcTacticalChoice(actor,CombatActionKind.AIM,target,None,value,

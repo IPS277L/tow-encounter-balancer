@@ -54,7 +54,7 @@ def expected_pc_npc_grudge_encounter(state):
         return None
     applied={proof.policy.actor_id for proof in state.history if type(proof) is PcNpcGrudgeEncounterProof}
     policies={policy.actor_id:policy for policy in state.source.npc_grudge_policies}
-    for enemy in state.source.enemies:
+    for enemy in state.source.npc_sources:
         actor=enemy.state.actor_id
         if actor not in policies or actor in applied:
             continue

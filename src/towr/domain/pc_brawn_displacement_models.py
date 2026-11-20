@@ -6,6 +6,7 @@ through the existing forced-dismount owner, without inventing Prone.
 """
 from __future__ import annotations
 
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -29,8 +30,8 @@ if TYPE_CHECKING:
 def _alive(state, actor):
     if actor in state.source.pc_activation_order:
         return not state.participant(actor).injury.dead
-    if actor in state.source.enemy_activation_order:
-        return not state.enemy(actor).state.injury.defeated and actor not in state.exited_npc_ids
+    if actor in state.source.npc_activation_order:
+        return not injury_is_defeated(state.enemy(actor).state.injury) and actor not in state.exited_npc_ids
     from towr.domain.pc_actor_models import pc_active_actor_ids, pc_companion
     if pc_companion(state, actor) is not None:
         return actor in pc_active_actor_ids(state)
@@ -58,10 +59,11 @@ def _ready_later_shooter(state, actor, target, after):
     from towr.domain.pc_magic_weapon_models import actor_inventory, actor_injury
     from towr.domain.weapon_use_models import build_weapon_use
     from towr.domain.pc_heavy_wound_models import usable_hands
-    order = (state.source.pc_activation_order if actor in state.source.pc_activation_order
+    from towr.domain.pc_actor_models import pc_actor_side,pc_opponent_ids
+    from towr.domain.turn_models import CombatSide
+    order = (state.source.player_activation_order if pc_actor_side(state,actor) is CombatSide.PLAYERS_AND_ALLIES
         else state.source.enemy_activation_order)
-    opposite = (tuple(enemy.state.actor_id for enemy in state.live_enemies)
-        if actor in state.source.pc_activation_order else tuple(member.actor_id for member in state.live_party))
+    opposite = pc_opponent_ids(state,actor)
     unavailable = (*state.round_state.completed_turn_entity_ids, *state.round_state.excluded_turn_entity_ids)
     for ally in order[order.index(actor)+1:]:
         if ally in unavailable or not _alive(state, ally):

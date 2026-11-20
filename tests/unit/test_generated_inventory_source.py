@@ -26,13 +26,13 @@ def item(kind=W.SWORD,*,id='weapon',location=L.HELD,grip=G.LEFT,loaded=None,quan
     return WeaponItemSource(id,kind,location,grip,quantity,initially_loaded=loaded)
 
 
-def source(items=None,**changes):
+def source(items=None,*,dexterity=4,**changes):
     return GeneratedNpc(3,3,3,3,4,4,(item(),) if items is None else items,
-        changes.pop('armour',ArmourLoadout()),defence=4,**changes)
+        changes.pop('armour',ArmourLoadout()),defence=4,initiative=changes.pop('initiative',3),dexterity=dexterity,**changes)
 
 
 def firearm_facts():
-    return GeneratedRangedFacts(3,4,3,4,True,True,True)
+    return GeneratedRangedFacts(3, 4,  True, True, True)
 
 
 class GeneratedInventorySourceTests(unittest.TestCase):
@@ -89,27 +89,27 @@ class GeneratedInventorySourceTests(unittest.TestCase):
     def test_whole_inventory_requires_reload_and_blackpowder_facts_even_if_carried(self):
         items=(item(),item(W.PISTOL,id='gun',location=L.CARRIED,grip=None,loaded=False))
         self.assertIs(source(items,ranged=firearm_facts()).weapon,GeneratedWeapon.SWORD)
-        for facts in (None,replace(firearm_facts(),initiative=None),
-                replace(firearm_facts(),dexterity=None),
-                replace(firearm_facts(),has_blackpowder_kit=None),
+        with self.assertRaises(ValueError):source(items,ranged=firearm_facts(),initiative=None)
+        for facts in (None,
+                                replace(firearm_facts(),has_blackpowder_kit=None),
                 replace(firearm_facts(),has_blackpowder_lore=None)):
             with self.subTest(facts=facts),self.assertRaises((TypeError,ValueError)):
                 source(items,ranged=facts)
         with self.assertRaises(ValueError):source(ranged=firearm_facts())
         handbow=(item(W.REPEATER_HANDBOW,loaded=True),)
         with self.assertRaises(ValueError):source(handbow,ranged=firearm_facts())
-        self.assertIsNotNone(source(handbow,ranged=GeneratedRangedFacts(3,4,3,4,True,None,None)))
+        self.assertIsNotNone(source(handbow,ranged=GeneratedRangedFacts(3, 4,  True, None, None), initiative=3))
 
     def test_free_bow_has_no_exacting_dexterity_but_keeps_actual_two_hand_aim(self):
         items=(item(W.SHORTBOW,grip=G.BOTH),)
-        facts=GeneratedRangedFacts(3,4,3,None,True,None,None,awareness=4)
-        npc=source(items,ranged=facts)
+        facts=GeneratedRangedFacts(3, 4,  True, None, None)
+        npc=source(items,ranged=facts,awareness=4,dexterity=None)
         self.assertIsNone(generated_initial_weapon_inventory(npc,'npc').active.reload)
-        for changed in (replace(facts,dexterity=4),replace(facts,awareness=None),
-                replace(facts,initiative=None)):
-            with self.subTest(facts=changed),self.assertRaises(ValueError):source(items,ranged=changed)
+        self.assertEqual(source(items,ranged=facts,dexterity=4,awareness=4).dexterity,4)
         mixed=items+(item(W.PISTOL,id='gun',location=L.CARRIED,grip=None,loaded=True),)
-        self.assertIsNotNone(source(mixed,ranged=replace(firearm_facts(),awareness=4)))
+        with self.assertRaises(ValueError):source(items,ranged=facts,awareness=None)
+        with self.assertRaises(ValueError):source(items,ranged=facts,initiative=None,awareness=4)
+        self.assertIsNotNone(source(mixed,ranged=firearm_facts(),awareness=4))
         with self.assertRaises(ValueError):item(W.SHORTBOW,grip=G.BOTH,loaded=True)
 
     def test_shooting_and_net_share_ballistic_skill_and_net_requires_throwing(self):
@@ -187,7 +187,7 @@ class GeneratedInventorySourceTests(unittest.TestCase):
         horse=source(armour=ArmourLoadout(barding=True),mount=CombatMount.HORSE,
             talents=(paid_talent(TalentId.MAGIC_RESISTANCE),))
         self.assertEqual(horse.participant('npc').definition.resilience.bonus,2)
-        self.assertEqual(horse.talents,(TalentId.MAGIC_RESISTANCE,))
+        self.assertEqual(horse.talents,(paid_talent(TalentId.MAGIC_RESISTANCE),))
 
     def test_profiles_reject_foreign_items_grips_and_nested_source_forgery(self):
         class Alias(str,Enum):LEFT='left'

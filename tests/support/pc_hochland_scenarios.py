@@ -12,13 +12,8 @@ from towr.domain.pc_melee_models import (
 )
 
 
-def hochland_profile(*, ballistic_skill: int = 3, shooting: int = 4,
-        initiative: int = 3, dexterity: int = 4, awareness: int = 4):
-    return PcRangedProfile(ballistic_skill=ballistic_skill, shooting=shooting,
-        initiative=initiative, dexterity=dexterity, awareness=awareness,
-        has_blackpowder_lore=True, has_blackpowder_kit=True,
-        ammunition_supply_confirmed=True,
-        reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+def hochland_profile(*, ballistic_skill: int=3, shooting: int=4):
+    return PcRangedProfile(ballistic_skill=ballistic_skill, shooting=shooting,  has_blackpowder_lore=True, has_blackpowder_kit=True, ammunition_supply_confirmed=True, reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
 
 
 def make_pc_hochland_scenario(*, pc_count: int = 1, enemy_count: int = 1,
@@ -32,8 +27,7 @@ def make_pc_hochland_scenario(*, pc_count: int = 1, enemy_count: int = 1,
         max_rounds=max_rounds, backup=backup)
     party = tuple(replace(member, pc=replace(member.pc,
         weapon=PcMeleeWeapon.HOCHLAND_LONG_RIFLE,
-        ranged=hochland_profile(ballistic_skill=ballistic_skill, shooting=shooting,
-            initiative=initiative, dexterity=dexterity, awareness=awareness)),
+        ranged=hochland_profile(ballistic_skill=ballistic_skill, shooting=shooting), initiative=initiative, awareness=awareness, dexterity=dexterity),
         fate=replace(member.fate, rating=fate_rating, session_spend_limit=fate_rating,
             has_lucky=has_lucky),
         talents=(paid_talent(TalentId.LUCKY),) if has_lucky else (),

@@ -37,6 +37,22 @@ class PcBodyFact:
             raise TypeError('sided anatomical fact requires one actual typed side')
 
 
+def validate_body_fact_sources(injury,facts):
+    """PC and Champion anatomy references actual table Wounds, never HP."""
+    if type(facts) is not tuple:
+        raise TypeError('body facts require a canonical ordered tuple')
+    rows={PcBodyFactKind.INJURED_HAND:(12,),PcBodyFactKind.UNUSABLE_ARM:(16,),
+        PcBodyFactKind.LOST_ARM:(20,),PcBodyFactKind.LOST_LEG:(21,),PcBodyFactKind.LOST_EYE:(19,),
+        PcBodyFactKind.LOST_FINGER:(12,),PcBodyFactKind.LOST_TEETH:(11,),PcBodyFactKind.CLUTCH_STOMACH:(18,)}
+    for fact in facts:
+        if type(fact) is not PcBodyFact: raise TypeError('body facts must be typed')
+        replace(fact)
+        if fact.wound_sequence>len(injury.wounds): raise ValueError('body fact lacks its actual Wound')
+        if injury.wounds[fact.wound_sequence-1].table_total not in rows[fact.kind]:
+            raise ValueError('body fact differs from its actual Wounds Table source')
+    if len(set(facts))!=len(facts): raise ValueError('body fact cannot be applied twice')
+
+
 def has_ongoing_condition(injury, condition):
     return any(isinstance(effect,WoundConditionEffect) and effect.condition is condition
         and effect.duration in (WoundEffectDuration.UNTIL_TREATED,WoundEffectDuration.UNTIL_HEALED,WoundEffectDuration.PERMANENT)
@@ -54,6 +70,7 @@ def available_sides(member, excluded_kinds):
 
 
 def usable_hands(member):
+    """Pure anatomical query; encounter callers supply their effective body view."""
     return available_sides(member,(PcBodyFactKind.UNUSABLE_ARM,PcBodyFactKind.LOST_ARM,PcBodyFactKind.CLUTCH_STOMACH))
 
 
@@ -117,3 +134,12 @@ def critical_for_incidental_hand_use(member, hand):
     CombatActionKind values; it is neither Recover nor face protection.
     """
     return critical_for_action(member,None,used_hand=hand)
+
+
+def merge_effective_critical_consequences(raw, after):
+    """Persist new Critical consequences without committing a suppressed view."""
+    added=tuple(effect for effect in after.active_wound_effects
+        if type(effect) is WoundConditionEffect and effect.condition is Condition.CRITICALLY_INJURED
+        and effect not in raw.active_wound_effects)
+    return replace(raw,active_wound_effects=(*raw.active_wound_effects,*added),
+        conditions=(raw.conditions.with_condition(Condition.CRITICALLY_INJURED) if added else raw.conditions))

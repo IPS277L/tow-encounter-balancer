@@ -46,7 +46,7 @@ def _known_pair(state,actor,attacker,*,allow_friendly_source=False):
     if actor==attacker and not allow_friendly_source:
         raise ValueError('an actor cannot Give Ground away from itself')
     from towr.domain.pc_actor_models import pc_actor_side
-    actors=(*state.source.pc_activation_order,*state.source.enemy_activation_order,
+    actors=(*state.source.pc_activation_order,*state.source.npc_activation_order,
         *(row.snapshot.state.actor_id for row in state.companions
           if row.retained_since_round is not None))
     if actor not in actors or attacker not in actors:

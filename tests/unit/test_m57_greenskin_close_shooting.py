@@ -41,7 +41,7 @@ def greenskin_scene(profile=PcBookNpcProfile.BIG_UN_CHOPPAS, skill=Skill.MELEE,
     base = book_pc_scenario(footpads=0,townsfolk=0,pc_count=pc_count,
         max_rounds=rounds,**{keyword:1})
     party = tuple(member if member.actor_id in melee_actor_ids else replace(member,
-        pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
+        pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile(), initiative=3, dexterity=4),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
         for member in base.party)
     return replace(base,party=party,facts=replace(base.facts,outnumbering_bonus_approved=False),
         npc_close_shooting_protection_policies=tuple(Policy(enemy.state.actor_id,skill)
@@ -129,7 +129,7 @@ class GreenskinCloseShootingTests(unittest.TestCase):
         base = book_pc_scenario(footpads=0,townsfolk=0,orcs=1,big_uns=1,pc_count=1,max_rounds=3)
         member = base.party[0]
         priority = ('big_un1','orc1')
-        member = replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile()),
+        member = replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,ranged=pistol_profile(), initiative=3, dexterity=4),
             target_priority=priority,defeat_decisions=tuple(member.defeat_decision(actor) for actor in priority),combat_equipment=initial_weapon_items(PcMeleeWeapon.PISTOL,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))
         source = replace(base,party=(member,),enemy_activation_order=('orc1','big_un1'),
             facts=replace(base.facts,outnumbering_bonus_approved=False),

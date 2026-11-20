@@ -122,7 +122,7 @@ def companion_observations(result):
         return None
     if type(result.steps) is not tuple:
         raise TypeError('companion observations require the exact ordered journal steps')
-    originals = (*result.source.pc_activation_order,*result.source.enemy_activation_order)
+    originals = (*result.source.pc_activation_order,*result.source.npc_activation_order)
     totals = {source.snapshot.state.actor_id:dict.fromkeys(_COUNT_FIELDS,0) for source in sources}
     by_actor = {source.snapshot.state.actor_id:source for source in sources}
     initial_clock = result.steps[0].source.round_state if result.steps else result.state.round_state

@@ -39,9 +39,9 @@ def item(kind=W.SWORD,*,id='weapon',location=L.HELD,grip=G.LEFT,loaded=None):
     return WeaponItemSource(id,kind,location,grip,initially_loaded=loaded)
 
 
-def view(items,*,shield=False,ranged=None):
+def view(items,*,shield=False,ranged=None,initiative=3,dexterity=None):
     components=GeneratedNpc(3,3,3,3,4,4,items,
-        ArmourLoadout(shield=ShieldKind.SHIELD if shield else None),defence=4,ranged=ranged)
+        ArmourLoadout(shield=ShieldKind.SHIELD if shield else None),defence=4,ranged=ranged,initiative=initiative,dexterity=dexterity)
     original=components.participant('enemy')
     enemy=replace(original,state=replace(original.state,
         weapon_inventory=generated_initial_weapon_inventory(components,'enemy')))
@@ -176,9 +176,9 @@ class GeneratedInventoryPhysicalTests(unittest.TestCase):
 
     def test_exacting_shield_pickup_retains_genuine_loaded_k1_instead_of_a_unit_bypass(self):
         from towr.domain.reload_models import ReloadableWeaponState
-        facts=GeneratedRangedFacts(3,4,3,4,True,True,True)
+        facts=GeneratedRangedFacts(3, 4,  True, True, True)
         state=view((item(W.PISTOL,loaded=True),
-            item(W.GLAIVE,id='back',location=L.CARRIED,grip=None)),shield=True,ranged=facts)
+            item(W.GLAIVE,id='back',location=L.CARRIED,grip=None)),shield=True,ranged=facts,dexterity=4)
         drop_shield(state,state.enemy('enemy').state.weapon_inventory.items[1])
         reserve_recover(state)
         unit=state.enemy('enemy').state.weapon_inventory.active
@@ -243,8 +243,8 @@ class GeneratedInventoryPhysicalTests(unittest.TestCase):
         with self.assertRaises(ValueError):apply_briarroot_weapon_pickup(state,proof)
 
     def test_pickup_uses_other_free_hand_and_never_refills_the_actual_gun(self):
-        facts=GeneratedRangedFacts(3,4,3,4,True,True,True)
-        state=view((item(W.PISTOL,loaded=False),item(W.SWORD,id='other',grip=G.RIGHT)),ranged=facts)
+        facts=GeneratedRangedFacts(3, 4,  True, True, True)
+        state=view((item(W.PISTOL,loaded=False),item(W.SWORD,id='other',grip=G.RIGHT)),ranged=facts,dexterity=4)
         unit,other=state.enemy('enemy').state.weapon_inventory.items
         drop=build_briarroot_weapon_drop(state,'enemy',unit.id)
         updates(state,apply_briarroot_weapon_drop(state,drop),drop)

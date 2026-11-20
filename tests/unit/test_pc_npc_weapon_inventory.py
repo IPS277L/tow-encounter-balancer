@@ -34,12 +34,10 @@ def component(weapon=GeneratedWeapon.PISTOL, *, shield=False, grip=None):
     if weapon in (GeneratedWeapon.PISTOL, GeneratedWeapon.REPEATER_PISTOL,
             GeneratedWeapon.REPEATER_HANDBOW, GeneratedWeapon.SHORTBOW):
         blackpowder = weapon in (GeneratedWeapon.PISTOL, GeneratedWeapon.REPEATER_PISTOL)
-        ranged = GeneratedRangedFacts(3,4,3,None if weapon is GeneratedWeapon.SHORTBOW else 4,True,
-            True if blackpowder else None,True if blackpowder else None,
-            awareness=4 if weapon is GeneratedWeapon.SHORTBOW else None)
+        ranged = GeneratedRangedFacts(3, 4,  True, True if blackpowder else None, True if blackpowder else None)
     return GeneratedNpc(3,3,3,3,4,4,initial_generated_weapons(weapon, grip=grip),
         ArmourLoadout(shield=ShieldKind.SHIELD if shield else None),
-        defence=4,ranged=ranged)
+        defence=4,ranged=ranged, initiative=3,dexterity=None if ranged is None or weapon is GeneratedWeapon.SHORTBOW else 4, awareness=4 if weapon is GeneratedWeapon.SHORTBOW else None)
 
 
 def source_for(*components):

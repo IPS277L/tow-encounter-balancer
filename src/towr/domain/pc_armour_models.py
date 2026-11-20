@@ -16,7 +16,7 @@ from towr.domain.test_models import Skill
 def actor_armour(state,actor: str) -> ArmourLoadout | None:
     if actor in state.source.pc_activation_order:
         return state.source.participant(actor).armour
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         components=state.enemy(actor).definition.generated_components
         return components.armour if components is not None else None
     from towr.domain.pc_actor_models import pc_companion
@@ -36,16 +36,16 @@ def actor_armour_test_modifiers(state,actor,skill,*,oppose_attack=False,
     modifiers=(armour_test_modifiers(equipment,skill,environmental=environmental,**exemptions)
         if equipment is not None else ()) + mounted_test_modifiers(state,actor,skill,
             oppose_attack=oppose_attack,control_mount=control_mount)
-    injury=(state.participant(actor).injury if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury)
+    from towr.domain.pc_medical_models import effective_medical_injury
+    injury=effective_medical_injury(state,actor)
     return tuple(modifier for modifier in modifiers if modifier.amount<=0) if injury.conditions.has(
         Condition.DRAINED) else modifiers
 
 
 def actor_armour_quality_modifiers(state,actor,*,charge_attack=False,tracking_or_pursuit=False):
     equipment=actor_armour(state,actor)
-    injury=(state.participant(actor).injury if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury)
+    from towr.domain.pc_medical_models import effective_medical_injury
+    injury=effective_medical_injury(state,actor)
     if injury.conditions.has(Condition.DRAINED):
         return ()  # Item-granted Glorious is not the explicit Fate exception.
     return (() if equipment is None else armour_quality_modifiers(equipment,
@@ -65,7 +65,7 @@ def actor_bound_to_chivalric_combat(state,actor):
 def validate_agilulf_defeat_policies(source):
     """A GM availability fact cannot authorise an explicitly forbidden surrender."""
     from towr.domain.minion_defeat_models import NpcDefeatDisposition
-    bound={enemy.state.actor_id for enemy in source.enemies
+    bound={enemy.state.actor_id for enemy in source.npc_sources
         if enemy.definition.generated_components is not None
         and BodyArmour.AGILULF in enemy.definition.generated_components.armour.body}
     if any(decision.target_id in bound

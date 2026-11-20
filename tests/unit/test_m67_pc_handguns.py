@@ -287,7 +287,7 @@ class PcHandgunTests(unittest.TestCase):
         source = make_pc_handgun_scenario(pc_count=2, enemy_count=2, max_rounds=1)
         first, second = source.party
         second = replace(second, pc=replace(second.pc, weapon=REPEATER,
-            ranged=handgun_profile(weapon=REPEATER, repeater_bonus_policy=NEVER)))
+            ranged=handgun_profile(weapon=REPEATER, repeater_bonus_policy=NEVER), initiative=3, dexterity=4))
         source = replace(source, party=(first,second))
         result = execute(source, shot_values()+shot_values(REPEATER,NEVER)+NPC_MISS*2)
         a, b = (member.ranged for member in result.state.party)

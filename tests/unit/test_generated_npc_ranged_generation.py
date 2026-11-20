@@ -20,7 +20,7 @@ from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 
 def ranged_facts(weapon=GeneratedWeapon.PISTOL, **changes):
     blackpowder=weapon is not GeneratedWeapon.REPEATER_HANDBOW
-    values=dict(ballistic_skill=4,shooting=5,initiative=2,dexterity=3,
+    values=dict(ballistic_skill=4,shooting=5,
         ammunition_supply_confirmed=True,
         has_blackpowder_lore=True if blackpowder else None,
         has_blackpowder_kit=True if blackpowder else None)
@@ -30,8 +30,8 @@ def ranged_facts(weapon=GeneratedWeapon.PISTOL, **changes):
 
 def npc(weapon=GeneratedWeapon.PISTOL, **changes):
     values=dict(weapon_skill=2,strength=3,toughness=4,agility=3,melee=4,athletics=3,
-        weapon=weapon,light_armour=False,defence=5,shield=False,
-        ranged=ranged_facts(weapon) if weapon in GENERATED_RANGED_WEAPONS else None)
+        weapon=weapon,light_armour=False,defence=5,shield=False,initiative=2 if weapon in GENERATED_RANGED_WEAPONS else None,
+        ranged=ranged_facts(weapon) if weapon in GENERATED_RANGED_WEAPONS else None,dexterity=3 if weapon in GENERATED_RANGED_WEAPONS else None)
     values.update(changes)
     values['armour'] = light_loadout(light=values.pop('light_armour'), shield=values.pop('shield'))
     values['weapons'] = initial_generated_weapons(values.pop('weapon'), values.pop('weapon_grip', None))
@@ -83,13 +83,27 @@ class GeneratedRangedFactsTests(unittest.TestCase):
 
     def test_strict_characteristics_skills_and_confirmation_types(self):
         for name,values in {'ballistic_skill':(True,0,-1,2.0),
-                'initiative':(False,0,2.0),'shooting':(True,1,7,4.0),
-                'dexterity':(False,1,7,4.0),
+                'shooting':(True,1,7,4.0),
                 'ammunition_supply_confirmed':(1,False,None),
                 'has_blackpowder_lore':(1,'true'),'has_blackpowder_kit':(1,'true')}.items():
             for value in values:
                 with self.subTest(name=name,value=value),self.assertRaises((TypeError,ValueError)):
                     ranged_facts(**{name:value})
+
+    def test_common_initiative_keeps_the_actual_characteristic_type_checks(self):
+        for value in (False,0,2.0):
+            with self.subTest(value=value),self.assertRaises((TypeError,ValueError)):
+                npc(initiative=value)
+
+    def test_common_dexterity_retains_its_actual_rating_and_initiative_source(self):
+        for value in (False,1,7,4.0):
+            with self.subTest(value=value),self.assertRaises((TypeError,ValueError)):
+                npc(dexterity=value)
+        with self.assertRaises(ValueError):
+            npc(initiative=None,dexterity=4)
+        melee=npc(GeneratedWeapon.SWORD,initiative=3,dexterity=4)
+        self.assertIsNone(melee.ranged)
+        self.assertEqual((melee.dexterity_profile.base_dice,melee.dexterity_profile.threshold), (3,4))
 
     def test_firearm_access_is_explicit_and_handbow_has_no_invented_lore_or_kit(self):
         for field in ('has_blackpowder_lore','has_blackpowder_kit'):
@@ -125,7 +139,7 @@ class GeneratedRangedSearchTests(unittest.TestCase):
             if proposal.ranged is not None:
                 self.assertEqual(proposal.participant('source-mirror').state.holds_shield,proposal.shield)
                 for name in source._ranged_names():
-                    self.assertIn(getattr(proposal.ranged,name),getattr(source,name))
+                    self.assertIn(getattr(proposal,name) if name in ('initiative','awareness','dexterity','reason','recall','endurance') else getattr(proposal.ranged,name),getattr(source,name))
             else:
                 self.assertIs(proposal.weapon,GeneratedWeapon.STAFF)
 
@@ -154,7 +168,9 @@ class GeneratedRangedSearchTests(unittest.TestCase):
     def test_melee_only_space_does_not_mutate_inactive_ranged_dimensions(self):
         source=space(weapon=(GeneratedWeapon.STAFF,),shield=(None,),armour=(None,))
         initial=source.sample(Random(2))
-        self.assertEqual(source.mutate(initial,Random(3)),initial)
+        mutated=source.mutate(initial,Random(3))
+        self.assertEqual(tuple(getattr(mutated,field) for field in ('ranged','ballistic_skill','initiative','awareness')),
+            tuple(getattr(initial,field) for field in ('ranged','ballistic_skill','initiative','awareness')))
         self.assertIsNone(initial.ranged)
 
     def test_retained_talent_requirement_and_complete_source_are_not_repaired(self):

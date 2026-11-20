@@ -122,7 +122,7 @@ class PcHochlandJsonTests(unittest.TestCase):
         source = make_pc_hochland_scenario(pc_count=2,enemy_count=3,max_rounds=1)
         member = source.party[1]
         source = replace(source,party=(source.party[0],replace(member,
-            pc=replace(member.pc,weapon=PcMeleeWeapon.HANDGUN,ranged=handgun_profile()),
+            pc=replace(member.pc,weapon=PcMeleeWeapon.HANDGUN,ranged=handgun_profile(), initiative=3, dexterity=4),
             fate_policy=PcFatePolicy.DECLINE_OPTIONAL_FATE,aim_second_action_policy=None,combat_equipment=initial_weapon_items(PcMeleeWeapon.HANDGUN,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True))))
         result = run_pc_melee_simulation(PcMeleeSimulationRequest(source,42,1))
         record, = result.records

@@ -1,5 +1,20 @@
 # Открытые вопросы и действующие допущения
 
+## Боевой хирург (Combat Surgeon): C23–C25 приняты и подключены
+
+[C23](decisions/ADR-0141-all-talents-and-shared-acquisition.md#c23-боевой-хирург-combat-surgeon-медицинские-средства--принято) сохраняет специальные инструменты и послеоперационные средства без операционной; AMBIGUITY-010 закрыта. [C24](decisions/ADR-0141-all-talents-and-shared-acquisition.md#c24-полный-боевой-хирург-combat-surgeon-источники-пациенты-и-риск--принято): реальные общие характеристики/навыки, Champion patients, одна/две свободные пригодные руки для treatment/surgery и явные GM-веса риска, без универсальных книжных процентов (AMBIGUITY-009). [C25](decisions/ADR-0141-all-talents-and-shared-acquisition.md#c25-союзные-npc-публичный-источник-и-условие-исхода--принято): отдельный optional `npc_allies`, поражение при гибели всех PC. Эти решения исполнены; повторно не спрашивать. Медицинская автоматика сравнивает доступное лечение с Attack/Help/Recover; Surgery остаётся явным native действием без мгновенного healing. Проверки, ограничения и следующий талант — в [статусе](project-status.md). Вся область Talents ещё не завершена.
+
+
+## Рассекающий удар (Cleaving Blow): C22 принято
+
+Пользователь выбрал отдельную волну за каждую фактическую рану от двуручного оружия и его непосредственных свойств; раны самой волны не наследуют weapon attribution и не запускают новую волну. [Принятая трактовка C22](decisions/ADR-0141-all-talents-and-shared-acquisition.md#c22-рассекающий-удар-cleaving-blow-происхождение-вторичных-ран--принято). Не переоткрывать; текущие проверки и продолжение — в [статусе](project-status.md).
+
+
+## Полное прицеливание (Aim): C21 принят и подключён
+
+[Общий Initiative/Awareness источник C21](decisions/ADR-0141-all-talents-and-shared-acquisition.md#c21-общие-инициатива-и-внимательность-initiative-awareness-для-aim--принято) перенесён к PC/NPC; Shooting/Throwing, текущие форматы и реальные next-action receipts подключены. Careful Aim открыт в исполнении и генерации. Старые вложенные I/Awareness в ranged не поддерживаются. Новых house rules не вводилось; C18–C21 не переоткрывать. [Проверки и продолжение](project-status.md).
+
+
 ## Обет (Oath) и Благословения Леди (Blessings of the Lady): C18–C20 приняты
 
 Пользователь принял первый собственный фактический ход для молитвы, явные GM-факты обета и автоматический законный максимум для Unmitigated Success при отдельном подтверждении области. [Решения C18–C20](decisions/ADR-0141-all-talents-and-shared-acquisition.md#c20-unmitigated-success-числовые-исходы-автоматического-боя--принято) не переоткрывать. Оба таланта подключены для PC/генерируемых NPC; NPC не получают Fate. Произвольный `oath_id` не заменяет контекст. [Ввод и ограничения](examples/dynamic/README.md#обеты-и-благословения-oaths-and-blessings), [фактические проверки и следующий шаг](project-status.md).
@@ -298,11 +313,11 @@ ConditionState не хранит объект отвлечения. M42/M43 ис
 
 ## Последствие провала Surgery и наём NPC
 
-Книга не задаёт вероятность disfigurement/death и цену/автоуспех NPC. Risk остаётся GM-owned, Test явный (AMBIGUITY-009). [Подробности](open-questions-details.md#последствие-провала-surgery-и-наём-npc).
+Вероятности риска книги не задают; C24 принят — явные GM-веса и настоящий Test, без универсальных процентов. Цена найма NPC и долгосрочная кампания остаются вне текущего боевого генератора. [Подробности](open-questions-details.md#последствие-провала-surgery-и-наём-npc).
 
 ## Что именно отменяет Combat Surgeon
 
-Пока снимается требование theatre и меняется time, но сохраняются tools/supports. Более широкое чтение не утверждено (AMBIGUITY-010). [Подробности](open-questions-details.md#что-именно-отменяет-combat-surgeon).
+C23 явно подтвердил прежнее узкое чтение: снимается theatre и меняется time, tools/supports сохраняются; AMBIGUITY-010 закрыта. [Подробности](open-questions-details.md#что-именно-отменяет-combat-surgeon).
 
 ## Границы orchestration histories
 

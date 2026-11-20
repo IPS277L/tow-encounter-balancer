@@ -1,6 +1,7 @@
 """Source-bound Bestigor choices and one next-Attack entitlement from actual W1."""
 from __future__ import annotations
 
+from towr.domain.injury_models import injury_is_defeated
 from towr.domain.pc_demigryph_models import pc_kernel_attack_types
 
 from dataclasses import dataclass, replace
@@ -100,7 +101,7 @@ def expected_pc_npc_blood_rage(state):
     validate_pc_book_npc_definition(enemy.definition)
     if enemy.definition.id not in (BESTIGOR_DEFINITION_ID,SKIN_WOLF_DEFINITION_ID):
         raise ValueError('Blood Rage choice requires its canonical Bestigor or Skin Wolf')
-    if enemy.state.injury.defeated or enemy.state.injury.conditions.has(Condition.STAGGERED):
+    if injury_is_defeated(enemy.state.injury) or enemy.state.injury.conditions.has(Condition.STAGGERED):
         return None
     from towr.domain.pc_weapon_intent_models import build_pc_attack_weapon_intent
     return PcNpcBloodRageProof(turn.actor_id, pc_melee_action_id(state, turn.actor_id),
@@ -112,13 +113,14 @@ def pc_bestigor_glorious_source(state, actor_id):
     from towr.domain.pc_melee_result_models import PcAttackProof, PcProfileWoundProof
     from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
-    if actor_id not in state.source.enemy_activation_order:
+    from towr.domain.pc_cleaving_blow_models import PcCleavingProfileProof,cleaving_wave_receipt
+    if actor_id not in state.source.npc_activation_order:
         return None
     enemy = state.enemy(actor_id)
     if enemy.definition.id != BESTIGOR_DEFINITION_ID:
         return None
     validate_pc_book_npc_definition(enemy.definition)
-    if enemy.state.injury.defeated:
+    if injury_is_defeated(enemy.state.injury):
         return None
     last_attack = None
     entitlement = None
@@ -141,6 +143,12 @@ def pc_bestigor_glorious_source(state, actor_id):
             if proof.decision is not None:
                 raise ValueError('living Bestigor W1 cannot carry a defeat disposition')
             entitlement=PcBestigorWaveGloriousSource(actor_id,activation.activation_id,proof.source)
+        elif (type(proof) is PcCleavingProfileProof and proof.target_id==actor_id
+                and proof.source.previous_wounds==0 and proof.source.current_wounds==1):
+            wave,_=cleaving_wave_receipt(state.history[:index],proof)
+            if proof.decision is not None:
+                raise ValueError('living Bestigor W1 cannot carry a defeat disposition')
+            entitlement=PcBestigorWaveGloriousSource(actor_id,wave.wave_id,proof.source)
     return entitlement
 
 

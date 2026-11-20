@@ -35,8 +35,8 @@ def shield(hand=H.RIGHT):
 
 
 def participant(*,equipment=None,weapon=W.SWORD,hand=H.LEFT,strength=3,
-        policy=PcMeleePolicy.AUTOMATIC_COMBAT,ranged=None,held_shield=None):
-    pc=PcMeleeDefinition('pc-profile',3,strength,3,3,5,5,4,4,weapon,0,ranged=ranged)
+        policy=PcMeleePolicy.AUTOMATIC_COMBAT,ranged=None,held_shield=None,initiative=3,awareness=None,dexterity=None):
+    pc=PcMeleeDefinition('pc-profile',3,strength,3,3,5,5,4,4,weapon,0,ranged=ranged,initiative=initiative,awareness=awareness,dexterity=dexterity)
     return PcMeleeParticipant('pc',pc,FateSessionState('session','pc',0,0),policy,
         PcFatePolicy.DECLINE_OPTIONAL_FATE,PcRandomSidePolicy.D10_LOW_LEFT_HIGH_RIGHT,
         PcHeavyWoundPolicy.CONTINUE_FIGHTING,hand,('enemy',),
@@ -45,8 +45,7 @@ def participant(*,equipment=None,weapon=W.SWORD,hand=H.LEFT,strength=3,
 
 
 def pistol_profile():
-    return PcRangedProfile(3,5,3,4,True,True,True,
-        PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+    return PcRangedProfile(3, 5,  True, True, True, PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
 
 
 def member(source,inventory=None,held_shield=None):
@@ -99,7 +98,7 @@ class PcEquipmentSourceTests(unittest.TestCase):
         items=(PcWeaponItem('left',W.PISTOL,L.HELD,H.LEFT,initially_loaded=True),
             PcWeaponItem('right',W.PISTOL,L.HELD,H.RIGHT,initially_loaded=False),
             PcWeaponItem('spare',W.CROSSBOW,L.CARRIED,None,initially_loaded=True))
-        source=participant(equipment=items,weapon=W.PISTOL,ranged=pistol_profile())
+        source=participant(equipment=items,weapon=W.PISTOL,ranged=pistol_profile(),dexterity=4)
         inventory=initial_pc_weapon_inventory(source)
         self.assertEqual(tuple(i.reload.loaded for i in inventory.items),(True,False,True))
         self.assertEqual(tuple(i.reload.weapon_instance_id for i in inventory.items),tuple(i.id for i in inventory.items))
@@ -107,7 +106,7 @@ class PcEquipmentSourceTests(unittest.TestCase):
         self.assertEqual(inventory.items[1].reload.exacting.contributions,())
         with self.assertRaises(ValueError):
             participant(equipment=(items[0],replace(items[1],initially_loaded=None)),
-                weapon=W.PISTOL,ranged=pistol_profile())
+                weapon=W.PISTOL,ranged=pistol_profile(),dexterity=4)
 
     def test_hand_conflicts_remain_illegal_independent_of_capacity(self):
         left=PcWeaponItem('left',W.SWORD,L.HELD,H.LEFT)
@@ -125,13 +124,13 @@ class PcEquipmentSourceTests(unittest.TestCase):
         gun=PcWeaponItem('gun',W.PISTOL,L.HELD,H.LEFT,initially_loaded=True)
         rifle=PcWeaponItem('rifle',W.HOCHLAND_LONG_RIFLE,L.CARRIED,None,initially_loaded=True)
         with self.assertRaises(ValueError):
-            participant(equipment=(gun,rifle),weapon=W.PISTOL,ranged=pistol_profile())
+            participant(equipment=(gun,rifle),weapon=W.PISTOL,ranged=pistol_profile(),dexterity=4)
         source=participant(equipment=(gun,rifle),weapon=W.PISTOL,
-            ranged=replace(pistol_profile(),awareness=4))
+            ranged=pistol_profile(),awareness=4,dexterity=4)
         self.assertEqual(len(initial_pc_weapon_inventory(source).items),2)
         with self.assertRaises(ValueError):
             participant(equipment=(gun,PcWeaponItem('net',W.WEIGHTED_NET,L.CARRIED,None)),
-                weapon=W.PISTOL,ranged=pistol_profile())
+                weapon=W.PISTOL,ranged=pistol_profile(),dexterity=4)
 
     def test_compact_manual_source_compiles_once_without_explicit_equipment(self):
         source=participant(policy=PcMeleePolicy.ATTACK_OR_RECOVER_SELF)
@@ -165,7 +164,7 @@ class PcEquipmentSourceTests(unittest.TestCase):
 
     def test_runtime_reload_membership_retains_the_actual_k1_state_without_scalar_mirrors(self):
         source=participant(equipment=(PcWeaponItem('gun',W.PISTOL,L.HELD,H.LEFT,initially_loaded=False),),
-            weapon=W.PISTOL,ranged=pistol_profile())
+            weapon=W.PISTOL,ranged=pistol_profile(),dexterity=4)
         inventory=initial_pc_weapon_inventory(source)
         gun=inventory.active
         actual=execute_scripted_weapon_reload(gun.reload,(1,10))
@@ -215,15 +214,19 @@ class PcEquipmentSourceTests(unittest.TestCase):
             replace(equipment.weapons[1],initially_loaded=None))).combat_loadout(3)
         with self.assertRaises(ValueError):WeaponItem('bow',W.SHORTBOW,ItemLocation.BOTH,initially_loaded=True)
 
-    def test_app_rejects_actual_hand_conflicts_or_no_initial_held_weapon(self):
+    def test_app_rejects_actual_hand_conflicts_and_keeps_carried_only_inventory(self):
         sword=WeaponItem('sword',W.SWORD,ItemLocation.LEFT)
         for equipment in (EncounterEquipment((sword,replace(sword,id='other')),()),
                 EncounterEquipment((sword,WeaponItem('glaive',W.GLAIVE,ItemLocation.BOTH)),()),
-                EncounterEquipment((sword,),(ArmourItem('shield',ArmourItemKind.SHIELD,ItemLocation.LEFT),)),
-                EncounterEquipment((replace(sword,location=ItemLocation.CARRIED),),()),
-                EncounterEquipment((replace(sword,weapon=W.GLAIVE),),())):
+                EncounterEquipment((sword,),(ArmourItem('shield',ArmourItemKind.SHIELD,ItemLocation.LEFT),))):
             with self.subTest(equipment=equipment),self.assertRaises((TypeError,ValueError)):
                 equipment.combat_loadout(3)
+        with self.assertRaises(ValueError):
+            replace(sword,weapon=W.GLAIVE)
+        carried=EncounterEquipment((replace(sword,location=ItemLocation.CARRIED),),()).combat_loadout(3)
+        self.assertIs(carried['weapon'],W.UNARMED)
+        self.assertIsNone(carried['weapon_hand'])
+        self.assertEqual(len(carried['combat_equipment']),1)
 
 
 if __name__=='__main__':unittest.main()

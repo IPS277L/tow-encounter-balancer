@@ -99,7 +99,7 @@ const enhancementNames=characteristicNames;
 const talentMetadata=__TALENT_METADATA__;
 const talentNames=Object.fromEntries(Object.entries(talentMetadata).map(([id,value])=>[id,value.label]));
 const pcCombatTalentIds=['defensive_stance','wild_attack'],supportedPlayerTalents=Object.keys(talentMetadata).filter(id=>talentMetadata[id].pc_executable),generatedExecutableTalentIds=Object.keys(talentMetadata).filter(id=>talentMetadata[id].generated_order!==null).sort((a,b)=>talentMetadata[a].generated_order-talentMetadata[b].generated_order);
-const pcCombatTalentHints={acrobatic:'Ловкость (Ag) 4+. Враги не перекрывают перемещение и Отступление (Give Ground); опасность падения (Hazard) уменьшается вдвое вниз до 0. Остальные препятствия и требования Полёта (Fly) сохраняются.',bash_attack:'Сила (S) 5+. Новое Пошатывание (Staggered) через Мощь (Brawn) разрешает немедленный удар реальным оружием Ближнего боя (Melee) по той же цели. Без нового обычного действия и без наследования Натиска (Charge).',allies_in_arms:'Обаяние (Fel) 4+. После окончательной проверки Помощи (Help) снимает одно доступное Пошатывание (Staggered) с помощника или союзника, даже при нуле успехов. Постоянная причина состояния сохраняется.',armour_bane:'Попадание подходящим оружием снижает Стойкость к урону (Resilience) на 1 после сравнения урона, минимум до Стойкости (Toughness). Потеря сохраняется до конца боя; отменённое свойство оружия не действует.',mighty_blow:'Игнорирует собственные штрафы двуручного оружия к Ближнему бою (Melee). Внешние штрафы сохраняются.',hardy:'На один куб меньше в таблице ран (Wounds Table), минимум один. Не меняет профильные раны NPC.',rapid_reload:'Успешная перезарядка (Reload) разрешает вторым действием прицелиться (Aim) или выстрелить (Attack). Нельзя после движения или при Пошатывании (Staggered); для выстрела нужен заряд.',defensive_stance:'Боевое мастерство (WS) 3+. Успешная Защита (Defence) может снять собственное Пошатывание (Staggered) вместо доступного нового Staggered атакующему. Постоянная причина состояния сохраняется.',wild_attack:'Сила (S) 4+. Автоматический выбор для атаки или Помощи (Help) в Ближнем бою (Melee): получить Пошатывание (Staggered) до проверки ради Блистательного (Glorious) Test. Не используется при Staggered или Истощении (Drained).'};
+const pcCombatTalentHints={deep_formation:'Удерживаемое копьё (Spear) или другое оружие Ближнего боя (Melee) с дальностью Short даёт +1d к защите союзника в той же зоне (Zone) против Натиска (Charge).',combat_surgeon:'Знание анатомии (Anatomy Lore). После обработки раны — отдельная проверка Вспоминания (Recall): временные последствия подавляются до конца боя, рана не заживает. Операция (Surgery) — 8 успехов Ловкости рук (Dexterity), со специальными инструментами и явным риском GM.',cleaving_blow:'Сила (S) 5+. Каждая фактическая рана (Wound) от двуручного оружия и его непосредственных свойств накладывает Пошатывание (Staggered) на остальных врагов рядом с владельцем (Close). Раны самой волны не запускают новую волну.',careful_aim:'Разум (Re) 4+. Успешное прицеливание (Aim) снимает собственное допустимое Пошатывание (Staggered) после проверки Внимательности (Awareness). Постоянная причина состояния сохраняется.',acrobatic:'Ловкость (Ag) 4+. Враги не перекрывают перемещение и Отступление (Give Ground); опасность падения (Hazard) уменьшается вдвое вниз до 0. Остальные препятствия и требования Полёта (Fly) сохраняются.',bash_attack:'Сила (S) 5+. Новое Пошатывание (Staggered) через Мощь (Brawn) разрешает немедленный удар реальным оружием Ближнего боя (Melee) по той же цели. Без нового обычного действия и без наследования Натиска (Charge).',allies_in_arms:'Обаяние (Fel) 4+. После окончательной проверки Помощи (Help) снимает одно доступное Пошатывание (Staggered) с помощника или союзника, даже при нуле успехов. Постоянная причина состояния сохраняется.',armour_bane:'Попадание подходящим оружием снижает Стойкость к урону (Resilience) на 1 после сравнения урона, минимум до Стойкости (Toughness). Потеря сохраняется до конца боя; отменённое свойство оружия не действует.',mighty_blow:'Игнорирует собственные штрафы двуручного оружия к Ближнему бою (Melee). Внешние штрафы сохраняются.',hardy:'На один куб меньше в таблице ран (Wounds Table), минимум один. Не меняет профильные раны NPC.',rapid_reload:'Успешная перезарядка (Reload) разрешает вторым действием прицелиться (Aim) или выстрелить (Attack). Нельзя после движения или при Пошатывании (Staggered); для выстрела нужен заряд.',defensive_stance:'Боевое мастерство (WS) 3+. Успешная Защита (Defence) может снять собственное Пошатывание (Staggered) вместо доступного нового Staggered атакующему. Постоянная причина состояния сохраняется.',wild_attack:'Сила (S) 4+. Автоматический выбор для атаки или Помощи (Help) в Ближнем бою (Melee): получить Пошатывание (Staggered) до проверки ради Блистательного (Glorious) Test. Не используется при Staggered или Истощении (Drained).'};
 const talentLabel=value=>talentNames[value]||value;
 const playerTalentIds=member=>(member.talents||[]).map(entry=>entry.id),playerHasTalent=(member,id)=>playerTalentIds(member).includes(id);
 const playerMusicRelevant=member=>playerHasTalent(member,'battlefield_musician')||(member.equipment?.tools||[]).some(item=>item.kind==='musicians_gear');
@@ -154,7 +154,7 @@ function renderInventory(parent,member,index){
  parent.append(node('h4','Инструменты (Trade Tools)'));
  for(const [i,item] of (gear.tools||[]).entries()){
   const row=node('div',undefined,'inventory-row tool-row'),path=['party',index,'equipment','tools',i];
-  inputField(row,'Инструмент '+(i+1),[...path,'kind'],item.kind,{musicians_gear:'Инструменты музыканта (Musician’s Gear)'});
+  inputField(row,'Инструмент '+(i+1),[...path,'kind'],item.kind,{musicians_gear:'Инструменты музыканта (Musician’s Gear)',physickers_kit:'Набор лекаря (Physicker’s Kit)'});
   inputField(row,'Рук',[...path,'hands_required'],String(item.hands_required),{'1':'1','2':'2'},value=>editRequest([...path,'hands_required'],integer(value)));
   const locations=Object.fromEntries(Object.entries(heldLocations).filter(([key])=>key==='carried'||(item.hands_required===2?key==='both_hands':key!=='both_hands')));
   inputField(row,'На начало боя',[...path,'location'],item.location,locations);
@@ -167,6 +167,7 @@ function renderInventory(parent,member,index){
   inputField(parent,'Знание музыки (Music Lore)',['party',index,'talent_facts','lores','music'],known,null,value=>editPlayerTalentFacts(index,facts=>{const lores=(facts.lores||[]).filter(lore=>lore.id!=='music');facts.lores=value?[...lores,{id:'music',magic:false}]:lores;if(!facts.lores.length)delete facts.lores;}));
   parent.append(node('p','Для игры нужны настоящее удерживаемое снаряжение музыканта (Musician’s Gear), пригодные руки и Знание музыки (Music Lore). Обаяние (Fel) и Лидерство (Leadership) редактируются в общих характеристиках и навыках.','visual-note'));
  }
+ renderMedicalPreparation(parent,['party',index,'medical'],member.medical,next=>editRequest(['party',index,'medical'],next));
  parent.append(node('h4','Броня (Armour) и защитное снаряжение'));
  for(const [i,item] of (gear.armour||[]).entries()){
   const row=node('div',undefined,'inventory-row'),path=['party',index,'equipment','armour',i];
@@ -347,7 +348,7 @@ function setPlayerTalents(index,talents){
  if(wizard){
   if(!member.magic){member.magic={origin:'human',wizard_level:wizard.acquisitions.length,lores:['elementalism'],memorised_spells:['lightning_blast'],arcane_paraphernalia:true};const additions={};if(!Object.hasOwn(member.characteristics,'reason')){member.characteristics.reason=3;additions.reason=3;}if(!Object.hasOwn(member.skills,'willpower')){member.skills.willpower=3;additions.willpower=3;}wizardUiAdditions.set(member.actor_id,additions);}
   member.magic.wizard_level=wizard.acquisitions.length;
- }else if(previous){delete member.magic;const additions=wizardUiAdditions.get(member.actor_id)||{};if(additions.reason===member.characteristics.reason&&!talents.some(value=>talentMetadata[value.id].characteristics.reason))delete member.characteristics.reason;if(additions.willpower===member.skills.willpower)delete member.skills.willpower;wizardUiAdditions.delete(member.actor_id);}
+ }else if(previous){delete member.magic;const additions=wizardUiAdditions.get(member.actor_id)||{};if(additions.willpower===member.skills.willpower)delete member.skills.willpower;wizardUiAdditions.delete(member.actor_id);}
  syncPlayerOathContext(member);editRequest(['party',index],member);
 }
 function oathContextHint(context){
@@ -428,6 +429,58 @@ function renderPlayerMagic(parent,member,index){
  if(!magic.arcane_paraphernalia)parent.append(node('p','Для расчёта нужны магические принадлежности (Arcane Paraphernalia); импровизированный комплект пока не поддержан.','inventory-warning'));
  if(!(magic.memorised_spells||[]).length)parent.append(node('p','Выберите хотя бы одно запомненное заклинание (Memorised Spell).','inventory-warning'));
 }
+function emptyMedicalPreparation(){return {anatomy_lore:false,treatment_supplies:false,surgery_supplies:false,recovery_supports:[],self_treatment_modifier:0,makeshift_modifier:null};}
+function renderMedicalPreparation(parent,path,medical,update,optional=true){
+ const box=node('details',undefined,'medical-preparation');box.open=!!medical;box.append(node('summary','Медицинская подготовка (Medical Preparation)'));
+ if(optional){const label=node('label','Задать знание и принадлежности','toggle-field'),input=node('input');input.type='checkbox';input.checked=!!medical;input.onchange=()=>update(input.checked?emptyMedicalPreparation():null);label.prepend(input);box.append(label);}
+ if(medical){
+  const grid=node('div',undefined,'visual-fields');
+  for(const [key,title] of [['anatomy_lore','Знание анатомии (Anatomy Lore)'],['treatment_supplies','Принадлежностей достаточно на бой (Treatment Supplies)'],['surgery_supplies','Специальные принадлежности для операции (Surgery Supplies)']])inputField(grid,title,[...path,key],medical[key]===true,null,value=>update({...medical,[key]:value}));
+  const self=inputField(grid,'Штраф GM при самолечении, кубы (Self-treatment)',[...path,'self_treatment_modifier'],medical.self_treatment_modifier??0,null,value=>update({...medical,self_treatment_modifier:integer(value)}));self.max='0';self.step='1';
+  const makeshift=inputField(grid,'Штраф GM для подручных средств (Makeshift)',[...path,'makeshift_modifier'],medical.makeshift_modifier??'',null,value=>update({...medical,makeshift_modifier:value===''?null:integer(value)}));makeshift.type='number';makeshift.max='-1';makeshift.step='1';makeshift.placeholder='Не разрешены';
+  box.append(grid);
+  const supports=node('div');supports.append(node('p','Средства восстановления после операции (Recovery Supports)','visual-note'));
+  const options={severed_arm:'Отсечённая рука (Severed Arm)',severed_leg:'Отсечённая нога (Severed Leg)',ruptured_organs:'Разорванные органы (Ruptured Organs)',ruined_eyes:'Разрушенные глаза (Ruined Eyes)'};
+  for(const [value,title] of Object.entries(options)){const label=node('label',title,'toggle-field'),input=node('input');input.type='checkbox';input.checked=(medical.recovery_supports||[]).includes(value);input.onchange=()=>update({...medical,recovery_supports:input.checked?[...(medical.recovery_supports||[]),value]:(medical.recovery_supports||[]).filter(id=>id!==value)});label.prepend(input);supports.append(label);}
+  box.append(supports,node('p','Набор лекаря (Physicker’s Kit) — отдельный физический предмет в инструментах. Знание, запасы и средства восстановления не появляются от тега таланта (Talent).','visual-note'));
+ }
+ parent.append(box);
+}
+function renderSurgeryRiskPolicy(parent,scene){
+ const policy=scene.surgery_risk,box=node('details',undefined,'surgery-risk');box.open=!!policy;box.append(node('summary','Риск операции (Surgery Risk)'));
+ const label=node('label','Явная модель риска ведущего (GM)','toggle-field'),toggle=node('input');toggle.type='checkbox';toggle.checked=!!policy;
+ toggle.onchange=()=>editRequest(['scene','surgery_risk'],toggle.checked?{id:'gm:surgery-risk',no_complication:0,permanent_disfigurement:0,death:0}:null);label.prepend(toggle);box.append(label);
+ if(policy){
+  const grid=node('div',undefined,'visual-fields');
+  for(const [key,title] of [['no_complication','Без осложнения (No Complication)'],['permanent_disfigurement','Постоянное обезображивание (Permanent Disfigurement)'],['death','Смерть (Death)']]){
+   const input=inputField(grid,title,['scene','surgery_risk',key],policy[key],null,value=>{const next={...read().scene.surgery_risk,[key]:integer(value)};if(key==='permanent_disfigurement'&&next[key]===0)delete next.disfigurement_description;editRequest(['scene','surgery_risk'],next);});input.min='0';input.step='1';input.title='Относительный вес исхода, заданный GM; не книжная вероятность.';
+  }
+  box.append(grid);
+  if(policy.permanent_disfigurement>0){const input=inputField(box,'Описание постоянного последствия от GM',['scene','surgery_risk','disfigurement_description'],policy.disfigurement_description??'');input.required=true;}
+  const total=['no_complication','permanent_disfigurement','death'].reduce((sum,key)=>sum+Number(policy[key]||0),0);
+  box.append(node('p',total>0?'Заданные GM вероятности: '+['no_complication','permanent_disfigurement','death'].map(key=>(100*policy[key]/total).toFixed(1)+'%').join(' / '):'Задайте хотя бы один положительный вес. Книга не задаёт проценты этих исходов.','visual-note'));
+ }
+ parent.append(box);
+}
+function renderGeneratedMedicalSources(parent,space){
+ const box=node('details',undefined,'generated-medical-sources');box.open=!!space.allowed_medical_sources?.length;box.append(node('summary','Медицинские источники NPC (Medical Sources)'));
+ for(const [index,source] of (space.allowed_medical_sources||[]).entries()){
+  const card=node('div',undefined,'visual-card'),path=['search_space','allowed_medical_sources',index];card.append(node('h4','Источник '+(index+1)));
+  renderMedicalPreparation(card,[...path,'medical'],source.medical,next=>editRequest([...path,'medical'],next),false);
+  for(const [toolIndex,item] of (source.tools||[]).entries()){
+   const row=node('div',undefined,'inventory-row tool-row'),toolPath=[...path,'tools',toolIndex];
+   inputField(row,'Инструмент (Tool)',[...toolPath,'kind'],item.kind,{physickers_kit:'Набор лекаря (Physicker’s Kit)',musicians_gear:'Инструменты музыканта (Musician’s Gear)'});
+   inputField(row,'Рук',[...toolPath,'hands_required'],String(item.hands_required),{'1':'1','2':'2'},value=>{const next={...item,hands_required:integer(value)};if(next.location!=='carried')next.location='carried';editRequest(toolPath,next);});
+   const locations=Object.fromEntries(Object.entries(heldLocations).filter(([key])=>key==='carried'||(item.hands_required===2?key==='both_hands':key!=='both_hands')));
+   inputField(row,'На начало боя',[...toolPath,'location'],item.location,locations);inventoryRemove(row,[...path,'tools'],toolIndex,'инструмент');card.append(row);
+  }
+  const addTool=actionButton('add','Добавить инструмент');addTool.onclick=()=>{const tools=read().search_space.allowed_medical_sources[index].tools||[],ids=new Set(tools.map(item=>item.id));let number=1;while(ids.has('medical-tool:'+number))number++;editRequest([...path,'tools'],[...tools,{id:'medical-tool:'+number,kind:'physickers_kit',hands_required:1,location:'carried'}]);};card.append(addTool);
+  const remove=actionButton('remove','Удалить источник');remove.onclick=()=>editRequest(['search_space','allowed_medical_sources'],read().search_space.allowed_medical_sources.filter((_,i)=>i!==index));card.append(remove);box.append(card);
+ }
+ const add=actionButton('add','Добавить источник');add.onclick=()=>editRequest(['search_space','allowed_medical_sources'],[...(read().search_space.allowed_medical_sources||[]),{medical:emptyMedicalPreparation(),tools:[]}]);box.append(add);
+ box.append(node('p','GM разрешает физические инструменты и подготовку; генератор независимо выбирает характеристики, навыки и допустимые таланты (Talents). Пустой список не добавляет медицинские запасы.','visual-note'));parent.append(box);
+}
+
 '''
 
 INVENTORY_SCRIPT = INVENTORY_SCRIPT.replace('__TALENT_METADATA__',

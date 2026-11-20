@@ -214,7 +214,7 @@ class BrawnWeaponExecutionTests(unittest.TestCase):
             player_ranged=pistol_profile(ballistic_skill=1,shooting=2))
         member=source.party[0]
         member=replace(member,pc=replace(member.pc,weapon_skill=1,melee=2,strength=2,brawn=6,
-            ranged=pistol_profile(ballistic_skill=1,shooting=2)))
+            ranged=pistol_profile(ballistic_skill=1,shooting=2), initiative=3, dexterity=4))
         source=replace(source,party=(member,))
         before=initial_pc_melee_state(source).participant('pc').weapon_inventory
         result=self.run_native(source)
@@ -235,7 +235,7 @@ class BrawnWeaponExecutionTests(unittest.TestCase):
             endurance=1,athletics=1,agility=1))
         npc=GeneratedNpc(1,6,20,1,2,2,(WeaponItemSource('gun',W.PISTOL,L.HELD,G.LEFT,initially_loaded=True),),
             ArmourLoadout(shield=ShieldKind.SHIELD),defence=2,brawn=6,
-            ranged=GeneratedRangedFacts(1,2,3,4,True,True,True))
+            ranged=GeneratedRangedFacts(1,2,True,True,True), initiative=3, dexterity=4)
         source=replace(source,party=(member,),enemies=(npc.participant('minion1'),),
             npc_ranged_policies=(pc_npc_ranged_policy_for_generated(npc,'minion1'),))
         initial=initial_pc_melee_state(source).enemy('minion1').state.weapon_inventory

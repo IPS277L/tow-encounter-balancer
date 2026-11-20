@@ -6,7 +6,9 @@ actual Combat Action applies or loses it through the existing K1 follow-up.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from towr.domain.injury_models import injury_is_defeated
+from dataclasses import dataclass, field, replace
+from towr.domain.talent_careful_aim_models import CarefulAimApplication, careful_aim_application
 from typing import TYPE_CHECKING
 
 from towr.domain.aim_models import (
@@ -30,6 +32,7 @@ if TYPE_CHECKING:
 class PcNpcAimProof:
     request: AimActionExecutionRequest
     result: AimActionExecutionResult
+    careful_aim: CarefulAimApplication | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,12 +44,16 @@ class PcNpcAimConsumptionProof:
 def _npc_source(source, actor):
     if type(actor) is not str or not actor.strip():
         raise TypeError('NPC Aim needs an exact nonempty actor ID')
-    if actor not in source.enemy_activation_order:
+    if actor not in source.npc_activation_order:
         raise ValueError('NPC Aim actor must belong to the opposition source')
     return source.enemy(actor)
 
 
 def _action(proof):
+    from towr.domain.pc_aim_source_models import other_aim_action_receipt
+    extra = other_aim_action_receipt(proof)
+    if extra is not None:
+        return extra
     from towr.domain.pc_musician_effect_models import PcMusicianActionProof
     from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
     from towr.domain.pc_oath_models import PcLadyPrayerProof
@@ -92,11 +99,8 @@ def _consumption(aim, proof, receipt):
         if follow_up.outcome is not expected_outcome:
             raise ValueError('NPC shot Aim outcome changed its actual target')
     else:
-        attack = (proof.request if type(proof) is PcAttackProof
-            and receipt.declaration.kind is CombatActionKind.ATTACK else None)
-        follow_up = resolve_aim_follow_up(AimFollowUpRequest(
-            aim.request_id + ':consume:' + receipt.id, aim, receipt.actor_id, receipt.id,
-            receipt.declaration, Skill.MELEE if attack is not None else None, attack))
+        from towr.domain.pc_aim_source_models import actual_aim_follow_up
+        follow_up = actual_aim_follow_up(aim, proof, receipt)
     request = follow_up.source_request
     if (request.actor_id != receipt.actor_id or request.next_action_id != receipt.id
             or request.declaration != receipt.declaration):
@@ -127,7 +131,7 @@ def _journal(state):
         receipt = _action(proof)
         if receipt is None:
             continue
-        if receipt.actor_id not in state.source.enemy_activation_order:
+        if receipt.actor_id not in state.source.npc_activation_order:
             if type(proof) is PcNpcAimProof:
                 raise ValueError('NPC Aim proof belongs to a player actor')
             continue
@@ -139,10 +143,11 @@ def _journal(state):
                 raise TypeError('NPC Aim must retain its exact request and K1 result')
             replace(proof.request)
             replace(fresh)
-            profile = pc_npc_ranged_profile(_npc_source(state.source, actor).definition)
-            if (profile.awareness_profile is None or fresh.source_request != proof.request
+            from towr.domain.pc_aim_source_models import actor_awareness_profile
+            profile = actor_awareness_profile(state, actor)
+            if (profile is None or fresh.source_request != proof.request
                     or proof.request.actor_id != actor or fresh.bonus.actor_id != actor
-                    or proof.request.awareness_test.profile != profile.awareness_profile
+                    or proof.request.awareness_test.profile != profile
                     or fresh.request_id in seen or fresh.request_id in consumed):
                 raise ValueError('NPC Aim changed its actor, Awareness source or unique action')
             seen.add(fresh.request_id)
@@ -165,33 +170,42 @@ def expected_npc_aim_consumption(state: PcMeleeState) -> PcNpcAimConsumptionProo
 
 def _target(state, actor):
     from towr.domain.pc_battlefield_movement_models import pc_battlefield_attack_available
-    live = {member.actor_id for member in state.live_party}
-    return next((candidate for candidate in state.source.enemy_target_priority
-        if candidate in live and pc_battlefield_attack_available(state, actor, candidate)), None)
+    from towr.domain.pc_battlefield_movement_models import _enemies
+    return next((candidate for candidate in _enemies(state,actor)
+        if pc_battlefield_attack_available(state, actor, candidate)), None)
+
+
+def npc_can_aim(state,actor):
+    from towr.domain.pc_aim_source_models import actor_can_aim
+    if not actor_can_aim(state,actor):return False
+    from towr.domain.injury_models import CharacterInjuryState,WoundRestriction
+    from towr.domain.pc_medical_models import medical_effective_body
+    from towr.domain.pc_heavy_wound_models import restriction_sources
+    body=medical_effective_body(state,actor)
+    return type(body.injury) is not CharacterInjuryState or not restriction_sources(body.injury,WoundRestriction.CANNOT_AIM)
 
 
 def npc_needs_aim(state: PcMeleeState, actor: str) -> bool:
     from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
     from towr.domain.pc_npc_ranged_source_models import pc_npc_ranged_profile
-    from towr.domain.pc_short_opening_models import pc_enemy_range, pc_has_close_enemy
+    from towr.domain.pc_short_opening_models import pc_enemy_range
+    from towr.domain.pc_careful_aim_advice import npc_careful_aim_action
     _npc_source(state.source, actor)
     enemy = state.enemy(actor)
     weapon = pc_npc_ranged_weapon(state, actor)
-    if (weapon is None or not ranged_weapon_is_loaded(weapon)
-            or enemy.state.injury.defeated or actor in state.exited_npc_ids
-            or not enemy.state.wields_weapon or enemy.state.holds_shield
-            or any(enemy.state.injury.conditions.has(condition)
-                for condition in (Condition.BROKEN, Condition.DEFENCELESS))):
-        return False
-    profile = ranged_weapon_combat_profile(weapon.weapon_id)
-    if profile.hands is not RangedWeaponHands.TWO_HANDED or pc_has_close_enemy(state, actor):
+    if (injury_is_defeated(enemy.state.injury) or actor in state.exited_npc_ids
+            or not npc_can_aim(state, actor)):
         return False
     target = _target(state, actor)
     if target is None:
         return False
+    if weapon is None or not ranged_weapon_is_loaded(weapon):
+        return npc_careful_aim_action(state, actor) is CombatActionKind.AIM
+    profile = ranged_weapon_combat_profile(weapon.weapon_id)
     if not profile.requires_aim_before_attack and pc_enemy_range(state, actor, target) is not RangedWeaponRange.EXTREME:
-        return False
-    if pc_npc_ranged_profile(enemy.definition).awareness_profile is None:
+        return npc_careful_aim_action(state, actor) is CombatActionKind.AIM
+    from towr.domain.pc_aim_source_models import actor_awareness_profile
+    if actor_awareness_profile(state, actor) is None:
         raise ValueError('NPC mandatory Aim requires its complete Awareness source')
     aim = current_npc_aim(state, actor)
     return aim is None or aim.bonus.target_id != target
@@ -202,36 +216,43 @@ def _awareness_test(state, actor, target, test_id):
     from towr.domain.pc_npc_ranged_source_models import pc_npc_ranged_profile
     from towr.domain.pc_magic_models import magic_test_modifiers
     enemy = state.enemy(actor)
-    profile = pc_npc_ranged_profile(enemy.definition).awareness_profile
+    from towr.domain.pc_medical_models import effective_medical_injury
+    injury=effective_medical_injury(state,actor)
+    from towr.domain.pc_aim_source_models import actor_awareness_profile
+    profile = actor_awareness_profile(state, actor)
     if profile is None:
         raise ValueError('NPC Awareness cannot be inferred from Shooting or another Skill')
     modifiers = pc_npc_distraction_test_modifiers(state, actor, target)
     magic_dice, magic_qualities = magic_test_modifiers(state, actor, Skill.AWARENESS)
     modifiers = (*modifiers, *magic_dice)
-    qualities = magic_qualities
-    if enemy.state.injury.conditions.has(Condition.BLINDED):
+    from towr.domain.pc_oath_models import filter_honour_test
+    from towr.domain.pc_npc_champion_models import npc_champion_test_modifiers
+    body_dice,body_quality=npc_champion_test_modifiers(state,actor,Skill.AWARENESS)
+    modifiers=(*modifiers,*body_dice)
+    qualities=tuple(dict.fromkeys((*magic_qualities,*body_quality)))
+    if injury.conditions.has(Condition.BLINDED):
         qualities = (*qualities, QualityModifier('RULE-HEALTH-008:blinded', TestQuality.GRIM))
-    if enemy.state.injury.conditions.has(Condition.DRAINED):
+    if injury.conditions.has(Condition.DRAINED):
         modifiers = tuple(modifier for modifier in modifiers if modifier.amount <= 0)
         # An NPC cannot spend PC Fate to preserve Glorious through Drained.
         qualities = tuple(modifier for modifier in qualities if modifier.quality is not TestQuality.GLORIOUS)
-    return TestRequest(test_id, profile, modifiers, qualities)
+    return filter_honour_test(TestRequest(test_id, profile, modifiers, qualities))
 
 
 def build_npc_aim(state: PcMeleeState) -> AimActionExecutionRequest:
     from towr.domain.pc_melee_result_models import _ready, pc_melee_action_id
-    from towr.domain.pc_npc_ranged_models import _held_npc_ranged
     _ready(state)
     turn = state.round_state.active_turn
     from towr.domain.pc_rapid_reload_models import pending_rapid_reload
     rapid = pending_rapid_reload(state)
-    if (turn is None or turn.actor_id not in state.source.enemy_activation_order
+    if (turn is None or turn.actor_id not in state.source.npc_activation_order
             or len(turn.action_slots) > 1 and rapid is None):
         raise ValueError('NPC Aim requires its own ordinary turn and standard slot')
     actor = turn.actor_id
     if rapid is None and not npc_needs_aim(state, actor):
         raise ValueError('no mandatory NPC Aim is selected for the current legal target')
-    _held_npc_ranged(state, actor, loaded=True if rapid is None else rapid.source_reload.state.loaded)
+    if not npc_can_aim(state, actor):
+        raise ValueError('NPC Aim requires its actual usable ranged implement and Awareness source')
     if turn.action_slots and (turn.action_slots[-1].executed
             or turn.action_slots[-1].declaration.kind is not CombatActionKind.AIM):
         raise ValueError('NPC Aim cannot replace an executed or different action slot')
@@ -283,12 +304,18 @@ def project_npc_aim_step(state: PcMeleeState, proof) -> PcMeleeState:
         AimBonusSnapshot(request.id + ':bonus', request.id, request.awareness_test.id,
             request.actor_id, request.target_id, result.awareness_test_result.effective_successes),
         state.round_state, clock, executed,
-        tuple(dict.fromkeys((AIM_ACTION_RULE_ID, *result.awareness_test_result.trace.applied_rule_ids)))))
+        tuple(dict.fromkeys((AIM_ACTION_RULE_ID, *result.awareness_test_result.trace.applied_rule_ids)))),
+        careful_aim=careful_aim_application(state,result))
     if proof != expected:
         raise ValueError('NPC Aim altered its roll, bonus, standard slot or round receipt')
     validate_pc_melee_source_types(proof, expected)
     from towr.domain.pc_magic_models import consume_magic_modifiers
-    return replace(state, history=(*state.history, proof), round_state=clock,
+    enemies = state.enemies
+    if expected.careful_aim is not None:
+        enemies = tuple(replace(enemy, state=replace(enemy.state, injury=replace(enemy.state.injury,
+            conditions=enemy.state.injury.conditions.without_condition(Condition.STAGGERED))))
+            if enemy.state.actor_id == request.actor_id else enemy for enemy in enemies)
+    return replace(state, history=(*state.history, proof), round_state=clock, enemies=enemies,
         magic_modifiers=consume_magic_modifiers(state.magic_modifiers, proof))
 
 

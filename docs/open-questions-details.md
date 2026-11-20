@@ -116,11 +116,11 @@ Player’s Guide 1.4 на странице 121 одновременно гово
 
 ## Последствие провала Surgery и наём NPC
 
-Player’s Guide 1.4 на странице 122 говорит только, что провал Dexterity Test несёт риск permanent disfigurement or death; вероятность, обязательность и таблица исхода отсутствуют. Там же обычным способом названа оплата NPC, но книга не задаёт цену и не говорит, становится ли операция автоматически успешной. K1 не подменяет это вероятностями: failed `DowntimeSurgeryResult` возвращает GM-owned `SurgeryFailureRiskRequest` с обоими книжными рисками без мутации state, а квалифицированный NPC использует тот же explicit Test. Перед симуляцией campaign consequences нужна отдельная GM/AI policy (`AMBIGUITY-009`).
+Player’s Guide 1.4 на странице 122 говорит только, что провал Dexterity Test несёт риск permanent disfigurement or death; вероятность, обязательность и таблица исхода отсутствуют. Там же обычным способом названа оплата NPC, но книга не задаёт цену и не говорит, становится ли операция автоматически успешной. K1 не подменяет это вероятностями: failed `DowntimeSurgeryResult` возвращает GM-owned `SurgeryFailureRiskRequest` с обоими книжными рисками без мутации state, а квалифицированный NPC использует тот же explicit Test. C24 ADR-0141 принят2026-11-20: для исполнения риска GM явно задаёт целые веса no_complication/permanent_disfigurement/death и описание обезображивания. Реальный draw и одноразовая квитанция сохраняются, универсальных книжных процентов нет; эта часть `AMBIGUITY-009` закрыта. Цена найма NPC и долгосрочная кампания остаются за пределами боевого генератора.
 
 ## Что именно отменяет Combat Surgeon
 
-Player’s Guide 1.4 на странице 122 отдельно перечисляет operating theatre, specialist medical tools, time и recovery supports, а Combat Surgeon на странице 74 говорит только, что specialist medical facilities не нужны. Текущий battle adapter использует узкую политику: отменяет theatre, заменяет time одной action за каждую Test и всё ещё требует tools/supports. Нужно решить, должно ли более широкое чтение Talent отменять также specialist medical tools и/или recovery supports (`AMBIGUITY-010`).
+Player’s Guide 1.4 на странице 122 отдельно перечисляет operating theatre, specialist medical tools, time и recovery supports, а Combat Surgeon на странице 74 говорит только, что specialist medical facilities не нужны. Текущий battle adapter использует узкую политику: отменяет theatre, заменяет time одной action за каждую Test и всё ещё требует tools/supports. C23 ADR-0141 принят2026-11-20: пользователь подтвердил отсутствие операционной при сохранении специальных инструментов и необходимых послеоперационных средств; `AMBIGUITY-010` закрыта. Более широкого обхода инструментов нет.
 
 ## Границы orchestration histories
 

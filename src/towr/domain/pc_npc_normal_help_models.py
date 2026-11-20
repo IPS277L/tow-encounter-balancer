@@ -1,4 +1,5 @@
 """Ordinary, rolled Help for generated NPCs; no named free-Help substitution."""
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass,replace
 
 from towr.domain.condition_models import Condition
@@ -16,7 +17,8 @@ class NpcNormalHelpSelection:
 
 
 def _conditions(state,actor):
-    return state.enemy(actor).state.injury.conditions
+    from towr.domain.pc_medical_models import effective_medical_injury
+    return effective_medical_injury(state,actor).conditions
 
 
 def npc_help_weapon_use(state,actor,skill):
@@ -52,14 +54,17 @@ def npc_help_test(state,actor,test_id,skill):
     modifiers=(() if use is None else weapon_test_modifiers(use,conditions,
         talents=source.talents).modifiers)
     dice,qualities=magic_test_modifiers(state,actor,skill)
-    modifiers=(*modifiers,*actor_armour_test_modifiers(state,actor,skill),*dice)
+    from towr.domain.pc_npc_champion_models import npc_champion_test_modifiers
+    body_dice,body_qualities=npc_champion_test_modifiers(state,actor,skill)
+    modifiers=(*modifiers,*actor_armour_test_modifiers(state,actor,skill),*dice,*body_dice)
     if conditions.has(Condition.DRAINED):
         modifiers=tuple(mod for mod in modifiers if mod.amount<=0)
     sight=((QualityModifier('RULE-HEALTH-008:blinded',TestQuality.GRIM),)
         if skill is not Skill.ENDURANCE and conditions.has(Condition.BLINDED) else ())
     armour_qualities=(actor_armour_quality_modifiers(state,actor)
         if skill in (Skill.MELEE,Skill.SHOOTING,Skill.THROWING,Skill.BRAWN) else ())
-    return TestRequest(test_id,InlineProfile(*values),modifiers,(*qualities,*armour_qualities,*sight))
+    return TestRequest(test_id,InlineProfile(*values),modifiers,
+        tuple(dict.fromkeys((*qualities,*armour_qualities,*sight,*body_qualities))))
 
 
 def _can_help_skill(state,actor,skill):
@@ -77,9 +82,10 @@ def _can_help_skill(state,actor,skill):
         from towr.domain.pc_short_opening_models import pc_enemy_range
         from towr.domain.ranged_weapon_profiles import RangedWeaponRange
         from towr.domain.pc_melee_models import PcMeleeWeapon
+        from towr.domain.pc_actor_models import pc_opponent_ids
         if (not pc_weapon_allows_close_shooting(PcMeleeWeapon(weapon.weapon_id.value))
-                and any(pc_enemy_range(state,member.actor_id,actor) is RangedWeaponRange.CLOSE
-                    for member in state.live_party)):
+                and any(pc_enemy_range(state,other,actor) is RangedWeaponRange.CLOSE
+                    for other in pc_opponent_ids(state,actor))):
             return False
     if skill in (Skill.MELEE,Skill.DEFENCE) and npc_help_weapon_use(state,actor,skill) is None:
         return False
@@ -89,91 +95,90 @@ def _can_help_skill(state,actor,skill):
 
 
 def _available(state,actor):
-    enemy=state.enemy(actor)
-    return (enemy.definition.generated_components is not None and not enemy.state.injury.defeated
-        and actor not in state.exited_npc_ids and not any(_conditions(state,actor).has(c)
-            for c in (Condition.BROKEN,Condition.DEFENCELESS)))
+    from towr.domain.pc_actor_models import pc_actor_injury
+    if actor not in (*state.source.pc_activation_order,*state.source.npc_activation_order):return False
+    if actor not in state.source.pc_activation_order and state.enemy(actor).definition.generated_components is None:return False
+    injury=pc_actor_injury(state,actor)
+    return (not injury_is_defeated(injury) and actor not in state.exited_npc_ids
+        and not any(_conditions(state,actor).has(c) for c in (Condition.BROKEN,Condition.DEFENCELESS)))
 
 
 def npc_normal_help_choice(state,actor=None):
-    """Finite forward planning, with no Help chains or nested Monte Carlo.
+    """Compare same-side real future Tests with one's actual Attack.
 
-    Compare one own Attack with the expected improvement of an ally's exact
-    Test and the source-bound Talent removal. Protection targets the first
-    predicted incoming PC Test, which may be in the next round. Changed future
-    choices can waste Help; they never transfer its bonus to another Test.
+    Forward order prevents Help chains. Role selects Test/resource owners;
+    side selects allies and enemies, including original allied NPCs.
     """
-    from towr.domain.pc_melee_result_models import pc_melee_action_id,pc_selected_npc_attack_profile,pc_attack_skill
+    from towr.domain.pc_melee_result_models import pc_melee_action_id
     from towr.domain.pc_npc_weapon_inventory import _utility
     from towr.domain.pc_allies_in_arms_models import allies_in_arms_choice
     from towr.domain.pc_tactical_models import _distribution
-    from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
-    from towr.domain.reload_models import ranged_weapon_is_loaded
+    from towr.domain.pc_help_models import help_side_order,help_recipient_attack,help_recipient_protection
+    from towr.domain.pc_actor_models import pc_actor_side,pc_opponent_ids
+    from towr.domain.pc_battlefield_movement_models import _enemies,pc_battlefield_attack_available
+    from towr.domain.pc_ranged_advice import pc_attack_value
     from towr.domain.pc_mount_attack_models import pc_uses_mount_attack
+    from towr.domain.turn_models import CombatSide
     turn=state.round_state.active_turn
     if actor is None:actor=None if turn is None else turn.actor_id
-    if actor not in state.source.enemy_activation_order:return None
-    if len(state.live_enemies)<2:return None
+    if actor not in state.source.npc_activation_order:return None
+    order=help_side_order(state,actor)
+    if sum(_available(state,ally) for ally in order)<2:return None
     unavailable=(*state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)
-    plans={}
-    attack_values={}
-    def attack_value(actor,extra=0):
-        key=actor,extra
+    plans={};attack_values={}
+    def attack_value(owner,extra=0,view=None):
+        selected=state if view is None else view
+        key=owner,extra,id(selected)
         if key not in attack_values:
-            attack_values[key]=_utility(state,actor,help_successes=extra)
+            attack_values[key]=(pc_attack_value(selected,owner,extra=extra)[0]
+                if owner in state.source.pc_activation_order else _utility(selected,owner,help_successes=extra))
         return attack_values[key]
+    def incoming_prediction(owner):
+        if owner in state.source.pc_activation_order:return pc_attack_value(state,owner)
+        targets=_enemies(state,owner)
+        predicted=next((target for target in targets if state.battlefield is not None
+            and pc_battlefield_attack_available(state,owner,target)),targets[0] if targets else None)
+        return attack_value(owner),predicted
     def plan(helper):
         if helper in plans:return plans[helper]
         plans[helper]=None
-        if (not _available(state,helper) or helper in unavailable
-                or _conditions(state,helper).has(Condition.DEAFENED)):
-            return None
-        best=None
-        own=max(0.,attack_value(helper))
-        helper_index=state.source.enemy_activation_order.index(helper)
-        for beneficiary in state.source.enemy_activation_order:
+        if not _available(state,helper) or helper in unavailable or _conditions(state,helper).has(Condition.DEAFENED):return None
+        best=None;own=max(0.,attack_value(helper));helper_index=order.index(helper)
+        for beneficiary in order:
             if beneficiary==helper or not _available(state,beneficiary):continue
             removal,removal_value=allies_in_arms_choice(state,helper,beneficiary)
             for kind in (PcHelpTarget.ATTACK,PcHelpTarget.FIRST_INCOMING_PROTECTION):
                 if kind is PcHelpTarget.ATTACK:
-                    if (beneficiary in unavailable or state.source.enemy_activation_order.index(beneficiary)<=helper_index
-                            or plan(beneficiary) is not None or _conditions(state,beneficiary).has(Condition.PRONE)
-                            or pc_uses_mount_attack(state,beneficiary)):
-                        continue
-                    weapon=pc_npc_ranged_weapon(state,beneficiary)
-                    if weapon is not None and not ranged_weapon_is_loaded(weapon):continue
-                    skill=pc_selected_npc_attack_profile(state,beneficiary).skill
+                    if (beneficiary in unavailable or order.index(beneficiary)<=helper_index
+                            or beneficiary in state.source.npc_activation_order and plan(beneficiary) is not None
+                            or pc_uses_mount_attack(state,beneficiary)):continue
+                    selected=help_recipient_attack(state,beneficiary)
+                    if selected is None:continue
+                    view,skill,item,_=selected
                     intended=pc_melee_action_id(state,beneficiary)+':attack'
-                    inventory=state.enemy(beneficiary).state.weapon_inventory
-                    item=None if inventory is None else inventory.active_item_id
-                    before=attack_value(beneficiary)
-                    benefit=lambda successes:max(0.,attack_value(beneficiary,successes)-before)
+                    before=attack_value(beneficiary,view=view)
+                    benefit=lambda successes,beneficiary=beneficiary,before=before,view=view:max(0.,attack_value(beneficiary,successes,view)-before)
                 else:
-                    from towr.domain.pc_ranged_advice import pc_attack_value
-                    from towr.domain.pc_generated_equipment import npc_protection_test
-                    incoming=next((pc for pc in state.source.pc_activation_order
-                        if not state.participant(pc).injury.dead and pc not in unavailable),None)
+                    opponents=pc_opponent_ids(state,beneficiary)
+                    opposing_order=(state.source.enemy_activation_order if pc_actor_side(state,beneficiary)
+                        is CombatSide.PLAYERS_AND_ALLIES else state.source.player_activation_order)
+                    incoming=next((other for other in opposing_order if other in opponents and other not in unavailable),None)
                     next_round=incoming is None
-                    if incoming is None:
-                        incoming=next((pc for pc in state.source.pc_activation_order
-                            if not state.participant(pc).injury.dead),None)
-                    if incoming is None:continue
-                    if next_round and state.round_state.round_number>=state.source.max_rounds:continue
-                    before,predicted=pc_attack_value(state,incoming)
+                    if incoming is None:incoming=next((other for other in opposing_order if other in opponents),None)
+                    if incoming is None or next_round and state.round_state.round_number>=state.source.max_rounds:continue
+                    before,predicted=incoming_prediction(incoming)
                     if predicted!=beneficiary:continue
                     intended=pc_melee_action_id(state,incoming,
                         round_number=state.round_state.round_number+int(next_round))+':protection'
-                    profile,test=npc_protection_test(state,beneficiary,incoming,intended,
-                        attack_skill=pc_attack_skill(state,incoming))
-                    skill=profile.skill
-                    inventory=state.enemy(beneficiary).state.weapon_inventory
+                    skill,test=help_recipient_protection(state,beneficiary,incoming,intended)
+                    from towr.domain.pc_magic_weapon_models import actor_inventory
+                    inventory=actor_inventory(state,beneficiary)
                     item=(inventory.active_item_id if inventory is not None and skill in (Skill.DEFENCE,Skill.MELEE) else None)
-                    # A bounded estimate using the actual incoming distribution;
-                    # each extra defence die can save at most one target value.
                     base_mean=sum(i*p for i,p in enumerate(_distribution(test)))
                     from towr.domain.test_models import _expected_initial_roll_parameters
                     remaining=max(0,min(10,test.profile.maximum_dice)-_expected_initial_roll_parameters(test)[5])
-                    benefit=lambda successes:min(before,min(successes,remaining)*test.profile.threshold/10/(1+base_mean))
+                    benefit=lambda successes,before=before,remaining=remaining,test=test,base_mean=base_mean:min(before,
+                        min(successes,remaining)*test.profile.threshold/10/(1+base_mean))
                 if not _can_help_skill(state,helper,skill):continue
                 if _conditions(state,beneficiary).has(Condition.DRAINED):
                     if removal is None:continue

@@ -1,0 +1,179 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:careful-aim-example",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc:archer",
+      "characteristics": {
+        "weapon_skill": 3,
+        "ballistic_skill": 3,
+        "strength": 3,
+        "toughness": 3,
+        "initiative": 3,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 5,
+        "defence": 5,
+        "athletics": 4,
+        "endurance": 4,
+        "shooting": 4,
+        "awareness": 4
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "sling",
+            "weapon": "sling",
+            "location": "left_hand"
+          },
+          {
+            "id": "sword",
+            "weapon": "sword",
+            "location": "carried"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [
+        {
+          "id": "careful_aim",
+          "acquisitions": [
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            }
+          ]
+        }
+      ],
+      "talent_facts": {
+        "reason": 4
+      },
+      "resources": {
+        "fate": 1
+      },
+      "consumables": [],
+      "ranged": {
+        "ammunition_supply_confirmed": true,
+        "has_blackpowder_lore": null,
+        "has_blackpowder_kit": null
+      }
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      2,
+      3
+    ],
+    "strength": [
+      3
+    ],
+    "toughness": [
+      3
+    ],
+    "agility": [
+      2,
+      3
+    ],
+    "melee": [
+      3,
+      4
+    ],
+    "athletics": [
+      3,
+      4
+    ],
+    "defence": [
+      3,
+      4
+    ],
+    "weapon": [
+      "throwing_knives",
+      "sling"
+    ],
+    "armour": [
+      null
+    ],
+    "shield": [
+      null
+    ],
+    "abilities": [
+      []
+    ],
+    "ballistic_skill": [
+      2,
+      3
+    ],
+    "shooting": [
+      3,
+      4
+    ],
+    "throwing": [
+      3,
+      4
+    ],
+    "initiative": [
+      2,
+      3
+    ],
+    "dexterity": [
+      3,
+      4
+    ],
+    "awareness": [
+      3,
+      4
+    ],
+    "reason": [
+      4,
+      5
+    ],
+    "allowed_talents": [
+      "careful_aim"
+    ],
+    "weapon_count": [
+      1
+    ],
+    "initial_loaded": [
+      true
+    ]
+  },
+  "npc_count": {
+    "minimum": 1,
+    "maximum": 1
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 1,
+      "denominator": 2
+    },
+    "started_rounds": {
+      "numerator": 2,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 1,
+    "exploration_trials": 1,
+    "finalist_trials": 1,
+    "top_k": 1,
+    "max_total_trials": 2
+  },
+  "max_rounds": 3,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "short",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh",
+    "two_handed_max_range": "long"
+  }
+}

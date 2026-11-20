@@ -26,11 +26,13 @@
             "ranged": {
               "ballistic_skill": 3,
               "shooting": 4,
-              "initiative": 3,
-              "dexterity": 4,
               "ammunition_supply_confirmed": true,
               "reload_hand_policy": "two_available_hands"
-            }
+            },
+            "initiative": 3,
+            "dexterity": 4,
+            "reason": null,
+            "recall": null
           },
           "fate": {
             "session_id": "session",
@@ -123,12 +125,14 @@
             "ranged": {
               "ballistic_skill": 3,
               "shooting": 4,
-              "initiative": 3,
-              "dexterity": 4,
               "ammunition_supply_confirmed": true,
               "reload_hand_policy": "two_available_hands",
               "repeater_bonus_policy": "when_available"
-            }
+            },
+            "initiative": 3,
+            "dexterity": 4,
+            "reason": null,
+            "recall": null
           },
           "fate": {
             "session_id": "session",
@@ -221,12 +225,14 @@
             "ranged": {
               "ballistic_skill": 3,
               "shooting": 4,
-              "initiative": 3,
-              "dexterity": 4,
               "ammunition_supply_confirmed": true,
               "reload_hand_policy": "two_available_hands",
               "repeater_bonus_policy": "never"
-            }
+            },
+            "initiative": 3,
+            "dexterity": 4,
+            "reason": null,
+            "recall": null
           },
           "fate": {
             "session_id": "session",

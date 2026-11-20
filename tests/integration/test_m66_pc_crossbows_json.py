@@ -51,7 +51,7 @@ class PcCrossbowJsonTests(unittest.TestCase):
     def test_both_crossbows_roundtrip_full_reload_profiles_and_both_repeater_modes(self):
         self.assertEqual(tuple(weapon.value for weapon in PC_CROSSBOW_WEAPONS),
             ('crossbow','repeater_crossbow'))
-        self.assertEqual(len(PC_TWO_HANDED_RANGED_WEAPONS),9)
+        self.assertEqual(len(PC_TWO_HANDED_RANGED_WEAPONS),10)
         for weapon,mode in CASES:
             for balance in (False,True):
                 with self.subTest(weapon=weapon,mode=mode,balance=balance):
@@ -63,7 +63,7 @@ class PcCrossbowJsonTests(unittest.TestCase):
                     self.assertEqual(scenario_document(scene),raw[source_key])
                     member = scene.party[0]
                     self.assertIs(member.initial_weapon_hand,PcTwoHandedGrip.BOTH)
-                    expected = {'ballistic_skill':3,'shooting':4,'initiative':3,'dexterity':4,
+                    expected = {'ballistic_skill':3,'shooting':4,'dexterity':4,
                         'ammunition_supply_confirmed':True,
                         'reload_hand_policy':'two_available_hands'}
                     if mode is not None:

@@ -24,7 +24,7 @@ from towr.rules.test_resolution import resolve_test, RerollAllFailures
 
 def actual_miscast(state, roll):
     member=state.source.party[0]
-    source=replace(state.source,party=(replace(member,wizard=replace(member.wizard,reason=len(roll))),))
+    source=replace(state.source,party=(replace(member,pc=replace(member.pc,reason=len(roll))),))
     initial=initial_pc_melee_state(source)
     state=replace(state,base=initial,party=initial.party)
     request=build_pc_casting_request(state)

@@ -33,7 +33,7 @@ def source():
     base = book_pc_scenario(footpads=1,townsfolk=0,troopers=1,spear_troopers=1,
         empire_knights=1,wolf_knights=1,pc_count=1,max_rounds=3)
     party = tuple(replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,
-        ranged=pistol_profile()),combat_equipment=initial_weapon_items(
+        ranged=pistol_profile(), initiative=3, dexterity=4),combat_equipment=initial_weapon_items(
             PcMeleeWeapon.PISTOL,member.initial_weapon_hand,initially_loaded=True)) for member in base.party)
     choices = tuple(Policy(actor,skill) for actor,skill in (
         ('trooper1',Skill.MELEE),('spear_trooper1',Skill.ATHLETICS),

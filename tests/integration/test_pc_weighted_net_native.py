@@ -43,10 +43,10 @@ def npc(weapon=GeneratedWeapon.STAFF,*,mount=None):
     if weapon is GeneratedWeapon.WEIGHTED_NET:
         return GeneratedNpc(3,3,20,2,3,3,initial_generated_weapons(weapon),light_loadout(light=False, shield=False),defence=3,
             brawn=3,ballistic_skill=3,throwing=4,mount=mount)
-    ranged=(GeneratedRangedFacts(4,5,2,None,True,None,None,awareness=4)
+    ranged=(GeneratedRangedFacts(4, 5,  True, None, None)
         if weapon is GeneratedWeapon.LONGBOW else None)
     return GeneratedNpc(2,2,4,2,3,3,initial_generated_weapons(weapon, grip=RangedWeaponHands.TWO_HANDED if weapon is GeneratedWeapon.FOOT_SPEAR else None),light_loadout(light=False, shield=False),defence=3,
-        brawn=3,ranged=ranged,mount=mount)
+        brawn=3,ranged=ranged,mount=mount, initiative=2, awareness=4)
 
 
 def pc_net_scene(*,rounds=3,enemy_weapon=GeneratedWeapon.STAFF,mounted=False):
@@ -81,7 +81,7 @@ def two_bindings_scene():
     # retain exactly the asserted three successes.
     member=replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.SHORTBOW,
         weapon_skill=1,agility=1,athletics=2,toughness=20,brawn=1,
-        ranged=PcRangedProfile(1,2,initiative=2,awareness=3,ammunition_supply_confirmed=True)),
+        ranged=PcRangedProfile(1, 2, ammunition_supply_confirmed=True), initiative=2, awareness=3),
         initial_weapon_hand=PcTwoHandedGrip.BOTH,
         combat_equipment=(PcWeaponItem('bow',PcMeleeWeapon.SHORTBOW,PcItemLocation.HELD,PcTwoHandedGrip.BOTH),),
         fate_policy=PcFatePolicy.CONFIGURED,glorious_policy=PcGloriousPolicy((Skill.BRAWN,),0,0))

@@ -148,6 +148,7 @@ class PcMeleeJsonTests(unittest.TestCase):
                     if weapon in ('pistol','repeater_handbow','repeater_pistol'):
                         from tests.support.pc_ranged_scenarios import ranged_profile
                         profile = ranged_profile(weapon=PcMeleeWeapon(weapon), **({'repeater_bonus_policy':None} if weapon=='pistol' else {}))
+                        member['pc']['initiative']=3
                         member['pc']['ranged']=json.loads(json.dumps({k:v for k,v in asdict(profile).items() if v is not None}))
                 for enemy in raw[key]['enemies']:
                     enemy['definition']['protection']['skill']='athletics'

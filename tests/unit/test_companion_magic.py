@@ -71,7 +71,7 @@ def prepared(*, spell=PcSpellId.LIGHTNING_BLAST, kind=CombatMount.DEMIGRYPH,
         for index, armoured in enumerate(barding))
     ids = tuple(enemy.state.actor_id for enemy in enemies)
     member = replace(template, wizard=wizard.wizard, talents=wizard.talents,
-        pc=replace(template.pc, weapon_skill=1, melee=1), target_priority=ids,
+        pc=replace(template.pc, weapon_skill=1, melee=1,reason=wizard.pc.reason), target_priority=ids,
         defeat_decisions=tuple(replace(template.defeat_decisions[0], target_id=target) for target in ids))
     source = replace(original, party=(member,), enemies=enemies, enemy_activation_order=ids,
         battlefield=PcBattlefieldSpec(R.EXTREME, R.LONG),

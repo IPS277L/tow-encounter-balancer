@@ -16,7 +16,7 @@ def validate_pc_npc_blood_rage_policy(source) -> None:
     for actor in actors:
         if type(actor) is not str or not actor.strip():
             raise TypeError('Blood Rage actor IDs must be exact nonempty strings')
-        if actor not in source.enemy_activation_order:
+        if actor not in source.npc_activation_order:
             raise ValueError('Blood Rage actor must belong to the source opposition')
         definition = source.enemy(actor).definition
         validate_pc_book_npc_definition(definition)

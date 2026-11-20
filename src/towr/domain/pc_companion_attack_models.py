@@ -34,7 +34,9 @@ def companion_attack_pending_owner(state):
     target = attack.request.target_id
     result = pc_kernel_resolution(attack)
     owner = target if result.attack.outcome is AttackOutcome.HIT else kernel_condition_actor(state, attack)
-    if pc_companion(state, target) is None and pc_companion(state, owner) is None:
+    npc_pair=(attack.request.actor_id in state.source.npc_activation_order
+        and target in state.source.npc_activation_order)
+    if not npc_pair and pc_companion(state, target) is None and pc_companion(state, owner) is None:
         return None
     if owner != state.pending_actor_id:
         return None

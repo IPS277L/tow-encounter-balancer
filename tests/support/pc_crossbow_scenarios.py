@@ -9,14 +9,9 @@ from towr.domain.pc_melee_models import (
 )
 
 
-def crossbow_profile(*, weapon: PcMeleeWeapon = PcMeleeWeapon.CROSSBOW,
-        ballistic_skill: int = 3, shooting: int = 4, initiative: int = 3,
-        dexterity: int = 4, repeater_bonus_policy: PcRepeaterBonusPolicy | None = None):
+def crossbow_profile(*, weapon: PcMeleeWeapon=PcMeleeWeapon.CROSSBOW, ballistic_skill: int=3, shooting: int=4, repeater_bonus_policy: PcRepeaterBonusPolicy | None=None):
     """Repeater callers supply their choice explicitly; no strategy is inferred."""
-    return PcRangedProfile(ballistic_skill=ballistic_skill, shooting=shooting,
-        initiative=initiative, dexterity=dexterity, ammunition_supply_confirmed=True,
-        reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,
-        repeater_bonus_policy=repeater_bonus_policy)
+    return PcRangedProfile(ballistic_skill=ballistic_skill, shooting=shooting,  ammunition_supply_confirmed=True, reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS, repeater_bonus_policy=repeater_bonus_policy)
 
 
 def make_pc_crossbow_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.CROSSBOW,
@@ -29,9 +24,7 @@ def make_pc_crossbow_scenario(*, weapon: PcMeleeWeapon = PcMeleeWeapon.CROSSBOW,
     source = make_pc_bow_scenario(pc_count=pc_count, enemy_count=enemy_count,
         max_rounds=max_rounds, backup=backup)
     party = tuple(replace(member, pc=replace(member.pc, weapon=weapon,
-        ranged=crossbow_profile(weapon=weapon, ballistic_skill=ballistic_skill,
-            shooting=shooting, initiative=initiative, dexterity=dexterity,
-            repeater_bonus_policy=repeater_bonus_policy)),combat_equipment=initial_weapon_items(
+        ranged=crossbow_profile(weapon=weapon, ballistic_skill=ballistic_skill, shooting=shooting, repeater_bonus_policy=repeater_bonus_policy), initiative=initiative, dexterity=dexterity),combat_equipment=initial_weapon_items(
                 weapon,member.initial_weapon_hand,member.backup_weapon_policy,initially_loaded=True)) for member in source.party)
     resilience = ResilienceProfile(npc_toughness,npc_armour_bonus,armoured=npc_armoured)
     enemies = tuple(replace(enemy,definition=replace(enemy.definition,resilience=resilience),

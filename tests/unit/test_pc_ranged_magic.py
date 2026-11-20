@@ -22,8 +22,9 @@ class PcRangedMagicTests(unittest.TestCase):
     def test_actual_casting_keeps_partial_reload_and_uses_its_own_slot_fate_and_hand(self):
         source=ranged_source(rounds=3)
         actor=source.party[0]
-        wizard=magic_scenario(reason=2,willpower=5,spells=(PcSpellId.LIGHTNING_BLAST,)).party[0].wizard
-        actor=replace(actor,wizard=wizard,fate_policy=PcFatePolicy.CONFIGURED,
+        caster=magic_scenario(reason=2,willpower=5,spells=(PcSpellId.LIGHTNING_BLAST,)).party[0]
+        wizard=caster.wizard
+        actor=replace(actor,wizard=wizard,pc=replace(actor.pc,reason=caster.pc.reason),talents=caster.talents,fate_policy=PcFatePolicy.CONFIGURED,
             fate=replace(actor.fate,rating=1,session_spend_limit=1),
             glorious_policy=PcGloriousPolicy((Skill.WILLPOWER,),2,0))
         enemy=source.enemies[0]

@@ -1,8 +1,10 @@
 """Actual Aim actions, one-use follow-ups and paid second-slot PC shots."""
 from __future__ import annotations
 
+from towr.domain.injury_models import injury_is_defeated
 from towr.domain.reload_models import ranged_weapon_is_loaded
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from towr.domain.talent_careful_aim_models import CarefulAimApplication, careful_aim_application
 from typing import TYPE_CHECKING
 
 from towr.domain.aim_models import (
@@ -10,7 +12,7 @@ from towr.domain.aim_models import (
     AimFollowUpRequest, AimFollowUpResult, AimFollowUpOutcome, AimBonusSnapshot,
 )
 from towr.domain.condition_models import Condition
-from towr.domain.fate_models import FateSecondActionSpendRequest, FateSecondActionSpendResult
+from towr.domain.fate_models import FateSecondActionSpendRequest, FateSecondActionSpendResult, FateGloriousSpendResult
 from towr.domain.pc_heavy_wound_models import usable_weapon_hand, critical_for_action, restriction_sources
 from towr.domain.injury_models import WoundRestriction
 from towr.domain.pc_melee_models import PcMeleeWeapon, PcTwoHandedGrip
@@ -29,7 +31,9 @@ if TYPE_CHECKING:
 class PcAimProof:
     request: AimActionExecutionRequest
     result: AimActionExecutionResult
-    fate_decline: PcFateDecline
+    fate_decline: PcFateDecline | None
+    glorious: FateGloriousSpendResult | None = field(default=None, kw_only=True)
+    careful_aim: CarefulAimApplication | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +48,10 @@ class PcAimConsumptionProof:
 
 
 def _action(proof):
+    from towr.domain.pc_aim_source_models import other_aim_action_receipt
+    extra = other_aim_action_receipt(proof)
+    if extra is not None:
+        return extra
     from towr.domain.pc_musician_effect_models import PcMusicianActionProof
     from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
     from towr.domain.pc_oath_models import PcLadyPrayerProof
@@ -79,14 +87,15 @@ def _consumption(aim, proof, receipt):
     from towr.rules.aim_resolution import resolve_aim_follow_up
     if type(proof) is PcAttackProof and proof.ranged_shot is not None:
         follow_up = proof.ranged_shot.preparation.aim_follow_up
+        outcome = (AimFollowUpOutcome.APPLIED_TO_RANGED_ATTACK
+            if proof.request.target_id == aim.bonus.target_id else AimFollowUpOutcome.LOST)
         if (follow_up is None or follow_up.source_request.aim != aim
-                or follow_up.outcome is not AimFollowUpOutcome.APPLIED_TO_RANGED_ATTACK):
+                or follow_up.outcome is not outcome
+                or follow_up != resolve_aim_follow_up(follow_up.source_request)):
             raise ValueError('PC ranged shot lost its actual one-use Aim follow-up')
     else:
-        attack = proof.request if type(proof) is PcAttackProof and receipt.declaration.kind is CombatActionKind.ATTACK else None
-        follow_up = resolve_aim_follow_up(AimFollowUpRequest(
-            aim.request_id+':consume:'+receipt.id, aim, receipt.actor_id, receipt.id,
-            receipt.declaration, Skill.MELEE if attack is not None else None, attack))
+        from towr.domain.pc_aim_source_models import actual_aim_follow_up
+        follow_up = actual_aim_follow_up(aim, proof, receipt)
     source = follow_up.source_request
     if (source.actor_id != receipt.actor_id or source.next_action_id != receipt.id
             or source.declaration != receipt.declaration):
@@ -97,7 +106,7 @@ def _consumption(aim, proof, receipt):
 def _journal(state):
     """A single next-action consumption is completed before any other transition."""
     from towr.domain.pc_melee_result_models import validate_pc_melee_source_types
-    enabled = any(m.pc.ranged is not None and m.pc.ranged.awareness is not None for m in state.source.party)
+    enabled = any(m.pc.awareness is not None for m in state.source.party)
     if not enabled:
         if any(type(p) in (PcAimProof,PcAimSecondActionProof,PcAimConsumptionProof) for p in state.history):
             raise ValueError('Aim receipts require an admitted ranged Awareness source')
@@ -127,8 +136,7 @@ def _journal(state):
         fresh = proof.result if type(proof) is PcAimProof else None
         if fresh is not None:
             replace(fresh)
-            if (state.source.participant(actor).pc.ranged is None
-                    or state.source.participant(actor).pc.ranged.awareness is None
+            if (state.source.participant(actor).pc.awareness is None
                     or fresh.request_id in consumed or fresh.bonus.actor_id != actor):
                 raise ValueError('Aim source belongs to another actor, loadout or consumed action')
         if previous is not None:
@@ -153,7 +161,7 @@ def pc_hochland_needs_aim(state, actor):
     if pc_active_weapon(state,actor) is not PcMeleeWeapon.HOCHLAND_LONG_RIFLE:
         return False
     target = next(a for a in state.source.participant(actor).target_priority
-        if not state.enemy(a).state.injury.defeated and a not in state.exited_npc_ids)
+        if not injury_is_defeated(state.enemy(a).state.injury) and a not in state.exited_npc_ids)
     aim = current_pc_aim(state,actor)
     return aim is None or aim.bonus.target_id != target
 
@@ -175,7 +183,7 @@ def pc_ranged_needs_aim(state, actor, target):
 def pc_aim_target(state, actor):
     from towr.domain.pc_battlefield_movement_models import pc_battlefield_attack_available
     return next((target for target in state.source.participant(actor).target_priority
-        if not state.enemy(target).state.injury.defeated and target not in state.exited_npc_ids
+        if not injury_is_defeated(state.enemy(target).state.injury) and target not in state.exited_npc_ids
         and pc_battlefield_attack_available(state,actor,target)),None)
 
 
@@ -191,15 +199,9 @@ def build_pc_aim(state):
     actor = turn.actor_id
     member = state.participant(actor)
     source = state.source.participant(actor)
-    from towr.domain.pc_backup_weapon_models import pc_active_weapon
-    from towr.domain.pc_melee_models import PC_RANGED_WEAPONS
-    if (source.pc.ranged is None or source.pc.ranged.awareness is None
-            or pc_active_weapon(state,actor) not in PC_RANGED_WEAPONS
-            or usable_weapon_hand(member) is None
-            or rapid is None and not ranged_weapon_is_loaded(member.ranged) or pc_has_close_enemy(state,actor)
-            or restriction_sources(member.injury,WoundRestriction.CANNOT_AIM)
-            or member.injury.conditions.has(Condition.DEFENCELESS)):
-        raise ValueError('Aim requires its actual held ready ranged weapon and Awareness source')
+    from towr.domain.pc_aim_source_models import actor_can_aim
+    if not actor_can_aim(state, actor):
+        raise ValueError('Aim requires its actual usable ranged implement and Awareness source')
     target = rapid.target_id if rapid is not None else pc_aim_target(state,actor)
     if target is None:
         raise ValueError('Aim requires a living target inside the scene maximum')
@@ -235,7 +237,7 @@ def build_pc_aim_second_action(state):
             or member.injury.conditions.has(Condition.DEFENCELESS)
             or usable_weapon_hand(member) is not PcTwoHandedGrip.BOTH
             or not ranged_weapon_is_loaded(member.ranged) or pc_has_close_enemy(state,actor)
-            or state.enemy(aim.bonus.target_id).state.injury.defeated
+            or injury_is_defeated(state.enemy(aim.bonus.target_id).state.injury)
             or pc_hochland_needs_aim(state,actor)):
         return None
     fate = member.fate
@@ -280,29 +282,26 @@ def project_pc_aim_step(state, proof):
     if (len(turn.action_slots) < request.slot_index or turn.action_slots[request.slot_index-1].executed
             or turn.action_slots[request.slot_index-1].declaration.kind is not CombatActionKind.AIM):
         raise ValueError('Aim requires its one unused standard Aim slot')
-    _test_result(request.awareness_test,result.awareness_test_result)
-    _decline(state,proof.fate_decline,request.actor_id,request.awareness_test.id,'test')
-    turn = state.round_state.active_turn
-    slot = turn.action_slots[request.slot_index-1]
-    receipt = ActionExecutionReceipt(request.id,AIM_ACTION_RULE_ID,request.id,
-        result.awareness_test_result.trace.request_id,request.actor_id,state.round_state.round_number,
-        request.slot_index,slot.declaration)
-    executed = replace(slot,execution=receipt)
-    combat = replace(state.round_state,active_turn=replace(turn,action_slots=(*turn.action_slots[:-1],executed)))
-    expected = PcAimProof(request,AimActionExecutionResult(request.id,AIM_ACTION_RULE_ID,request,
-        result.awareness_test_result,AimBonusSnapshot(request.id+':bonus',request.id,request.awareness_test.id,
-            request.actor_id,request.target_id,result.awareness_test_result.effective_successes),state.round_state,combat,
-        executed,tuple(dict.fromkeys((AIM_ACTION_RULE_ID,*result.awareness_test_result.trace.applied_rule_ids)))),proof.fate_decline)
+    from towr.domain.pc_fate_test_models import validate_pc_test_fate
+    from towr.rules.aim_resolution import _complete_aim_action_after_test
+    effective, fate = validate_pc_test_fate(state, request.actor_id, Skill.AWARENESS,
+        request.awareness_test, result.awareness_test_result, proof.fate_decline, proof.glorious)
+    canonical = _complete_aim_action_after_test(replace(request, awareness_test=effective), result.awareness_test_result)
+    combat = canonical.round_state
+    expected = PcAimProof(request, canonical, proof.fate_decline,
+        glorious=proof.glorious, careful_aim=careful_aim_application(state, canonical))
     if proof != expected:
         raise ValueError('Aim altered its roll, bonus, slot receipt or round')
     validate_pc_melee_source_types(proof,expected)
     member = state.participant(request.actor_id)
     injury = pc_after_test(state,request.actor_id,critical_for_action(member,CombatActionKind.AIM,
         used_hand=usable_weapon_hand(member)))
+    if expected.careful_aim is not None:
+        injury = replace(injury, conditions=injury.conditions.without_condition(Condition.STAGGERED))
     from towr.domain.pc_magic_models import consume_magic_modifiers
     return replace(state,history=(*state.history,proof),round_state=combat,
         magic_modifiers=consume_magic_modifiers(state.magic_modifiers,proof),
-        party=_party_update(state,request.actor_id,injury=injury))
+        party=_party_update(state,request.actor_id,injury=injury,fate=fate))
 
 
 def validate_pc_aim_history(state):

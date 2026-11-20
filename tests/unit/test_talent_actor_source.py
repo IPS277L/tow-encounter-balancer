@@ -96,17 +96,18 @@ class TalentActorSourceTests(unittest.TestCase):
 
     def test_actual_ranged_characteristics_take_precedence_over_cached_facts(self):
         member = make_pc_ranged_scenario().party[0]
-        ranged = GeneratedRangedFacts(4, 4, 3, 4, True, None, None)
+        ranged = GeneratedRangedFacts(4, 4,  True, None, None)
         creature = replace(npc(), weapons=initial_generated_weapons(GeneratedWeapon.REPEATER_HANDBOW),
-            ranged=ranged)
+            ranged=ranged, initiative=3,dexterity=4)
         for owner, profile in ((member, member.pc.ranged), (creature, ranged)):
             for field in ('ballistic_skill', 'initiative'):
+                actual=(owner.pc.initiative if hasattr(owner,'pc') else owner.initiative) if field=='initiative' else getattr(profile,field)
                 with self.subTest(owner=type(owner).__name__, field=field):
                     with self.assertRaisesRegex(ValueError, 'initial ' + field):
-                        replace(owner, talent_facts=TalentOwnerFacts(**{field: getattr(profile, field) + 1}))
+                        replace(owner, talent_facts=TalentOwnerFacts(**{field: actual + 1}))
                     admitted = replace(owner,
-                        talent_facts=TalentOwnerFacts(**{field: getattr(profile, field)}))
-                    self.assertEqual(admitted.talent_facts, TalentOwnerFacts(**{field: getattr(profile, field)}))
+                        talent_facts=TalentOwnerFacts(**{field: actual}))
+                    self.assertEqual(admitted.talent_facts, TalentOwnerFacts(**{field: actual}))
 
     def test_lucky_ownership_and_funding_must_match_in_both_directions(self):
         member = player()
@@ -157,7 +158,7 @@ class TalentActorSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'ordinary knowledge'):
             replace(member, talent_facts=TalentOwnerFacts(lores=(TalentLoreFact('elementalism'),)))
         with self.assertRaisesRegex(ValueError, 'initial reason'):
-            replace(member, talent_facts=TalentOwnerFacts(reason=member.wizard.reason + 1))
+            replace(member, talent_facts=TalentOwnerFacts(reason=member.pc.reason + 1))
         for origin in (TalentOrigin.HUMAN, TalentOrigin.EMPIRE_HUMAN, TalentOrigin.BRETONNIAN_HUMAN):
             with self.subTest(origin=origin):
                 facts = TalentOwnerFacts(origin=origin)

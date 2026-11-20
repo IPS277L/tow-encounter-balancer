@@ -1036,3 +1036,24 @@ def _validate_int(value: int, name: str) -> None:
 def _validate_bool(value: bool, name: str) -> None:
     if not isinstance(value, bool):
         raise TypeError(f"{name} must be a boolean")
+
+
+def injury_is_defeated(injury: CharacterInjuryState | ProfileInjuryState) -> bool:
+    """A real Character dies; a profile NPC uses its explicit defeat flag.
+
+    Defenceless alone does not turn a living Champion into a defeated Minion.
+    """
+    if type(injury) is CharacterInjuryState:
+        return injury.dead
+    if type(injury) is ProfileInjuryState:
+        return injury.defeated
+    raise TypeError('defeat query requires an actual Character or profile injury state')
+
+
+def injury_wound_count(injury: CharacterInjuryState | ProfileInjuryState) -> int:
+    """Count real Wound records or actual profile Wounds, without an HP alias."""
+    if type(injury) is CharacterInjuryState:
+        return sum(not wound.healed for wound in injury.wounds)
+    if type(injury) is ProfileInjuryState:
+        return injury.wounds
+    raise TypeError('Wound count requires an actual Character or profile injury state')

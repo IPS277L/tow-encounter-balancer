@@ -44,7 +44,7 @@ def falling_source(*, near_miss=False):
         near_miss_policy=PcNearMissPolicy(11, 0) if near_miss else None, glorious_policy=None)
     npc = GeneratedNpc(1, 1, 20, 1, 2, 2, initial_generated_weapons(GeneratedWeapon.HANDGUN),
         ArmourLoadout(), defence=2,
-        ranged=GeneratedRangedFacts(6, 6, 3, 4,  True, True, True, awareness=2))
+        ranged=GeneratedRangedFacts(6, 6,  True, True, True), initiative=3, awareness=2, dexterity=4)
     actor = source.enemy_activation_order[0]
     return replace(source, party=(member,), enemies=(npc.participant(actor),),
         npc_ranged_policies=(pc_npc_ranged_policy_for_generated(npc, actor),),

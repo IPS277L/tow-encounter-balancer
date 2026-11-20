@@ -38,10 +38,10 @@ class FirstMissesThenOnes:
 
 
 def component(weapon):
-    ranged=(GeneratedRangedFacts(4,5,2,4,True,True,True,awareness=4)
+    ranged=(GeneratedRangedFacts(4, 5,  True, True, True)
         if weapon is GeneratedWeapon.BLUNDERBUSS else None)
     return GeneratedNpc(1 if weapon is GeneratedWeapon.FLAIL else 3,3,4,2,4,3,initial_generated_weapons(weapon),light_loadout(light=False, shield=False),
-        defence=4,ranged=ranged)
+        defence=4,ranged=ranged, initiative=2, awareness=4,dexterity=4 if ranged is not None else None)
 
 
 def scene(*,npc_weapons=(GeneratedWeapon.BLUNDERBUSS,GeneratedWeapon.BLUNDERBUSS),
@@ -49,7 +49,7 @@ def scene(*,npc_weapons=(GeneratedWeapon.BLUNDERBUSS,GeneratedWeapon.BLUNDERBUSS
     source=automatic_source(pc_count=2,enemy_count=len(npc_weapons),rounds=1)
     party=tuple(replace(member,pc=replace(member.pc,
         weapon=PcMeleeWeapon.BLUNDERBUSS if pc_shooters else PcMeleeWeapon.FOOT_SPEAR,
-        ranged=blunderbuss_profile(ballistic_skill=4,shooting=5) if pc_shooters else None),
+        ranged=blunderbuss_profile(ballistic_skill=4,shooting=5) if pc_shooters else None, initiative=3,dexterity=4 if pc_shooters else None),
         initial_weapon_hand=PcTwoHandedGrip.BOTH,
         combat_equipment=(PcWeaponItem(member.actor_id+':held',PcMeleeWeapon.BLUNDERBUSS,
             PcItemLocation.HELD,PcTwoHandedGrip.BOTH,initially_loaded=True),) if pc_shooters else None) for member in source.party)

@@ -55,11 +55,11 @@ class PcHochlandSourceTests(unittest.TestCase):
                 member = scene.party[0]
                 with self.subTest(balance=balance,use_policy=use_policy):
                     self.assertEqual(scenario_document(scene),raw[key])
-                    self.assertEqual(member.pc.ranged.awareness_profile,TestProfile(3,4))
+                    self.assertEqual(member.pc.awareness_profile,TestProfile(3,4))
                     self.assertIs(member.initial_weapon_hand,PcTwoHandedGrip.BOTH)
                     self.assertEqual(len(raw[key]['party'][0]['pc']['ranged']),9)
                     self.assertIs(raw[key]['party'][0]['combat_equipment'][0]['initially_loaded'],True)
-                    self.assertEqual(raw[key]['party'][0]['pc']['ranged']['awareness'],4)
+                    self.assertEqual(raw[key]['party'][0]['pc']['awareness'],4)
                     self.assertEqual(member.aim_second_action_policy,PcAimSecondActionPolicy(0) if use_policy else None)
                     self.assertIs(member.fate_policy,PcFatePolicy.CONFIGURED if use_policy else PcFatePolicy.DECLINE_OPTIONAL_FATE)
                     self.assertEqual('aim_second_action_policy' in raw[key]['party'][0],use_policy)
@@ -74,8 +74,8 @@ class PcHochlandSourceTests(unittest.TestCase):
             fields = base[key]['party'][0]['pc']['ranged']
             changes = [lambda m:m['pc'].update(ranged=None), lambda m:m['pc']['ranged'].update(extra=True),
                 lambda m:m['pc']['ranged'].update(repeater_bonus_policy='never'),
-                lambda m:m['pc']['ranged'].update(awareness=True), lambda m:m['pc']['ranged'].update(awareness=0),
-                lambda m:m['pc']['ranged'].update(awareness=11),
+                lambda m:m['pc'].update(awareness=True), lambda m:m['pc'].update(awareness=0),
+                lambda m:m['pc'].update(awareness=11),
                 lambda m:m.update(aim_second_action_policy=None), lambda m:m.update(aim_second_action_policy={}),
                 lambda m:m['aim_second_action_policy'].update(extra=True),
                 lambda m:m['aim_second_action_policy'].update(minimum_remaining_session_spends=True),
@@ -101,7 +101,7 @@ class PcHochlandSourceTests(unittest.TestCase):
         member = source.party[0]
         for value in (None,True,0,11):
             with self.subTest(awareness=value),self.assertRaises((TypeError,ValueError)):
-                replace(member.pc,ranged=replace(member.pc.ranged,awareness=value))
+                replace(member.pc,awareness=value)
         for value in (True,-1,'0'):
             with self.assertRaises((TypeError,ValueError)):PcAimSecondActionPolicy(value)
         with self.assertRaises(TypeError):replace(member,aim_second_action_policy={'minimum_remaining_session_spends':0})
@@ -112,18 +112,18 @@ class PcHochlandSourceTests(unittest.TestCase):
         with self.assertRaises(ValueError):PcGloriousPolicy((Skill.AWARENESS,),0,0)
         old = make_pc_handgun_scenario()
         with_awareness=replace(old.party[0].pc,
-            ranged=replace(old.party[0].pc.ranged,awareness=4))
-        self.assertEqual(with_awareness.ranged.awareness,4)
+            awareness=4)
+        self.assertEqual(with_awareness.awareness,4)
         with self.assertRaises(ValueError):replace(old.party[0],
             aim_second_action_policy=PcAimSecondActionPolicy(0),fate_policy=PcFatePolicy.CONFIGURED)
         raw = request_document()
         raw['scenario'] = scenario_document(old)
-        self.assertEqual(len(raw['scenario']['party'][0]['pc']['ranged']),8)
+        self.assertEqual(len(raw['scenario']['party'][0]['pc']['ranged']),7)
         wire.parse_pc_melee_simulation_request(json.dumps(raw))
         for field,value in (('awareness',4),):
-            aware = deepcopy(raw);aware['scenario']['party'][0]['pc']['ranged'][field] = value
+            aware = deepcopy(raw);aware['scenario']['party'][0]['pc'][field] = value
             parsed=wire.parse_pc_melee_simulation_request(json.dumps(aware))
-            self.assertEqual(parsed.request.scenario.party[0].pc.ranged.awareness,value)
+            self.assertEqual(parsed.request.scenario.party[0].pc.awareness,value)
         malformed = deepcopy(raw);malformed['scenario']['party'][0]['aim_second_action_policy'] = {'minimum_remaining_session_spends':0}
         malformed['scenario']['party'][0]['fate_policy'] = 'configured'
         with self.assertRaises(PcMeleeSimulationInputError):wire.parse_pc_melee_simulation_request(json.dumps(malformed))
@@ -161,8 +161,8 @@ class PcHochlandSourceTests(unittest.TestCase):
         class ForeignWeapon(str,Enum):
             HOCHLAND = 'hochland_long_rifle'
         request = PcMeleeSimulationRequest(make_pc_hochland_scenario(),42,1)
-        cases = (('ranged','awareness',True),('ranged','awareness',None),
-            ('ranged','initiative',True),('ranged','has_blackpowder_lore',False),
+        cases = (('pc','awareness',True),('pc','awareness',None),
+            ('pc','initiative',True),('ranged','has_blackpowder_lore',False),
             ('policy','minimum_remaining_session_spends',True),('policy','minimum_remaining_session_spends',-1),
             ('pc','weapon',ForeignWeapon.HOCHLAND),('fate','has_lucky',1))
         for owner,field,value in cases:
@@ -184,7 +184,7 @@ class PcHochlandSourceTests(unittest.TestCase):
             self.assertEqual(source.party[0],replace(original,
                 target_priority=tuple(a for a in original.target_priority if a in ids),
                 defeat_decisions=tuple(d for d in original.defeat_decisions if d.target_id in ids)))
-            self.assertEqual(source.party[0].pc.ranged.awareness,4)
+            self.assertEqual(source.party[0].pc.awareness,4)
             self.assertEqual(source.party[0].aim_second_action_policy,PcAimSecondActionPolicy(0))
             self.assertEqual(source.party[0].fate,original.fate)
             echoed = scenario_document(source)

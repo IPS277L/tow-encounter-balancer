@@ -76,8 +76,8 @@ class NativeBattlefieldManoeuvreTests(unittest.TestCase):
     def test_ranged_actor_runs_toward_explicit_maximum_and_does_not_shoot_same_action(self):
         source=scene(RangedWeaponRange.EXTREME)
         member=source.party[0]
-        ranged=PcRangedProfile(3,4,initiative=3,awareness=4,ammunition_supply_confirmed=True)
-        member=replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.WARBOW,ranged=ranged),
+        ranged=PcRangedProfile(3, 4, ammunition_supply_confirmed=True)
+        member=replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.WARBOW,ranged=ranged, initiative=3, awareness=4),
             initial_weapon_hand=PcTwoHandedGrip.BOTH,
             combat_equipment=(PcWeaponItem('bow:held',PcMeleeWeapon.WARBOW,
                 PcItemLocation.HELD,PcTwoHandedGrip.BOTH),))

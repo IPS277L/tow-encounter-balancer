@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 def actor_inventory(state, actor):
     if actor in state.source.pc_activation_order:
         return state.participant(actor).weapon_inventory
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         return state.enemy(actor).state.weapon_inventory
     from towr.domain.pc_actor_models import pc_actor_inventory
     return pc_actor_inventory(state, actor)
@@ -33,7 +33,7 @@ def actor_inventory(state, actor):
 def actor_injury(state, actor):
     if actor in state.source.pc_activation_order:
         return state.participant(actor).injury
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         return state.enemy(actor).state.injury
     from towr.domain.pc_actor_models import pc_actor_injury
     return pc_actor_injury(state, actor)
@@ -318,8 +318,13 @@ def pc_profile_wound_decision(state,attack):
             raise ValueError('mandatory NPC Decapitation lacks its actual fixed-Wound Attack source')
         return MinionDefeatDecision(attack.request.actor_id,target,
             NpcDefeatDisposition.KILLED,True)
-    if target not in state.source.enemy_activation_order:
+    if target not in state.source.npc_activation_order:
         return None
+    if attack.request.actor_id in state.source.npc_activation_order:
+        decision=next((row for row in state.source.npc_defeat_decisions
+            if row.attacker_id==attack.request.actor_id and row.target_id==target),None)
+        if decision is None:raise ValueError('NPC defeat requires its explicit source GM disposition')
+        return decision
     return state.source.participant(attack.request.actor_id).defeat_decision(target)
 
 

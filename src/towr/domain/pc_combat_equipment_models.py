@@ -128,13 +128,13 @@ def validate_pc_combat_equipment(participant):
             if getattr(facts,name) is not (True if requirements.firearm else None):
                 raise ValueError('Blackpowder Lore and Kit must match the whole firearm inventory')
         if requirements.exacting:
-            facts.dexterity_profile
+            participant.pc.dexterity_profile
             if facts.reload_hand_policy is not PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS:
                 raise ValueError('Exacting items require their actual Reload hand policy')
-        elif facts.dexterity is not None or facts.reload_hand_policy is not None:
+        elif facts.reload_hand_policy is not None:
             raise ValueError('a free-reload-only inventory has no Exacting preparation')
         if requirements.requires_aim:
-            facts.awareness_profile
+            participant.pc.awareness_profile
         if requirements.repeater:
             if type(facts.repeater_bonus_policy) is not PcRepeaterBonusPolicy:
                 raise TypeError('Repeater items require their actual bonus policy')

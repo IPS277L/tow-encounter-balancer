@@ -30,7 +30,7 @@ def chunk_source():
     base = book_pc_scenario(footpads=1,townsfolk=0,orcs=1,unshielded_orcs=1,
         big_uns=1,unshielded_big_uns=1,pc_count=1,max_rounds=2)
     party = tuple(replace(member,pc=replace(member.pc,weapon=PcMeleeWeapon.PISTOL,
-        ranged=pistol_profile()),combat_equipment=initial_weapon_items(
+        ranged=pistol_profile(), initiative=3, dexterity=4),combat_equipment=initial_weapon_items(
             PcMeleeWeapon.PISTOL,member.initial_weapon_hand,initially_loaded=True)) for member in base.party)
     policies = tuple(Policy(actor,skill) for actor,skill in (
         ('orc1',Skill.MELEE),('unshielded_orc1',Skill.ATHLETICS),

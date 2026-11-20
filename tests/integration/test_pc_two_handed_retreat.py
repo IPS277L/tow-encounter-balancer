@@ -28,10 +28,9 @@ class Ones:
 
 def player_source():
     source=automatic_source(pc_count=1,rounds=3)
-    ranged=PcRangedProfile(3,4,initiative=3,dexterity=4,ammunition_supply_confirmed=True,
-        reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,awareness=4)
+    ranged=PcRangedProfile(3, 4,  ammunition_supply_confirmed=True, reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
     member=replace(source.party[0],pc=replace(source.party[0].pc,
-        weapon=PcMeleeWeapon.CROSSBOW,ranged=ranged,toughness=20),
+        weapon=PcMeleeWeapon.CROSSBOW,ranged=ranged,toughness=20, initiative=3, awareness=4,dexterity=4),
         initial_weapon_hand=PcTwoHandedGrip.BOTH,
         combat_equipment=(PcWeaponItem('bow',PcMeleeWeapon.CROSSBOW,PcItemLocation.HELD,PcTwoHandedGrip.BOTH,initially_loaded=True),))
     npc=GeneratedNpc(1,1,20,1,2,2,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=False),defence=2,brawn=3)
@@ -74,7 +73,7 @@ class TwoHandedRetreatTests(unittest.TestCase):
             weapon=PcMeleeWeapon.FOOT_SPEAR,weapon_skill=1,melee=2,toughness=20),
             initial_weapon_hand=PcTwoHandedGrip.BOTH)
         npc=GeneratedNpc(3,3,20,2,3,3,initial_generated_weapons(GeneratedWeapon.CROSSBOW),light_loadout(light=False, shield=False),defence=3,
-            ranged=GeneratedRangedFacts(3,4,3,4,True,None,None,awareness=4),brawn=3)
+            ranged=GeneratedRangedFacts(3, 4,  True, None, None),brawn=3, initiative=3, awareness=4, dexterity=4)
         source=replace(source,party=(pc,),enemies=(npc.participant('minion1'),),
             npc_ranged_policies=(pc_npc_ranged_policy_for_generated(npc,'minion1'),),
             facts=replace(source.facts,can_leave_zone=True),battlefield=PcBattlefieldSpec(R.CLOSE,R.LONG))

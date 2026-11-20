@@ -35,13 +35,9 @@ def scenario(*inventories):
             grip if index == 0 else None,
             initially_loaded=True if weapon_reload_target(kind) is not None else None)
             for index, kind in enumerate(kinds))
-        profile = PcRangedProfile(3, 4, 3, 4 if requirements.exacting else None,
-            True if requirements.firearm else None, True if requirements.firearm else None,
-            True, PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS if requirements.exacting else None,
-            repeater_bonus_policy=PcRepeaterBonusPolicy.AUTOMATIC if requirements.repeater else None,
-            awareness=4)
+        profile = PcRangedProfile(3, 4,  True if requirements.firearm else None, True if requirements.firearm else None, True, PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS if requirements.exacting else None, repeater_bonus_policy=PcRepeaterBonusPolicy.AUTOMATIC if requirements.repeater else None)
         party.append(replace(member, policy=PcMeleePolicy.AUTOMATIC_COMBAT,
-            pc=replace(member.pc, weapon=kinds[0], strength=4, ranged=profile),
+            pc=replace(member.pc, weapon=kinds[0], strength=4, ranged=profile, initiative=3, awareness=4,dexterity=4 if requirements.exacting else None),
             initial_weapon_hand=grip, combat_equipment=items))
     return replace(base, party=tuple(party),
         battlefield=PcBattlefieldSpec(RangedWeaponRange.SHORT, RangedWeaponRange.LONG),

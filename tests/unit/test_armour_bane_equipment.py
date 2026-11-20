@@ -145,7 +145,7 @@ def shield_battle():
     npc=GeneratedNpc(3,3,20,3,4,4,
         initial_generated_weapons(GeneratedWeapon.PISTOL,initially_loaded=False),
         ArmourLoadout((BodyArmour.LIGHT,),BodyArmour.LIGHT,None,ShieldKind.SHIELD),
-        defence=4,ranged=GeneratedRangedFacts(3,4,3,5,True,True,True))
+        defence=4,ranged=GeneratedRangedFacts(3, 4,  True, True, True), initiative=3, dexterity=5)
     return replace(source,party=(member,),enemies=(npc.participant('minion1'),),
         npc_ranged_policies=(pc_npc_ranged_policy_for_generated(npc,'minion1'),),
         facts=replace(source.facts,outnumbering_bonus_approved=False))

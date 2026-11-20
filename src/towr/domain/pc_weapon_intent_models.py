@@ -3,6 +3,7 @@
 Only the choices are frozen. Test modifiers still use the current Conditions
 after paying a price; a price never licenses selecting different implements.
 """
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, replace, field
 
 from towr.domain.npc_roster_models import NpcProtectionProfile
@@ -103,7 +104,7 @@ def pc_attack_selection(state):
             target = pc_best_mount_attack(state, actor)[1]
     elif pc_attacks:
         target = next(a for a in state.source.participant(actor).target_priority
-            if not state.enemy(a).state.injury.defeated and a not in state.exited_npc_ids)
+            if not injury_is_defeated(state.enemy(a).state.injury) and a not in state.exited_npc_ids)
         if charge is None and state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_COMBAT:
             from towr.domain.pc_tactical_models import select_pc_tactic
             target = select_pc_tactic(state, actor).target_id

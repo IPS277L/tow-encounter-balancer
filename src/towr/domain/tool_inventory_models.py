@@ -17,6 +17,7 @@ _BOTH_HANDS = (WeaponGrip.LEFT, WeaponGrip.RIGHT)
 
 class ToolKind(str, Enum):
     MUSICIANS_GEAR = 'musicians_gear'
+    PHYSICKERS_KIT = 'physickers_kit'
 
 
 def _identifier(value, label):

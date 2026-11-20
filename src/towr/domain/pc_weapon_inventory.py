@@ -189,7 +189,8 @@ def pc_attack_weapon_use(state,actor,target=None):
     from towr.domain.pc_mount_models import pc_is_mounted
     from towr.domain.pc_potion_models import pc_effective_definition
     from towr.domain.attack_models import DamageImpactSpec,effective_damage_modifiers
-    member=state.participant(actor)
+    from towr.domain.pc_medical_models import medical_effective_body
+    member=medical_effective_body(state,actor)
     inventory=member.weapon_inventory
     primary=inventory.active
     if primary is None or primary.location is not WeaponItemLocation.HELD:
@@ -204,14 +205,16 @@ def pc_attack_weapon_use(state,actor,target=None):
     except ValueError:
         return (build_weapon_use(actor,inventory,None,usable_hands=_usable_pc_grips(member))
             if state.source.participant(actor).pc.brawn is not None else None)
-    if target is None or target not in state.source.enemy_activation_order:
+    if target is None or target not in state.source.npc_activation_order:
         return base
     enemy=state.enemy(target)
+    from towr.domain.pc_medical_models import effective_medical_injury
+    target_conditions=effective_medical_injury(state,target).conditions
     pc=pc_effective_definition(state,actor)
     injured={WeaponGrip(hand.value) for hand in injured_hands(member)}
     def value(use):
         dice=weapon_test_modifiers(use,member.injury.conditions,
-            target_conditions=enemy.state.injury.conditions,target_mounted=pc_is_mounted(state,target),
+            target_conditions=target_conditions,target_mounted=pc_is_mounted(state,target),
             talents=state.source.participant(actor).talents).modifiers
         prepared=weapon_damage_preparation(use,pc.strength,enemy.state.current_resilience)
         damage=(() if prepared.damage is None else effective_damage_modifiers(DamageImpactSpec(
@@ -290,7 +293,8 @@ def pc_weapon_target_modifiers(use,target_conditions,*,target_mounted=False):
 
 
 def pc_weapon_swap_used(state,actor_id):
-    return any(type(proof) is PcWeaponSwapProof and proof.actor_id==actor_id
+    from towr.domain.pc_medical_equipment_models import PcMedicalEquipmentProof
+    return any(type(proof) in (PcWeaponSwapProof,PcMedicalEquipmentProof) and proof.actor_id==actor_id
         and proof.round_number==state.round_state.round_number and proof.changes_equipment
         for proof in state.history)
 
@@ -318,7 +322,8 @@ def pc_weapon_swap_hand(state,actor_id,item_id):
     from towr.domain.pc_melee_models import PcWeaponHand,PcTwoHandedGrip
     from towr.domain.pc_shield_models import PcShieldLocation
     from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands, pc_weapon_supports_variable_grip
-    member=state.participant(actor_id)
+    from towr.domain.pc_medical_models import medical_effective_body
+    member=medical_effective_body(state,actor_id)
     inventory=getattr(member,'weapon_inventory',None)
     if inventory is None:
         return None
@@ -353,14 +358,16 @@ def _swapped_member(state,actor_id,item_id,*,forecast,allow_dropped=False,for_re
         stow_other_weapons=False):
     from towr.domain.pc_shield_models import PcShieldLocation,PcShieldState
     from towr.domain.pc_melee_models import PcTwoHandedGrip
-    member=state.participant(actor_id)
+    raw_member=state.participant(actor_id)
+    from towr.domain.pc_medical_models import medical_effective_body
+    member=medical_effective_body(state,actor_id)
     inventory=getattr(member,'weapon_inventory',None)
     if inventory is None:
         return None
     if item_id is None:
         if state.source.participant(actor_id).pc.brawn is None or for_reload:
             return None
-        return replace_pc_member(member,weapon_inventory=replace(inventory,active_item_id=None))
+        return replace_pc_member(raw_member,weapon_inventory=replace(inventory,active_item_id=None))
     target=next((item for item in inventory.items if item.id==item_id),None)
     if (target is None or target.location is WeaponItemLocation.DEPLOYED
             or (target.location is WeaponItemLocation.DROPPED and not allow_dropped)):
@@ -370,7 +377,7 @@ def _swapped_member(state,actor_id,item_id,*,forecast,allow_dropped=False,for_re
     if target.location is WeaponItemLocation.HELD:
         needed=(WeaponGrip.LEFT,WeaponGrip.RIGHT) if target.grip is WeaponGrip.BOTH else (target.grip,)
         if all(side in usable for side in needed) and not for_reload and not stow_other_weapons:
-            return replace(member,weapon_inventory=replace(inventory,active_item_id=item_id))
+            return replace(raw_member,weapon_inventory=replace(inventory,active_item_id=item_id))
     hand=pc_weapon_swap_hand(state,actor_id,item_id)
     if hand is None:
         return None
@@ -398,7 +405,7 @@ def _swapped_member(state,actor_id,item_id,*,forecast,allow_dropped=False,for_re
                     return None
                 item=replace(item,location=WeaponItemLocation.CARRIED,grip=None)
         items.append(item)
-    result=replace_pc_member(member,weapon_inventory=WeaponInventoryState(tuple(items),item_id,
+    result=replace_pc_member(raw_member,weapon_inventory=WeaponInventoryState(tuple(items),item_id,
         None if shield is None or shield.location is PcShieldLocation.DROPPED else pc_grip(shield.hand)),shield=shield)
     validate_pc_weapon_inventory(result,state.source.participant(actor_id))
     return result
@@ -471,7 +478,8 @@ def pc_weapon_pickup_member(state,actor_id,item_id,*,injury=None):
     has the ordinary W12/14/15 consequences. No stow price exists if none was
     actually held; ordinary Recover hand effects remain the caller's job.
     """
-    from towr.domain.pc_heavy_wound_models import critical_for_incidental_hand_use
+    from towr.domain.pc_heavy_wound_models import critical_for_incidental_hand_use,merge_effective_critical_consequences
+    from towr.domain.pc_medical_models import medical_effective_body
     member=state.participant(actor_id)
     from towr.domain.pc_briarroot_weapon_models import can_pickup_pc_weapon
     if not can_pickup_pc_weapon(state,actor_id,item_id):
@@ -486,12 +494,15 @@ def pc_weapon_pickup_member(state,actor_id,item_id,*,injury=None):
     if injury is not None:
         updated=replace(updated,injury=injury)
     if any(item.location is WeaponItemLocation.HELD and item.id!=item_id for item in inventory.items):
-        updated=replace(updated,injury=critical_for_incidental_hand_use(
-            replace(member,injury=updated.injury),updated.weapon_hand))
+        effective=medical_effective_body(state,actor_id)
+        after=critical_for_incidental_hand_use(effective,updated.weapon_hand)
+        updated=replace(updated,injury=merge_effective_critical_consequences(updated.injury,after))
     return updated
 
 
 def expected_pc_weapon_swap(state):
+    from towr.domain.pc_medical_tactics import committed_medical_intent
+    if committed_medical_intent(state) is not None:return None
     from towr.domain.pc_bash_attack_models import expected_bash_pc_swap
     bash=expected_bash_pc_swap(state)
     if bash is not None:return bash
@@ -505,7 +516,8 @@ def expected_pc_weapon_swap(state):
         return None
     actor=turn.actor_id
     source=state.source.participant(actor)
-    member=state.participant(actor)
+    from towr.domain.pc_medical_models import medical_effective_body
+    member=medical_effective_body(state,actor)
     inventory=getattr(member,'weapon_inventory',None)
     if inventory is None or member.injury.dead or any(member.injury.conditions.has(c)
             for c in (Condition.DEFENCELESS,Condition.BROKEN)):
@@ -545,7 +557,8 @@ def expected_pc_weapon_swap(state):
 
 
 def apply_pc_weapon_swap(state,proof):
-    from towr.domain.pc_heavy_wound_models import critical_for_incidental_hand_use
+    from towr.domain.pc_heavy_wound_models import critical_for_incidental_hand_use,merge_effective_critical_consequences
+    from towr.domain.pc_medical_models import medical_effective_body
     from towr.domain.pc_melee_result_models import validate_pc_melee_source_types
     if type(proof) is not PcWeaponSwapProof:
         raise TypeError('weapon swap requires its exact proof type')
@@ -565,5 +578,6 @@ def apply_pc_weapon_swap(state,proof):
         for grip in (before.grip,after.grip) if grip is not None
         for hand in ((WeaponGrip.LEFT,WeaponGrip.RIGHT) if grip is WeaponGrip.BOTH else (grip,))}
     used=pc_hand(WeaponGrip.BOTH if len(touched)==2 else next(iter(touched)))
-    injury=critical_for_incidental_hand_use(member,used)
+    effective=medical_effective_body(state,proof.actor_id)
+    injury=merge_effective_critical_consequences(member.injury,critical_for_incidental_hand_use(effective,used))
     return replace(member,injury=injury)

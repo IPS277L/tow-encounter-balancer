@@ -12,7 +12,7 @@ from towr.domain.pc_npc_ability_models import pc_npc_stagger_defeat_spec
 def _stagger_defeat_spec(state,target):
     from towr.domain.pc_actor_models import pc_actor_npc_snapshot
     snapshot=pc_actor_npc_snapshot(state,target)
-    if target in state.source.enemy_activation_order:
+    if target in state.source.npc_activation_order:
         spec=pc_npc_stagger_defeat_spec(snapshot.definition)
         if spec is None or spec.outcome is not MinionStaggerDefeatOutcome.FLED:
             raise ValueError('fleeing defeat requires the actual original Dirty Coward profile')
@@ -34,9 +34,10 @@ def validate_pc_minion_defeat_equipment(state) -> None:
     from towr.domain.pc_melee_result_models import PcMinionStaggerDefeatProof
     from towr.domain.pc_demigryph_models import pc_kernel_resolution
     from towr.domain.pc_warped_form_models import PcWarpedFormTargetProof,PcWarpedFormMinionDefeatProof
+    from towr.domain.pc_cleaving_blow_models import PcCleavingTargetProof,PcCleavingMinionDefeatProof
     attack_types=pc_kernel_attack_types()
     for proof in state.history:
-        wave=type(proof) is PcWarpedFormTargetProof
+        wave=type(proof) in (PcWarpedFormTargetProof,PcCleavingTargetProof)
         attack=type(proof) in attack_types
         result=proof.result if wave else pc_kernel_resolution(proof) if attack else None
         if result is not None and result.minion_stagger_defeat is not None:
@@ -58,7 +59,7 @@ def validate_pc_minion_defeat_equipment(state) -> None:
                     or actual_state!=defeat.state):
                 raise ValueError('repeated-Stagger defeat changed its actual target/source/outcome or repeated a defeat')
             routed[target]=defeat
-            route_kinds[target]='wave' if wave else 'attack'
+            route_kinds[target]=('cleaving' if type(proof) is PcCleavingTargetProof else 'wave') if wave else 'attack'
         elif type(proof) is PcWarpedFormMinionDefeatProof:
             replace(proof)
             target=proof.target_id
@@ -66,6 +67,15 @@ def validate_pc_minion_defeat_equipment(state) -> None:
                 raise ValueError('wave defeat acknowledgement lacks its one actual preceding target')
             if routed[target].request_id!=proof.activation_id+':target:'+target+':minion-stagger-defeat':
                 raise ValueError('wave defeat acknowledgement changed its activation source')
+            acknowledged.add(target)
+        elif type(proof) is PcCleavingMinionDefeatProof:
+            replace(proof)
+            target=proof.target_id
+            if target in acknowledged or target not in routed or route_kinds[target]!='cleaving':
+                raise ValueError('Cleaving defeat acknowledgement lacks its one actual preceding target')
+            if (routed[target].request_id!=proof.wave_id+':target:'+target+':minion-stagger-defeat'
+                    or proof.source!=routed[target].cause):
+                raise ValueError('Cleaving defeat acknowledgement changed its actual wave source')
             acknowledged.add(target)
         elif type(proof) is PcMinionStaggerDefeatProof:
             if type(proof.source) is not MinionStaggerDefeatCause:
@@ -80,11 +90,12 @@ def validate_pc_minion_defeat_equipment(state) -> None:
         count=state.pending.count(defeat.cause)
         if count!=int(target not in acknowledged):
             raise ValueError('repeated-Stagger defeat must await or consume exactly one actual acknowledgement')
-    for enemy,old in zip(state.enemies,state.source.enemies,strict=True):
+    for enemy,old in zip(state.enemies,state.source.npc_sources,strict=True):
         target=enemy.state.actor_id
         defeat=routed.get(target)
         from towr.domain.injury_models import ProfileDecapitationCause
-        cause=enemy.state.injury.defeat_cause
+        from towr.domain.injury_models import CharacterInjuryState
+        cause=None if type(enemy.state.injury) is CharacterInjuryState else enemy.state.injury.defeat_cause
         if type(cause) is ProfileDecapitationCause:
             from towr.domain.pc_melee_result_models import PcAttackProof
             from towr.domain.pc_demigryph_models import pc_kernel_resolution

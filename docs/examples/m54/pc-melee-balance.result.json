@@ -26,13 +26,15 @@
             "ranged": {
               "ballistic_skill": 3,
               "shooting": 4,
-              "initiative": 3,
-              "dexterity": 4,
               "has_blackpowder_lore": true,
               "has_blackpowder_kit": true,
               "ammunition_supply_confirmed": true,
               "reload_hand_policy": "two_available_hands"
-            }
+            },
+            "initiative": 3,
+            "dexterity": 4,
+            "reason": null,
+            "recall": null
           },
           "fate": {
             "session_id": "session",
@@ -368,13 +370,15 @@
                 "ranged": {
                   "ballistic_skill": 3,
                   "shooting": 4,
-                  "initiative": 3,
-                  "dexterity": 4,
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
                   "reload_hand_policy": "two_available_hands"
-                }
+                },
+                "initiative": 3,
+                "dexterity": 4,
+                "reason": null,
+                "recall": null
               },
               "fate": {
                 "session_id": "session",
@@ -650,13 +654,15 @@
                 "ranged": {
                   "ballistic_skill": 3,
                   "shooting": 4,
-                  "initiative": 3,
-                  "dexterity": 4,
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
                   "reload_hand_policy": "two_available_hands"
-                }
+                },
+                "initiative": 3,
+                "dexterity": 4,
+                "reason": null,
+                "recall": null
               },
               "fate": {
                 "session_id": "session",
@@ -1023,13 +1029,15 @@
                 "ranged": {
                   "ballistic_skill": 3,
                   "shooting": 4,
-                  "initiative": 3,
-                  "dexterity": 4,
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
                   "reload_hand_policy": "two_available_hands"
-                }
+                },
+                "initiative": 3,
+                "dexterity": 4,
+                "reason": null,
+                "recall": null
               },
               "fate": {
                 "session_id": "session",
@@ -1372,13 +1380,15 @@
                 "ranged": {
                   "ballistic_skill": 3,
                   "shooting": 4,
-                  "initiative": 3,
-                  "dexterity": 4,
                   "has_blackpowder_lore": true,
                   "has_blackpowder_kit": true,
                   "ammunition_supply_confirmed": true,
                   "reload_hand_policy": "two_available_hands"
-                }
+                },
+                "initiative": 3,
+                "dexterity": 4,
+                "reason": null,
+                "recall": null
               },
               "fate": {
                 "session_id": "session",

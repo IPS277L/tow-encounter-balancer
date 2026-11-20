@@ -28,7 +28,7 @@ def validate_npc_ranged_counts(counts,scenario,*,started_rounds: int,actions: in
     from towr.domain.weapon_capability_models import weapon_ranged_requirements
     from towr.domain.weapon_catalog import WeaponKind
     validate_pc_npc_ranged_policies(scenario)
-    actors=tuple(policy.actor_id for policy in scenario.npc_ranged_policies)
+    actors=tuple(policy.actor_id for policy in scenario.npc_ranged_policies if policy.actor_id in scenario.enemy_activation_order)
     if not actors:
         if counts is not None:
             raise ValueError('NPC ranged counters require a ranged source')

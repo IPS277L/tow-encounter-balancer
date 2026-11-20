@@ -301,7 +301,7 @@ class DynamicTwoHandedRangedTests(unittest.TestCase):
                     attack = next(item for item in definition['attacks'] if item['skill'] == 'shooting')
                     attack['damage']['base'] += 1
                 elif change == 'awareness':
-                    definition['generated_components']['ranged']['awareness'] = None
+                    definition['generated_components']['awareness'] = None
                 else:
                     definition['generated_components']['mount'] = 'horse'
                 with self.subTest(weapon=weapon, change=change), self.assertRaises(PcMeleeInputError):

@@ -4,6 +4,7 @@ Retention is an immediate consequence of a real dismount, before a rider's
 subsequent fall. In particular an airborne Pegasus does not teleport to the
 ground with its falling rider. This receipt gives no action or current turn.
 """
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, replace
 
 from towr.domain.pc_battlefield_models import PcBattlefieldState, _close_key
@@ -68,7 +69,7 @@ class PcMountRetentionProof:
                 or self.previous.rider_id != self.source.actor_id
                 or self.source.mount_id != self.previous.snapshot.state.actor_id
                 or self.previous.retained_since_round is not None
-                or self.previous.snapshot.state.injury.defeated):
+                or injury_is_defeated(self.previous.snapshot.state.injury)):
             raise ValueError('retention source does not own an available living detached mount')
         if self.state != replace(self.previous, retained_since_round=self.round_number):
             raise ValueError('retention may not heal, replace or re-equip the mount')
@@ -92,7 +93,7 @@ def expected_pc_mount_retention(state):
             or (type(injury) is not CharacterInjuryState and injury.defeated)):
         return None
     row = next(row for row in state.companions if row.rider_id == source.actor_id)
-    if row.snapshot.state.injury.defeated:
+    if injury_is_defeated(row.snapshot.state.injury):
         return None
     current = state.round_state.round_number
     return PcMountRetentionProof(dismount, source, len(state.history), current, row,

@@ -39,7 +39,7 @@ def ranged_request(weapon='pistol'):
 def character(weapon):
     firearm=weapon!='repeater_handbow'
     return GeneratedNpc(3,4,5,2,3,4,initial_generated_weapons(GeneratedWeapon(weapon)),light_loadout(light=False, shield=False),defence=5,
-        ranged=GeneratedRangedFacts(2,3,4,5,True,True if firearm else None,True if firearm else None))
+        ranged=GeneratedRangedFacts(2,3,True,True if firearm else None,True if firearm else None), initiative=4, dexterity=5)
 
 
 def native_document(raw):
@@ -59,8 +59,8 @@ class GeneratedRangedJsonTests(unittest.TestCase):
             with self.subTest(weapon=weapon):
                 self.assertEqual(parse_character_file(json.dumps(raw),'npc'),raw)
                 self.assertEqual(raw['ranged']['ballistic_skill'],2)
-                self.assertEqual(raw['ranged']['initiative'],4)
-                self.assertEqual(raw['ranged']['dexterity'],5)
+                self.assertEqual(raw['initiative'],4)
+                self.assertEqual(raw['dexterity'],5)
 
     def test_character_files_reject_missing_false_and_foreign_ranged_facts(self):
         changes=[lambda n:n.pop('ranged'),lambda n:n.update(ranged=None),
@@ -91,7 +91,7 @@ class GeneratedRangedJsonTests(unittest.TestCase):
                 self.assertEqual(enemy['definition']['attacks'][0]['skill'],'shooting')
                 self.assertEqual(enemy['definition']['attacks'][0]['ignores_armour'],weapon!='repeater_handbow')
                 self.assertEqual(parse_pc_melee_simulation_request(json.dumps(raw)).request.scenario,scenario)
-                self.assertEqual(enemy['definition']['generated_components']['ranged']['dexterity'],5)
+                self.assertEqual(enemy['definition']['generated_components']['dexterity'],5)
 
     def test_native_rejects_component_derived_forgeries_old_key_and_disagreeing_facts(self):
         changes=[lambda e:e.update(pistol=e.pop('ranged')),
@@ -141,7 +141,7 @@ class GeneratedRangedJsonTests(unittest.TestCase):
             self.assertEqual(candidate['replay']['scenario']['enemies'][0]['definition']['generated_components'],npc)
             self.assertEqual(parse_character_file(json.dumps(npc),'npc'),npc)
             replay=parse_pc_melee_simulation_request(json.dumps(candidate['replay'])).request.scenario
-            self.assertEqual(replay.enemies[0].definition.generated_components.ranged.dexterity,5)
+            self.assertEqual(replay.enemies[0].definition.generated_components.dexterity,5)
 
 
 class GeneratedRangedProcessTests(unittest.TestCase):

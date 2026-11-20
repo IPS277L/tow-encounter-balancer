@@ -1,5 +1,6 @@
 """One explicit clear adjacent exit for the Broken Official's actual own turn."""
 from __future__ import annotations
+from towr.domain.injury_models import injury_is_defeated
 from towr.domain.pc_acrobatic_models import actor_acrobatic_source
 from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
 
@@ -50,7 +51,7 @@ def pc_npc_exit_supported(state: PcMeleeState, actor_id: str) -> bool:
     policy = state.source.npc_broken_exit_policy
     combat = state.round_state
     if (policy is None or state.pending or state.pending_wound is not None or not state.live_party
-            or actor_id in state.exited_npc_ids or actor_id not in state.source.enemy_activation_order):
+            or actor_id in state.exited_npc_ids or actor_id not in state.source.npc_activation_order):
         return False
     if combat.active_turn is None:
         if combat.round_complete or not state.live_enemies:
@@ -61,7 +62,7 @@ def pc_npc_exit_supported(state: PcMeleeState, actor_id: str) -> bool:
     elif combat.active_turn.actor_id!=actor_id or combat.active_turn.action_slots:
         return False
     enemy = state.enemy(actor_id)
-    return (enemy.definition.id in OFFICIAL_DEFINITION_IDS and not enemy.state.injury.defeated
+    return (enemy.definition.id in OFFICIAL_DEFINITION_IDS and not injury_is_defeated(enemy.state.injury)
         and enemy.state.injury.wounds==1 and enemy.state.injury.conditions.has(Condition.BROKEN)
         and not enemy.state.injury.conditions.has(Condition.PRONE)
         and not enemy.state.injury.conditions.has(Condition.DEFENCELESS))
@@ -76,7 +77,7 @@ def build_pc_npc_exit(state: PcMeleeState, actor_id: str) -> FreeMovementRequest
     placements = (*(SpatialEntityPlacement(member.actor_id,CombatSide.PLAYERS_AND_ALLIES.value,arena)
         for member in state.source.party),
         *(SpatialEntityPlacement(enemy.state.actor_id,CombatSide.OPPOSITION.value,
-            destination if enemy.state.actor_id in exited else arena) for enemy in state.source.enemies))
+            destination if enemy.state.actor_id in exited else arena) for enemy in state.source.npc_sources))
     used = tuple(proof.request.actor_id for proof in state.history if type(proof) is PcNpcExitProof
         and proof.request.round_state.round_number==state.round_state.round_number)
     spatial = SpatialBattleState(ZoneGraph((arena,destination),(ZoneConnection(arena,destination),)),

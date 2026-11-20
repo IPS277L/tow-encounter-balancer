@@ -43,7 +43,7 @@ from towr.domain.ranged_weapon_profiles import RangedWeaponRange as Range
 from towr.domain.recover_models import (
     RecoverActionExecutionRequest, RecoverConditionTarget, RecoverMode, RecoverStandardChoice,
 )
-from towr.domain.test_models import DiceModifier, InlineProfile, TestQuality, TestRequest
+from towr.domain.test_models import TestProfile, DiceModifier, InlineProfile, TestQuality, TestRequest
 from towr.domain.turn_models import (
     ActionSlotGrant, CombatActionDeclaration, CombatActionKind, CombatActionSlotRequest,
     CombatRoundAdvanceRequest, CombatTurnEndRequest, CombatTurnStartRequest,
@@ -65,10 +65,9 @@ def source(weapon=GeneratedWeapon.HOCHLAND_LONG_RIFLE, *, distance=Range.MEDIUM,
     scene = make_pc_melee_party_scenario(pc_count=party, enemy_count=1, max_rounds=4)
     blackpowder = weapon in (GeneratedWeapon.HANDGUN, GeneratedWeapon.BLUNDERBUSS,
         GeneratedWeapon.HOCHLAND_LONG_RIFLE, GeneratedWeapon.REPEATER_HANDGUN)
-    facts = GeneratedRangedFacts(1, 2, 2, None if weapon in (GeneratedWeapon.SHORTBOW,GeneratedWeapon.WARBOW,GeneratedWeapon.LONGBOW) else 3, True,
-        True if blackpowder else None, True if blackpowder else None, awareness=3)
+    facts = GeneratedRangedFacts(1, 2,  True, True if blackpowder else None, True if blackpowder else None)
     npc = GeneratedNpc(1, 3, 20, 1, 2, 2, initial_generated_weapons(weapon), light_loadout(light=False, shield=False),
-        defence=2,  ranged=facts)
+        defence=2,  ranged=facts, initiative=2, awareness=3,dexterity=None if weapon in (GeneratedWeapon.SHORTBOW,GeneratedWeapon.WARBOW,GeneratedWeapon.LONGBOW) else 3)
     return replace(scene, party=tuple(replace(member, policy=PcMeleePolicy.AUTOMATIC_COMBAT)
         for member in scene.party), enemies=(npc.participant('minion1'),),
         npc_ranged_policies=(pc_npc_ranged_policy_for_generated(npc, 'minion1'),),
@@ -138,7 +137,7 @@ class PcNpcAimTests(unittest.TestCase):
         original = deepcopy(state)
         before, proof, after = aim(state)
         self.assertEqual(state, original)
-        self.assertEqual(proof.request.awareness_test.profile, InlineProfile(2, 3))
+        self.assertEqual(proof.request.awareness_test.profile, TestProfile(2, 3))
         self.assertEqual(proof.result.awareness_test_result.trace.initial_values, (1, 10))
         self.assertEqual(proof.result.bonus.bonus_dice, 1)
         self.assertEqual(proof.request.actor_id, 'minion1')

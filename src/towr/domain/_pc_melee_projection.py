@@ -2,6 +2,7 @@
 from towr.domain.pc_demigryph_models import pc_kernel_attack_types
 from towr.domain.resolution_models import ConsumeWoundNegationRequest
 from dataclasses import replace
+from towr.domain.injury_models import CharacterInjuryState
 from towr.domain.pc_weapon_inventory import replace_pc_member, pc_grip, pc_item_weapon
 from towr.domain.pc_magic_models import (MAGIC_PROOFS,project_pc_magic_step,consume_magic_modifiers,
     expected_magic_interruption)
@@ -325,6 +326,11 @@ def _kernel_impact_updates(state, request, result, pc_actor, pc_fate, pc_injury,
     companion_target = pc_companion(state, expected.target_id) is not None
     pending_owner = ((expected.target_id if result.attack.outcome is AttackOutcome.HIT else expected.actor_id)
         if companion_target else pc_actor)
+    if pc_actor is None:
+        pending_owner=expected.target_id if result.attack.outcome is AttackOutcome.HIT else expected.actor_id
+    from towr.domain.pc_npc_champion_models import is_npc_champion
+    if is_npc_champion(state,expected.target_id) and result.attack.outcome is AttackOutcome.HIT:
+        pending_owner=expected.target_id
     if mount_attack and result.attack.outcome is AttackOutcome.MISS:
         from towr.domain.pc_companion_models import mount_companion_actor_id
         pending_owner = mount_companion_actor_id(expected.actor_id)
@@ -406,7 +412,7 @@ def _kernel_impact_updates(state, request, result, pc_actor, pc_fate, pc_injury,
                 classification=effect.classification,target_effect_immunities=expected.kernel_request.target_effect_immunities)
                 for effect in expected.kernel_request.attack.secondary_effects
                 if type(effect) in (ConditionAfterGiveGroundSpec,ConditionOnGiveGroundOrWoundSpec)))
-    elif expected.target_id == pc_actor:
+    elif isinstance(before,CharacterInjuryState):
         if result.profile_wound is not None:
             raise ValueError('PLAYER Wound cannot carry a profile-NPC Wound branch')
         pending_wound = result.pending_character_wound
@@ -415,8 +421,9 @@ def _kernel_impact_updates(state, request, result, pc_actor, pc_fate, pc_injury,
         replace(pending_wound)
         wound_source = pending_wound.source_request
         kernel = expected.kernel_request
-        actual_source = CharacterWoundLifecycleRollRequest(kernel.id+':wound-lifecycle',pc_actor,
-            CharacterWoundRequest(kernel.id+':wound',before,CharacterWoundType.PLAYER,
+        actual_source = CharacterWoundLifecycleRollRequest(kernel.id+':wound-lifecycle',expected.target_id,
+            CharacterWoundRequest(kernel.id+':wound',before,CharacterWoundType.PLAYER
+                if expected.target_id in state.source.pc_activation_order else CharacterWoundType.CHAMPION,
                 kernel.wound_dice_modifiers,kernel.wound_negation_options,
                 fixed_entry=kernel.fixed_character_wound))
         replace(wound_source)
@@ -524,6 +531,52 @@ def project_pc_step(state, proof):
     if not isinstance(state,PcMeleeState):
         raise TypeError('PC transition requires complete typed owner')
     validate_pc_melee_state_shape(state)
+    # These receipts only settle the completed action's one-use Aim. They
+    # precede its physical consequences and do not roll or spend an action.
+    if type(proof) is PcAimConsumptionProof:
+        return project_pc_aim_step(state, proof)
+    if type(proof) is PcNpcAimConsumptionProof:
+        return project_npc_aim_step(state, proof)
+    from towr.domain.pc_medical_models import (MEDICAL_PROOFS,pending_medical_work,
+        PcMedicalTreatmentProof,PcMedicalSurgeryProof)
+    medical=pending_medical_work(state)
+    if medical is not None or type(proof) in MEDICAL_PROOFS:
+        if type(proof) not in MEDICAL_PROOFS:
+            raise ValueError('actual medical treatment, surgeon Recall or surgery risk must finish before continuation')
+        if type(proof) in (PcMedicalTreatmentProof,PcMedicalSurgeryProof):
+            _ready(state)
+            from towr.domain.pc_medical_tactics import committed_medical_intent,MedicalActionKind
+            intent=committed_medical_intent(state)
+            surgery=type(proof) is PcMedicalSurgeryProof
+            target=(proof.request.target_id if surgery else proof.request.target_id)
+            sequence=(proof.request.wound_sequence if surgery else proof.request.recover.choice.wound_sequence)
+            if (intent is None or intent.choice.pickup_tool or intent.choice.target_id!=target
+                    or intent.choice.wound_sequence!=sequence
+                    or (intent.choice.kind is MedicalActionKind.SURGERY)!=surgery):
+                raise ValueError('medical action must retain its committed patient, Wound and kind')
+        from towr.domain._pc_medical_projection import project_medical_step
+        updates=project_medical_step(state,proof)
+        updates.setdefault('magic_modifiers',consume_magic_modifiers(state.magic_modifiers,proof))
+        return replace(state,history=(*state.history,proof),**_inventory_conditions(state,updates))
+    from towr.domain.pc_medical_tactics import (PcMedicalIntentProof,committed_medical_intent,medical_actions)
+    from towr.domain.pc_medical_equipment_models import (PcMedicalEquipmentProof,PcMedicalToolRecoverProof,
+        project_medical_equipment,project_medical_tool_recover,expected_medical_preparation)
+    if type(proof) is PcMedicalIntentProof:
+        _ready(state)
+        turn=state.round_state.active_turn
+        if (turn is None or turn.action_slots or committed_medical_intent(state) is not None
+                or proof.actor_id!=turn.actor_id or proof.action_id!=pc_melee_action_id(state,turn.actor_id)
+                or proof.choice not in medical_actions(state,turn.actor_id)):
+            raise ValueError('medical commitment must retain a real attainable action, patient and Wound')
+        replace(proof)
+        return replace(state,history=(*state.history,proof))
+    if type(proof) in (PcMedicalEquipmentProof,PcMedicalToolRecoverProof):
+        _ready(state)
+        updates=(project_medical_equipment(state,proof) if type(proof) is PcMedicalEquipmentProof
+            else project_medical_tool_recover(state,proof))
+        return replace(state,history=(*state.history,proof),**_inventory_conditions(state,updates))
+    if committed_medical_intent(state) is not None and expected_medical_preparation(state) is not None:
+        raise ValueError('medical hands must be physically prepared before reserving its action')
     from towr.domain.pc_magic_weapon_models import expected_scarab_charge,project_scarab_charge,PcScarabChargeProof
     charge=expected_scarab_charge(state)
     if charge is not None or type(proof) is PcScarabChargeProof:
@@ -566,7 +619,7 @@ def project_pc_step(state, proof):
         _same(proof,dismount,'dismount changed its actual Prone injury or source prefix')
         mounts=updated_pc_mounts(state,proof)
         enemies=state.enemies
-        if proof.actor_id in state.source.enemy_activation_order:
+        if proof.actor_id in state.source.npc_activation_order:
             from towr.domain.pc_npc_resilience_models import npc_current_resilience
             resilience=npc_current_resilience(state,proof.actor_id,mounted=False)
             enemies=tuple(replace(item,state=replace(item.state,current_resilience=resilience))
@@ -700,6 +753,17 @@ def project_pc_step(state, proof):
     if (state.pending_wound is None and state.pending
             and type(state.pending[0]) is NearbyTargetsStaggerRequest):
         raise ValueError('nearby effects and acknowledgements must complete before another transition')
+    from towr.domain.pc_cleaving_blow_models import CLEAVING_PROOFS,current_cleaving_wave,expected_cleaving_start
+    if type(proof) in CLEAVING_PROOFS:
+        from towr.domain._pc_cleaving_blow_projection import project_cleaving_step
+        return project_cleaving_step(state,proof)
+    if not state.pending and state.pending_wound is None and (
+            current_cleaving_wave(state) is not None or expected_cleaving_start(state) is not None):
+        raise ValueError('the actual Cleaving Blow wave must precede ordinary continuation')
+    from towr.domain.pc_npc_champion_models import project_npc_champion_step
+    champion_step=project_npc_champion_step(state,proof)
+    if champion_step is not None:
+        return champion_step
     from towr.domain.pc_bash_attack_models import expected_bash_decision,pending_bash_decision,build_pc_bash_strike
     from towr.domain.pc_immediate_attack_models import PcBashDecisionProof,PcImmediateStrikeProof
     bash_decision=expected_bash_decision(state)
@@ -753,7 +817,7 @@ def project_pc_step(state, proof):
         raise ValueError('own end phase cannot skip the selected Warped Form wave')
     from towr.domain.pc_companion_attack_models import companion_attack_pending_owner
     companion_pending = companion_attack_pending_owner(state)
-    if state.pending_actor_id in scenario.enemy_activation_order and companion_pending is None:
+    if state.pending_actor_id in scenario.npc_activation_order and companion_pending is None:
         raise ValueError('wave NPC pending work requires its target-scoped acknowledgement')
     selected_attack_intent = None
     pc_actor = state.pending_actor_id
@@ -784,7 +848,8 @@ def project_pc_step(state, proof):
                 next(p.request.target_id for p in reversed(state.history)
                     if type(p) in pc_kernel_attack_types() and p.request.actor_id==actor))
         else:
-            pc_actor = next((a for a in scenario.enemy_target_priority if not state.participant(a).injury.dead), None)
+            from towr.domain.pc_battlefield_movement_models import _enemies
+            pc_actor = next(iter(_enemies(state,actor)),None)
     if pc_actor not in scenario.pc_activation_order:
         pc_actor = None
     member = state.participant(pc_actor) if pc_actor is not None else None
@@ -1246,7 +1311,7 @@ def project_pc_step(state, proof):
                 or pc_melee_selected_action(state) is not CombatActionKind.HELP):
             raise ValueError('Help must consume its selected unused standard slot once')
         actor=turn.actor_id
-        if actor in state.source.enemy_activation_order:
+        if actor in state.source.npc_activation_order:
             from towr.domain.pc_npc_normal_help_models import (
                 build_npc_normal_help_action,npc_help_weapon_use,npc_normal_help_choice,complete_npc_ranged_help,
             )
@@ -1600,7 +1665,7 @@ def project_pc_step(state, proof):
     if type(proof) is PcNpcRangedReloadProof:
         _ready(state)
         actor = combat.active_turn.actor_id
-        if actor not in scenario.enemy_activation_order or pc_melee_selected_action(state) is not CombatActionKind.IMPROVISE:
+        if actor not in scenario.npc_activation_order or pc_melee_selected_action(state) is not CombatActionKind.IMPROVISE:
             raise ValueError('NPC Reload cannot replace another actor or selected action')
         request = build_pc_npc_ranged_reload(state)
         _same(proof.request,request,'NPC Reload changed its current actor/weapon/slot/Test')

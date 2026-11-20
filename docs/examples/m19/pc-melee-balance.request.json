@@ -19,7 +19,10 @@
           "athletics": 1,
           "endurance": 1,
           "weapon": "pickaxe",
-          "armour_bonus": 0
+          "armour_bonus": 0,
+          "reason": null,
+          "recall": null,
+          "dexterity": null
         },
         "fate": {
           "session_id": "session",

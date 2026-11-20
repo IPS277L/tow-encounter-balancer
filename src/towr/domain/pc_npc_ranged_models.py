@@ -1,6 +1,7 @@
 """Source-bound NPC ranged weapons and real Exacting actions inside the PC owner."""
 from __future__ import annotations
 
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -61,7 +62,7 @@ def initial_pc_npc_weapon_inventories(source) -> tuple[NpcParticipantSnapshot, .
     Every generated item retains its own immutable origin and resource state.
     """
     result = []
-    for enemy in source.enemies:
+    for enemy in source.npc_sources:
         actor = enemy.state.actor_id
         components = enemy.definition.generated_components
         policy = next((value for value in source.npc_ranged_policies if value.actor_id == actor), None)
@@ -215,16 +216,32 @@ def validate_pc_npc_ranged_weapons(state: PcMeleeState) -> None:
             validate_pc_melee_source_types(actual_item,canonical)
 
 
+def npc_ranged_hands_available(state,actor,*,reload=False):
+    """Actual held ranged grip, and a usable free other hand for Reload."""
+    enemy=state.enemy(actor);inventory=enemy.state.weapon_inventory
+    item=None if inventory is None else inventory.active
+    if item is None or item.location is not WeaponItemLocation.HELD:return False
+    from towr.domain.pc_npc_weapon_inventory import _usable_npc_grips
+    from towr.domain.weapon_use_models import build_weapon_use
+    usable=_usable_npc_grips(state,enemy)
+    try:build_weapon_use(actor,inventory,item.id,usable_hands=usable)
+    except ValueError:return False
+    return not reload or (len(usable)==2 and inventory.shield_hand is None
+        and not any(other.id!=item.id and other.location is WeaponItemLocation.HELD for other in inventory.items))
+
+
 def _held_npc_ranged(state: PcMeleeState, actor: str, *, loaded: bool) -> RangedWeaponReloadState:
-    if actor not in state.source.enemy_activation_order:
+    if actor not in state.source.npc_activation_order:
         raise ValueError('NPC ranged weapon requires an opposition actor')
     enemy = state.enemy(actor)
+    from towr.domain.pc_medical_models import effective_medical_injury
+    injury=effective_medical_injury(state,actor)
     profile = pc_active_npc_ranged_profile(state,actor)
     weapon = pc_npc_ranged_weapon(state,actor)
     inventory = enemy.state.weapon_inventory
     item = inventory.active if inventory is not None else None
     combat_profile = ranged_weapon_combat_profile(profile.weapon_id)
-    if (weapon is None or npc_ranged_is_loaded(weapon) is not loaded or weapon.weapon_id is not profile.weapon_id
+    if (not npc_ranged_hands_available(state,actor,reload=not loaded) or weapon is None or npc_ranged_is_loaded(weapon) is not loaded or weapon.weapon_id is not profile.weapon_id
             or item is None or item.location is not WeaponItemLocation.HELD
             or weapon.weapon_instance_id != item.id
             or not enemy.state.wields_weapon or (not loaded and enemy.state.holds_shield)
@@ -232,8 +249,8 @@ def _held_npc_ranged(state: PcMeleeState, actor: str, *, loaded: bool) -> Ranged
                 for other in inventory.items)
             or loaded and combat_profile.optimum_range_min is not RangedWeaponRange.CLOSE
                 and pc_has_close_enemy(state,actor)
-            or enemy.state.injury.defeated or actor in state.exited_npc_ids
-            or any(enemy.state.injury.conditions.has(condition) for condition in (Condition.BROKEN,Condition.DEFENCELESS))):
+            or injury_is_defeated(enemy.state.injury) or actor in state.exited_npc_ids
+            or any(injury.conditions.has(condition) for condition in (Condition.BROKEN,Condition.DEFENCELESS))):
         raise ValueError('NPC ranged weapon action requires its actual held weapon and usable actor')
     return weapon
 
@@ -393,8 +410,9 @@ def build_pc_npc_ranged_reload(state: PcMeleeState) -> ReloadActionExecutionRequ
     action = pc_melee_action_id(state,actor)
     if enemy.state.tool_inventory.occupied_hands:
         raise ValueError('NPC Reload requires its instrument to be stowed before using both hands')
+    from towr.domain.pc_medical_models import effective_medical_injury
     return ReloadActionExecutionRequest(action+':reload:execute',state.round_state,actor,
-        enemy.state.injury.conditions,1,weapon,
+        effective_medical_injury(state,actor).conditions,1,weapon,
         npc_ranged_reload_test(state,actor,action+':reload:dexterity'))
 
 
@@ -407,7 +425,15 @@ def npc_ranged_reload_test(state: PcMeleeState,actor_id: str,test_id: str) -> Te
     if ranged_weapon_reload_profile(profile.weapon_id).trigger is RangedReloadTrigger.FREE_WITH_ATTACK:
         raise ValueError('Free-with-Attack bows have no Exacting Dexterity Test')
     modifiers=pc_npc_distraction_test_modifiers(state,actor_id,None)
-    if enemy.state.injury.conditions.has(Condition.DRAINED):
-        modifiers=tuple(m for m in modifiers if m.amount<=0)
     magic_dice,qualities=magic_test_modifiers(state,actor_id,Skill.DEXTERITY)
-    return TestRequest(test_id,profile.dexterity_profile,(*modifiers,*magic_dice),qualities)
+    from towr.domain.pc_npc_champion_models import npc_champion_test_modifiers
+    from towr.domain.pc_medical_models import effective_medical_injury
+    from towr.domain.test_models import TestQuality
+    body_dice,body_quality=npc_champion_test_modifiers(state,actor_id,Skill.DEXTERITY)
+    modifiers=(*modifiers,*magic_dice,*body_dice)
+    qualities=tuple(dict.fromkeys((*qualities,*body_quality)))
+    if effective_medical_injury(state,actor_id).conditions.has(Condition.DRAINED):
+        modifiers=tuple(m for m in modifiers if m.amount<=0)
+        qualities=tuple(q for q in qualities if q.quality is not TestQuality.GLORIOUS)
+    from towr.domain.pc_oath_models import filter_honour_test
+    return filter_honour_test(TestRequest(test_id,profile.dexterity_profile,modifiers,qualities))

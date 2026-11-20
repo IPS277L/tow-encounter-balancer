@@ -42,9 +42,9 @@ def rapid_reload_count_by_actor(counts, scenario):
 
 
 def npc_aim_count_actors(scenario):
-    from towr.domain.pc_npc_ranged_source_models import pc_npc_ranged_profile
-    return tuple(policy.actor_id for policy in scenario.npc_ranged_policies
-        if pc_npc_ranged_profile(scenario.enemy(policy.actor_id).definition).awareness_profile is not None)
+    return tuple(actor for actor in scenario.enemy_activation_order
+        if scenario.enemy(actor).definition.generated_components is not None
+        and scenario.enemy(actor).definition.generated_components.awareness is not None)
 
 
 def validate_npc_aim_counts(counts, scenario, *, trials, actions, started_rounds):

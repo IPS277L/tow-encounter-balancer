@@ -84,7 +84,7 @@ class PcSlingJsonTests(unittest.TestCase):
             for field in ('ballistic_skill','shooting','ammunition_supply_confirmed'):
                 changes += [lambda pc, field=field:pc['ranged'].pop(field),
                     lambda pc, field=field:pc['ranged'].update({field:None})]
-            for field, value in (('initiative',3), ('dexterity',4), ('initially_loaded',True),
+            for field, value in (('dexterity',4), ('initially_loaded',True),
                     ('reload_hand_policy','two_available_hands'), ('has_blackpowder_lore',True),
                     ('has_blackpowder_kit',True), ('repeater_bonus_policy','never')):
                 changes += [lambda pc, field=field, value=value:pc['ranged'].update({field:value})]
@@ -119,7 +119,7 @@ class PcSlingJsonTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             replace(source, short_range_opening=None,
                 facts=replace(source.facts, all_opponents_close=True))
-        for changes in ({'initiative':3,'dexterity':4,
+        for changes in ({'dexterity':4,
                     'reload_hand_policy':PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS},
                 {'reload_hand_policy':PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS},
                 {'repeater_bonus_policy':PcRepeaterBonusPolicy.NEVER},
@@ -141,7 +141,7 @@ class PcSlingJsonTests(unittest.TestCase):
             SLING = 'sling'
         request = PcMeleeSimulationRequest(make_pc_sling_scenario(),42,1)
         cases = (('ranged','ammunition_supply_confirmed',False),
-            ('ranged','ballistic_skill',True), ('ranged','initiative',3),
+            ('ranged','ballistic_skill',True), ('pc','initiative',True),
             ('ranged','has_blackpowder_lore',True), ('ranged','repeater_bonus_policy',PcRepeaterBonusPolicy.NEVER),
             ('pc','weapon',ForeignWeapon.SLING), ('member','initial_weapon_hand',PcTwoHandedGrip.BOTH))
         for owner, field, value in cases:

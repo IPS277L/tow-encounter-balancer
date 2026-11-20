@@ -24,23 +24,19 @@ from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 from towr.domain.test_models import Skill
 
 
-def profile(*,repeater=False,awareness=None):
-    return PcRangedProfile(3,5,initiative=3,dexterity=4,has_blackpowder_lore=True,
-        has_blackpowder_kit=True,ammunition_supply_confirmed=True,
-        reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS,
-        repeater_bonus_policy=PcRepeaterBonusPolicy.AUTOMATIC if repeater else None,
-        awareness=awareness)
+def profile(*,repeater=False):
+    return PcRangedProfile(3, 5,  has_blackpowder_lore=True, has_blackpowder_kit=True, ammunition_supply_confirmed=True, reload_hand_policy=PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS, repeater_bonus_policy=PcRepeaterBonusPolicy.AUTOMATIC if repeater else None)
 
 
 def native_document(*,extra=(),facts=None,primary=W.SWORD,policy=PcMeleePolicy.AUTOMATIC_COMBAT,
-        include_pistol=True):
+        include_pistol=True,initiative=3,awareness=None,dexterity=4):
     source=make_pc_melee_scenario(max_rounds=1)
     items=(PcWeaponItem('primary',primary,PcItemLocation.HELD,H.LEFT,
         initially_loaded=True if primary is W.PISTOL else None),
         *((PcWeaponItem('pistol',W.PISTOL,PcItemLocation.CARRIED,None,initially_loaded=False),)
             if include_pistol else ()),*extra)
     member=source.party[0]
-    member=replace(member,pc=replace(member.pc,weapon=primary,strength=5,ranged=profile() if facts is None else facts),
+    member=replace(member,pc=replace(member.pc,weapon=primary,strength=5,ranged=profile() if facts is None else facts,initiative=initiative,awareness=awareness,dexterity=dexterity),
         policy=policy,combat_equipment=items)
     enemy=source.enemies[0]
     enemy=replace(enemy,definition=replace(enemy.definition,
@@ -110,19 +106,18 @@ class InventorySourceAdapterTests(unittest.TestCase):
 
     def test_carried_hochland_requires_awareness_and_complete_union(self):
         extra=(PcWeaponItem('hochland',W.HOCHLAND_LONG_RIFLE,PcItemLocation.CARRIED,None,initially_loaded=False),)
-        raw=native_document(extra=extra,facts=profile(awareness=4))
+        raw=native_document(extra=extra,facts=profile(),awareness=4)
         parsed=parse_pc_melee_simulation_request(json.dumps(raw)).request.scenario
-        self.assertEqual(parsed.party[0].pc.ranged.awareness,4)
-        del raw['scenario']['party'][0]['pc']['ranged']['awareness']
+        self.assertEqual(parsed.party[0].pc.awareness,4)
+        del raw['scenario']['party'][0]['pc']['awareness']
         with self.assertRaises(PcMeleeInputError):
             parse_pc_melee_simulation_request(json.dumps(raw))
 
     def test_free_bow_inventory_needs_no_reload_or_firearm_facts_but_allows_aim(self):
         for aim in (False,True):
             with self.subTest(aim=aim):
-                facts=PcRangedProfile(3,5,ammunition_supply_confirmed=True,
-                    initiative=3 if aim else None,awareness=4 if aim else None)
-                raw=native_document(include_pistol=False,facts=facts,
+                facts=PcRangedProfile(3, 5, ammunition_supply_confirmed=True)
+                raw=native_document(include_pistol=False,facts=facts,initiative=3 if aim else None,awareness=4 if aim else None,dexterity=None,
                     extra=(PcWeaponItem('bow',W.SHORTBOW,PcItemLocation.CARRIED,None),))
                 parsed=parse_pc_melee_simulation_request(json.dumps(raw)).request.scenario
                 self.assertEqual(parsed.party[0].pc.ranged,facts)
@@ -132,9 +127,9 @@ class InventorySourceAdapterTests(unittest.TestCase):
                 if not aim:
                     self.assertEqual(set(wire),{'ballistic_skill','shooting','ammunition_supply_confirmed'})
                 invalid=deepcopy(raw)
-                invalid['scenario']['party'][0]['pc']['ranged']['dexterity']=4
-                with self.assertRaises(PcMeleeInputError):
-                    parse_pc_melee_simulation_request(json.dumps(invalid))
+                invalid['scenario']['party'][0]['pc'].update(initiative=3,dexterity=4)
+                prepared=parse_pc_melee_simulation_request(json.dumps(invalid)).request.scenario
+                self.assertEqual(prepared.party[0].pc.dexterity,4)
 
     def test_dynamic_melee_primary_keeps_carried_charge_and_actor_preparation(self):
         raw=dynamic_document()
@@ -142,7 +137,7 @@ class InventorySourceAdapterTests(unittest.TestCase):
         self.assertEqual(json.loads(command.source_json),raw)
         member=command.request.party[0]
         self.assertIs(member.pc.weapon,W.SWORD)
-        self.assertEqual(member.pc.ranged.dexterity,4)
+        self.assertEqual(member.pc.dexterity,4)
         self.assertFalse(initial_pc_weapon_inventory(member).items[1].reload.loaded)
         player=raw['party'][0]
         self.assertEqual(parse_character_file(json.dumps(player),'player'),player)
@@ -152,13 +147,13 @@ class InventorySourceAdapterTests(unittest.TestCase):
         player['equipment']['weapons'][1]=dict(id='bow',weapon='shortbow',location='carried')
         player['ranged'].update(has_blackpowder_lore=None,has_blackpowder_kit=None)
         member=parse_dynamic_encounter_request(json.dumps(raw)).request.party[0]
-        self.assertIsNone(member.pc.ranged.initiative)
-        self.assertIsNone(member.pc.ranged.dexterity)
+        self.assertEqual(member.pc.initiative,3)
+        self.assertEqual(member.pc.dexterity,4)
         self.assertIsNone(member.pc.ranged.reload_hand_policy)
         player['skills']['awareness']=4
         member=parse_dynamic_encounter_request(json.dumps(raw)).request.party[0]
-        self.assertEqual((member.pc.ranged.initiative,member.pc.ranged.awareness),(3,4))
-        self.assertIsNone(member.pc.ranged.dexterity)
+        self.assertEqual((member.pc.initiative,member.pc.awareness),(3,4))
+        self.assertEqual(member.pc.dexterity,4)
 
     def test_dynamic_net_and_shooting_share_ballistic_skill_without_consuming_it(self):
         raw=dynamic_document();player=raw['party'][0]

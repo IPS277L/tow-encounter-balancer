@@ -112,10 +112,12 @@ def selected_pc_npc_net_attack(state, actor):
     from towr.domain.pc_melee_result_models import PcAttackProof
     thrown = any(type(proof) is PcAttackProof and proof.request.actor_id == actor
         and is_net_impact(proof.request.kernel_request.attack.impact_spec) for proof in state.history)
-    target = next((state.participant(a) for a in state.source.enemy_target_priority
-        if not state.participant(a).injury.dead),None)
+    from towr.domain.pc_battlefield_movement_models import _enemies
+    from towr.domain.pc_actor_models import pc_actor_injury
+    target_id=next(iter(_enemies(state,actor)),None)
+    target=None if target_id is None else pc_actor_injury(state,target_id)
     return ('weighted_net' if remaining and not thrown and policy.mode is PcNpcNetMode.THROW_ONCE_THEN_SPEAR
-        and target is not None and not any(target.injury.conditions.has(c)
+        and target is not None and not any(target.conditions.has(c)
             for c in (Condition.BURDENED,Condition.DEFENCELESS)) else 'jagged_spear')
 
 
@@ -123,7 +125,7 @@ def expected_pc_npc_net_draw(state):
     if not state.source.npc_net_policies or state.pending or state.pending_wound is not None:
         return None
     turn = state.round_state.active_turn
-    if (turn is None or turn.actor_id not in state.source.enemy_activation_order
+    if (turn is None or turn.actor_id not in state.source.npc_activation_order
             or state.source.enemy(turn.actor_id).definition.id!=NET_DEFINITION_ID):
         return None
     if not turn.action_slots or turn.action_slots[-1].declaration.kind is not CombatActionKind.ATTACK:

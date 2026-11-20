@@ -37,6 +37,7 @@ def validate_native_tools(state):
     from towr.domain.pc_melee_result_models import PcHandDropProof, PcBodyConsequenceProof
     from towr.domain.pc_musician_equipment_models import PcMusicianEquipmentProof
     from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
+    from towr.domain.pc_medical_equipment_models import PcMedicalEquipmentProof,PcMedicalToolRecoverProof
     if any(row.snapshot.state.tool_inventory != ToolInventoryState() for row in state.companions):
         raise ValueError('passive mount bodies cannot acquire tool items outside their actual source')
     initial={member.actor_id:initial_tool_inventory(member.actor_id,
@@ -46,7 +47,7 @@ def validate_native_tools(state):
         for enemy in state.enemies})
     bank=dict(initial)
     for index,proof in enumerate(state.history):
-        equipment=(proof.equipment if type(proof) is PcMusicianRecoverProof else
+        equipment=(proof.equipment if type(proof) in (PcMusicianRecoverProof,PcMedicalEquipmentProof,PcMedicalToolRecoverProof) else
             proof if type(proof) is PcMusicianEquipmentProof else None)
         if equipment is not None:
             replace(proof)
@@ -60,7 +61,7 @@ def validate_native_tools(state):
         if type(proof) in (PcHandDropProof,PcBodyConsequenceProof):
             for drop in _readmit_tool_drops(proof.tool_drops):
                 actor=drop.actor_id
-                if actor not in state.source.pc_activation_order or drop.before!=bank[actor]:
+                if actor not in bank or drop.before!=bank[actor]:
                     raise ValueError('tool drop changed its actual owner or previous physical inventory')
                 _tool_origins(drop.after,initial[actor])
                 bank[actor]=drop.after
@@ -120,9 +121,11 @@ def _expected_pc_tool_drops(state,proof):
     if state.pending_wound is not None or not state.pending or state.pending[0]!=proof.source:
         raise ValueError('tool losses require the next actual mandatory Wound consequence')
     actor=state.pending_actor_id
-    if actor not in state.source.pc_activation_order:
-        raise ValueError('anatomical tool loss requires its actual PC injury owner')
-    before=state.participant(actor)
+    if actor in state.source.pc_activation_order:
+        before=state.participant(actor)
+    else:
+        from towr.domain.pc_npc_champion_models import npc_champion_body
+        before=npc_champion_body(state,actor)
     if not before.tool_inventory.items:
         return ()
     if proof.source.wound_sequence>len(before.injury.wounds):
@@ -174,6 +177,13 @@ def reconcile_native_tool_losses(state,proof,updates):
     if not actual:
         return updates
     actor=state.pending_actor_id
+    if actor not in state.source.pc_activation_order:
+        enemies=updates.get('enemies',state.enemies)
+        enemy=next(row for row in enemies if row.state.actor_id==actor)
+        if enemy.state.tool_inventory!=actual[0].before:
+            raise ValueError('Champion tool drop was applied twice or detached from its actual prefix')
+        changed=replace(enemy,state=replace(enemy.state,tool_inventory=actual[-1].after))
+        return dict(updates,enemies=tuple(changed if row.state.actor_id==actor else row for row in enemies))
     party=updates.get('party',state.party)
     changed=[]
     for member in party:

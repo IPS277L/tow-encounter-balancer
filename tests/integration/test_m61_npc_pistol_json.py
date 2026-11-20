@@ -83,7 +83,7 @@ class NpcPistolJsonTests(unittest.TestCase):
             lambda enemy: enemy['ranged'].update(has_blackpowder_kit=False),
             lambda enemy: enemy['ranged'].update(ammunition_supply_confirmed=False),
             lambda enemy: enemy['ranged'].update(reload_hand_policy='one_hand'),
-            lambda enemy: enemy['ranged'].update(dexterity=10),
+            lambda enemy: enemy.update(dexterity=10),
             lambda enemy: enemy.update(holds_shield=True),
             lambda enemy: enemy['definition']['attack'].pop('skill'),
             lambda enemy: enemy['definition']['attack'].pop('range_min'),

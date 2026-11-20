@@ -4,6 +4,7 @@ This owner never rolls, grants Fate, changes equipment or asks the tactical
 selector again. The first ordinary Attack declares Grim; only its completed
 receipt can grant one further Attack with that same physical unit.
 """
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import replace
 
 from towr.domain.condition_models import Condition
@@ -29,7 +30,7 @@ def _ready_actor(state, actor):
         injury = state.participant(actor).injury
         return not injury.dead and not injury.conditions.has(Condition.DEFENCELESS)
     enemy = state.enemy(actor)
-    return (not enemy.state.injury.defeated and actor not in state.exited_npc_ids
+    return (not injury_is_defeated(enemy.state.injury) and actor not in state.exited_npc_ids
         and not enemy.state.injury.conditions.has(Condition.DEFENCELESS))
 
 
@@ -105,14 +106,14 @@ def build_pc_duellist_second_action(state) -> CombatActionSlotRequest | None:
             or current.primary_item_id != use.primary_item_id
             or current.primary.source != use.primary.source):
         return None
-    targets = (state.source.participant(actor).target_priority
-        if actor in state.source.pc_activation_order else state.source.enemy_target_priority)
+    from towr.domain.pc_battlefield_movement_models import _enemies
+    targets = _enemies(state,actor)
     # Defenceless is a legitimate Attack target; it only prevents the source
     # actor from taking this optional action, not being attacked by its enemy.
     target = next((target for target in targets
         if (not state.participant(target).injury.dead
             if target in state.source.pc_activation_order else
-            not state.enemy(target).state.injury.defeated and target not in state.exited_npc_ids)
+            not injury_is_defeated(state.enemy(target).state.injury) and target not in state.exited_npc_ids)
         and pc_battlefield_attack_available(state, actor, target)), None)
     if target is None:
         return None

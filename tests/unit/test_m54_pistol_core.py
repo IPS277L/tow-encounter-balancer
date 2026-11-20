@@ -39,9 +39,8 @@ def pistol_source():
     enemy = source.enemies[0]
     protection = replace(enemy.definition.protection[0], skill=Skill.ATHLETICS)
     enemy = replace(enemy, definition=replace(enemy.definition, protection=(protection,)))
-    profile = PcRangedProfile(2, 4, 3, 5, True, True, True,
-        PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
-    pc = replace(source.party[0].pc, weapon=PcMeleeWeapon.PISTOL, ranged=profile)
+    profile = PcRangedProfile(2, 4,  True, True, True, PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+    pc = replace(source.party[0].pc, weapon=PcMeleeWeapon.PISTOL, ranged=profile, initiative=3,dexterity=5)
     return replace(source, party=(replace(source.party[0],pc=pc,combat_equipment=initial_weapon_items(
         pc.weapon,source.party[0].initial_weapon_hand,initially_loaded=True)),), enemies=(enemy,))
 

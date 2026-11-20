@@ -1,3 +1,4 @@
+from towr.simulation.pc_npc_ally_statistics import sum_npc_ally_counts
 from dataclasses import replace
 
 from towr.simulation.pc_ranged_statistics import PcRangedCount,pc_ranged_count_actors
@@ -114,8 +115,11 @@ def summarize_pc_melee_simulation(result: PcMeleeSimulationResult) -> PcMeleeSim
             for name in ('shots','bonus_shots','shooting_help_tests','bonus_help_tests','reload_actions','weapon_swaps')})
             for index,actor in enumerate(pc_ranged_count_actors(result.source_request.scenario)))
             if pc_ranged_count_actors(result.source_request.scenario) else None),
+        npc_ally_counts=sum_npc_ally_counts(result.records,result.source_request.scenario),
         npc_ranged_counts=(tuple(PcNpcRangedCount(policy.actor_id,**{name:
             sum(getattr(record.npc_ranged_counts[index],name) for record in result.records)
             for name in ('shots','bonus_shots','reload_actions')})
-            for index,policy in enumerate(result.source_request.scenario.npc_ranged_policies))
-            if result.source_request.scenario.npc_ranged_policies else None))
+            for index,policy in enumerate(tuple(p for p in result.source_request.scenario.npc_ranged_policies
+                if p.actor_id in result.source_request.scenario.enemy_activation_order)))
+            if any(p.actor_id in result.source_request.scenario.enemy_activation_order
+                for p in result.source_request.scenario.npc_ranged_policies) else None))

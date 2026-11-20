@@ -1,0 +1,152 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:cleaving-blow-example",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc:cleaver",
+      "characteristics": {
+        "weapon_skill": 4,
+        "strength": 5,
+        "toughness": 4,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 5,
+        "defence": 4,
+        "athletics": 4,
+        "endurance": 4,
+        "brawn": 4
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "greataxe",
+            "weapon": "greataxe",
+            "location": "both_hands"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [
+        {
+          "id": "cleaving_blow",
+          "acquisitions": [
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            }
+          ]
+        }
+      ],
+      "resources": {
+        "fate": 1
+      },
+      "consumables": []
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      2,
+      3
+    ],
+    "strength": [
+      5
+    ],
+    "toughness": [
+      3
+    ],
+    "agility": [
+      2,
+      3
+    ],
+    "melee": [
+      3,
+      4
+    ],
+    "athletics": [
+      3,
+      4
+    ],
+    "defence": [
+      3,
+      4
+    ],
+    "weapon": [
+      "greataxe",
+      "greatsword",
+      "polearm"
+    ],
+    "armour": [
+      null
+    ],
+    "shield": [
+      null
+    ],
+    "abilities": [
+      []
+    ],
+    "dexterity": [
+      3,
+      4
+    ],
+    "allowed_talents": [
+      "cleaving_blow"
+    ],
+    "weapon_count": [
+      1
+    ],
+    "initial_loaded": [
+      true
+    ],
+    "ballistic_skill": [
+      2,
+      3
+    ],
+    "initiative": [
+      2,
+      3
+    ],
+    "shooting": [
+      3,
+      4
+    ]
+  },
+  "npc_count": {
+    "minimum": 2,
+    "maximum": 3
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 1,
+      "denominator": 2
+    },
+    "started_rounds": {
+      "numerator": 2,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 1,
+    "exploration_trials": 1,
+    "finalist_trials": 1,
+    "top_k": 1,
+    "max_total_trials": 2
+  },
+  "max_rounds": 3,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "close",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh",
+    "two_handed_max_range": "long"
+  }
+}

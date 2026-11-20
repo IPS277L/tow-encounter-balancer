@@ -26,11 +26,12 @@ from towr.domain.weapon_inventory_models import WEAPON_COUNT_BURDEN_RULE_ID,carr
 
 class PistolSourceTests(unittest.TestCase):
     def test_profile_uses_actual_bs_and_initiative_and_is_immutable(self):
-        profile = pistol_profile(ballistic_skill=2, shooting=7, initiative=5, dexterity=6)
+        profile = pistol_profile(ballistic_skill=2, shooting=7)
         self.assertEqual(profile.shooting_profile, TestProfile(2, 7))
-        self.assertEqual(profile.dexterity_profile, TestProfile(5, 6))
+        owner=replace(make_pc_pistol_scenario().party[0].pc,ranged=profile,initiative=5,dexterity=6)
+        self.assertEqual(owner.dexterity_profile, TestProfile(5, 6))
         self.assertEqual(profile.shooting_profile.maximum_dice, 4)
-        self.assertEqual(profile.dexterity_profile.maximum_dice, 10)
+        self.assertEqual(owner.dexterity_profile.maximum_dice, 10)
         self.assertEqual(pickle.loads(pickle.dumps(profile)), profile)
         with self.assertRaises(FrozenInstanceError):
             profile.shooting = 9
@@ -44,12 +45,12 @@ class PistolSourceTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             replace(ordinary, weapon=PcMeleeWeapon.PISTOL)
         with self.assertRaises(ValueError):
-            replace(make_pc_melee_scenario().party[0],pc=replace(ordinary,ranged=pistol_profile()))
+            replace(make_pc_melee_scenario().party[0],pc=replace(ordinary,ranged=pistol_profile(), initiative=3))
         source = make_pc_pistol_scenario(ballistic_skill=2, initiative=5)
         self.assertEqual(source.party[0].pc.weapon_skill, 3)
         self.assertEqual(source.party[0].pc.agility, 3)
         self.assertEqual(source.party[0].pc.ranged.shooting_profile, TestProfile(2, 4))
-        self.assertEqual(source.party[0].pc.ranged.dexterity_profile, TestProfile(5, 4))
+        self.assertEqual(source.party[0].pc.dexterity_profile, TestProfile(5, 4))
 
     def test_profile_rejects_inexact_scalars_false_facts_and_foreign_enums(self):
         class Number(int):
@@ -60,19 +61,22 @@ class PistolSourceTests(unittest.TestCase):
         for name in ('ballistic_skill', 'shooting', 'initiative', 'dexterity'):
             for invalid in (True, 3.0, '3', None, Number(3), 0, -1):
                 with self.subTest(name=name, invalid=invalid), self.assertRaises((TypeError, ValueError)):
-                    replace(make_pc_pistol_scenario().party[0].pc, ranged=replace(profile, **{name: invalid}))
+                    replace(make_pc_pistol_scenario().party[0].pc, **({name:invalid} if name in ('initiative','dexterity') else {'ranged':replace(profile, **{name: invalid})}))
         for name in ('shooting', 'dexterity'):
             with self.subTest(name=name), self.assertRaises(ValueError):
-                replace(profile, **{name: 11})
+                replace(make_pc_pistol_scenario().party[0].pc,dexterity=11) if name=='dexterity' else replace(profile,shooting=11)
         for name in ('has_blackpowder_lore', 'has_blackpowder_kit',
                 'ammunition_supply_confirmed'):
             for invalid in (False, 1, 'true', None):
                 with self.subTest(name=name, invalid=invalid), self.assertRaises((TypeError, ValueError)):
-                    replace(make_pc_pistol_scenario().party[0].pc, ranged=replace(profile, **{name: invalid}))
-        for invalid in ('two_available_hands', Alias.HANDS, True, None):
+                    replace(make_pc_pistol_scenario().party[0].pc, **({name:invalid} if name in ('initiative','dexterity') else {'ranged':replace(profile, **{name: invalid})}))
+        for invalid in ('two_available_hands', Alias.HANDS, True):
             with self.subTest(invalid=invalid), self.assertRaises(TypeError):
                 replace(profile, reload_hand_policy=invalid)
         self.assertIs(profile.reload_hand_policy, PcRangedReloadHandPolicy.TWO_AVAILABLE_HANDS)
+        with self.assertRaises((TypeError,ValueError)):
+            member=make_pc_pistol_scenario().party[0]
+            replace(member,pc=replace(member.pc,ranged=replace(profile,reload_hand_policy=None)))
         item=make_pc_pistol_scenario().party[0].combat_equipment[0]
         for invalid in (None,1,'true',[]):
             with self.subTest(item_loaded=invalid),self.assertRaises((TypeError,ValueError)):
@@ -129,7 +133,7 @@ class PistolSourceTests(unittest.TestCase):
             ('reload_hand_policy', 'two_available_hands'))
         for name, value in changes:
             forged = deepcopy(request)
-            object.__setattr__(forged.scenario.party[0].pc.ranged, name, value)
+            object.__setattr__(forged.scenario.party[0].pc if name=='initiative' else forged.scenario.party[0].pc.ranged, name, value)
             with patch('towr.simulation.pc_melee_simulation.Random') as rng:
                 with self.subTest(name=name), self.assertRaises((TypeError, ValueError)):
                     run_pc_melee_trial(forged, 0, rng_factory=rng)

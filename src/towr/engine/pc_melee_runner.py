@@ -255,6 +255,8 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         proof=complete_weighted_net_equipment_proof(state,proof)
         from towr.domain.pc_tool_models import complete_pc_tool_equipment_proof
         proof=complete_pc_tool_equipment_proof(state,proof)
+        from towr.domain.pc_npc_champion_models import complete_npc_champion_equipment_proof
+        proof=complete_npc_champion_equipment_proof(state,proof)
         step = PcMeleeStep(state,proof)
         steps.append(step)
         state = step.state
@@ -268,15 +270,23 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         actor = combat.active_turn.actor_id
         action_id = pc_melee_action_id(state,actor)
         is_pc = actor in scenario.pc_activation_order
+        from towr.domain.pc_npc_champion_models import is_npc_champion,npc_champion_test,npc_champion_after_test
+        from towr.domain.pc_actor_models import pc_actor_injury
+        champion=is_npc_champion(state,actor)
         critical = None
-        dead = is_pc and state.participant(actor).injury.dead
-        if is_pc and not dead and state.participant(actor).injury.conditions.has(Condition.CRITICALLY_INJURED):
-            test_request = _pc_test(state,actor,action_id+':critical:endurance',Skill.ENDURANCE)
-            test,decline,glorious,_ = _resolve_pc_test(state,actor,Skill.ENDURANCE,test_request,rng,decisions)
-            request = CriticalInjuryTestRequest(action_id+':critical',actor,pc_after_test(state,actor),test_request.id)
+        dead = (is_pc or champion) and pc_actor_injury(state,actor).dead
+        if (is_pc or champion) and not dead and pc_actor_injury(state,actor).conditions.has(Condition.CRITICALLY_INJURED):
+            test_request = (_pc_test(state,actor,action_id+':critical:endurance',Skill.ENDURANCE) if is_pc else
+                npc_champion_test(state,actor,action_id+':critical:endurance',Skill.ENDURANCE))
+            if is_pc:
+                test,decline,glorious,_ = _resolve_pc_test(state,actor,Skill.ENDURANCE,test_request,rng,decisions)
+            else:
+                test=resolve_test(test_request,rng,decisions=decisions);decline=glorious=None
+            injury=pc_after_test(state,actor) if is_pc else npc_champion_after_test(state,actor)
+            request = CriticalInjuryTestRequest(action_id+':critical',actor,injury,test_request.id)
             critical = PcCriticalProof(test_request,resolve_critical_injury_test(request,test),decline,glorious)
         if not combat.active_turn.action_slots:
-            defenceless=is_pc and state.participant(actor).injury.conditions.has(Condition.DEFENCELESS)
+            defenceless=(is_pc or champion) and pc_actor_injury(state,actor).conditions.has(Condition.DEFENCELESS)
             from towr.domain.pc_broken_battlefield_models import pc_broken_turn_blocked
             rule=('RULE-HEALTH-008:broken-blocked-turn' if pc_broken_turn_blocked(state) and not defenceless
                 else 'RULE-HEALTH-008:defenceless-turn')
@@ -291,10 +301,41 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             consume(PcTurnEndProof(result,decline,critical))
 
     while True:
+        consumption = expected_pc_aim_consumption(state)
+        if consumption is None:
+            consumption = expected_npc_aim_consumption(state)
+        if consumption is not None:
+            consume(consumption)
+            continue
         from towr.domain.pc_oath_models import expected_oath_negation_ack
         oath_ack = expected_oath_negation_ack(state)
         if oath_ack is not None:
             consume(oath_ack)
+            continue
+        from towr.domain.pc_medical_models import (pending_medical_work,expected_medical_treatment_application,
+            expected_medical_suppression,complete_medical_suppression,expected_medical_risk,
+            PcMedicalTreatmentApplicationProof,PcMedicalSuppressionProof,PcMedicalRiskProof)
+        medical_work=pending_medical_work(state)
+        if medical_work is not None:
+            treatment=expected_medical_treatment_application(state)
+            if treatment is not None:
+                from towr.rules.recover_resolution import apply_recover_wound_treatment
+                consume(PcMedicalTreatmentApplicationProof(apply_recover_wound_treatment(treatment)))
+            else:
+                suppression=expected_medical_suppression(state)
+                if suppression is not None:
+                    if suppression.surgeon_id in scenario.pc_activation_order:
+                        test,decline,glorious,effective=_resolve_pc_test(state,suppression.surgeon_id,Skill.RECALL,
+                            suppression.recall_test,rng,decisions)
+                    else:
+                        effective=suppression.recall_test
+                        test=resolve_test(effective,rng,decisions=decisions);decline=glorious=None
+                    result=complete_medical_suppression(replace(suppression,recall_test=effective),test)
+                    consume(PcMedicalSuppressionProof(suppression,result,decline,glorious))
+                else:
+                    risk=expected_medical_risk(state)
+                    from towr.rules.surgery_failure_resolution import resolve_surgery_failure
+                    consume(PcMedicalRiskProof(risk,resolve_surgery_failure(risk,rng)))
             continue
         from towr.domain.pc_magic_weapon_models import expected_scarab_charge
         scarab_charge=expected_scarab_charge(state)
@@ -334,12 +375,6 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         if shield_drop is not None:
             consume(shield_drop)
             continue
-        consumption = expected_pc_aim_consumption(state)
-        if consumption is None:
-            consumption = expected_npc_aim_consumption(state)
-        if consumption is not None:
-            consume(consumption)
-            continue
         lost_weapon=expected_briarroot_weapon_loss(state)
         if lost_weapon is not None:
             consume(lost_weapon)
@@ -366,7 +401,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 else:
                     test=resolve_test(falling.avoidance_test,rng,decisions=decisions)
                 result=resolve_hazard(falling_hazard_request(falling,test),rng,decisions=decisions)
-                if falling.actor_id in scenario.enemy_activation_order and result.profile_wound is not None:
+                if falling.actor_id in scenario.npc_activation_order and result.profile_wound is not None:
                     disposition=falling_npc_disposition(scenario,falling.actor_id)
             consume(PcFallingProof(falling,test,result,decline,glorious,disposition))
             continue
@@ -404,7 +439,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 result=resolve_hazard(weapon_hazard_resolution_request(weapon_phase,test),rng,decisions=decisions)
                 from towr.domain.pc_falling_models import falling_npc_disposition
                 disposition=(falling_npc_disposition(scenario,actor)
-                    if actor in scenario.enemy_activation_order and result.profile_wound is not None else None)
+                    if actor in scenario.npc_activation_order and result.profile_wound is not None else None)
                 consume(PcWeaponHazardProof(weapon_phase,test,result,decline,glorious,disposition))
             else:
                 consume(weapon_phase)
@@ -451,13 +486,29 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             pending = state.pending_wound
             pc_actor = state.pending_actor_id
             request = build_pc_wound_completion(state)
-            decline = _decline(state,pc_actor,pending.request_id,'wound') if request.near_miss is None else None
+            decline = (_decline(state,pc_actor,pending.request_id,'wound')
+                if pc_actor in scenario.pc_activation_order and request.near_miss is None else None)
             completion = complete_character_wound_lifecycle(request)
             consume(PcWoundCompletionProof(completion,decline))
             continue
         if state.pending:
             pending = state.pending[0]
             pc_actor = state.pending_actor_id
+            from towr.domain.pc_cleaving_blow_models import (
+                cleaving_pending_npc_target,current_cleaving_wave,cleaving_profile_decision,
+                PcCleavingProfileProof,PcCleavingMinionDefeatProof,
+            )
+            cleaving_target=cleaving_pending_npc_target(state)
+            if cleaving_target is not None:
+                wave=current_cleaving_wave(state)
+                if type(pending) is MinionStaggerDefeatCause:
+                    consume(PcCleavingMinionDefeatProof(wave.wave_id,pc_actor,pending))
+                elif type(pending) is ProfileStateChangeRequest:
+                    consume(PcCleavingProfileProof(wave.wave_id,pc_actor,pending,
+                        cleaving_profile_decision(state,cleaving_target)))
+                else:
+                    raise ValueError('unexpected Cleaving Blow NPC continuation')
+                continue
             blunderbuss=current_pc_blunderbuss_wave(state)
             nearby_target=pc_blunderbuss_pending_npc_target(state)
             if nearby_target is not None:
@@ -500,15 +551,25 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     if target.impact.profile_wound is not None and target.impact.profile_wound.state_change.defeated)
                 consume(PcBlunderbussNearbyProof(request,result,dispositions))
             elif isinstance(pending,WoundEnduranceTestRequest):
-                test_request = _pc_test(state,pc_actor,pending.test_id,Skill.ENDURANCE)
-                test,decline,glorious,_ = _resolve_pc_test(state,pc_actor,Skill.ENDURANCE,test_request,rng,decisions)
-                result = resolve_wound_endurance_test(pending,pc_after_test(state,pc_actor),test)
+                from towr.domain.pc_npc_champion_models import is_npc_champion,npc_champion_test,npc_champion_after_test
+                if is_npc_champion(state,pc_actor):
+                    test_request=npc_champion_test(state,pc_actor,pending.test_id,Skill.ENDURANCE)
+                    test=resolve_test(test_request,rng,decisions=decisions);decline=glorious=None
+                    injury=npc_champion_after_test(state,pc_actor)
+                else:
+                    test_request = _pc_test(state,pc_actor,pending.test_id,Skill.ENDURANCE)
+                    test,decline,glorious,_ = _resolve_pc_test(state,pc_actor,Skill.ENDURANCE,test_request,rng,decisions)
+                    injury=pc_after_test(state,pc_actor)
+                result = resolve_wound_endurance_test(pending,injury,test)
                 consume(PcEnduranceProof(pending,test_request,test,result,decline,glorious))
             elif isinstance(pending,WoundChoiceRequest):
-                choice = WoundChoice.DROP_AND_CLUTCH_STOMACH if clutch_candidates(state.participant(pc_actor)) else WoundChoice.BECOME_DEFENCELESS
-                consume(PcWoundChoiceProof(resolve_wound_choice(pending,state.participant(pc_actor).injury,choice)))
+                from towr.domain.pc_actor_models import pc_actor_character_body
+                body=pc_actor_character_body(state,pc_actor)
+                choice = WoundChoice.DROP_AND_CLUTCH_STOMACH if clutch_candidates(body) else WoundChoice.BECOME_DEFENCELESS
+                consume(PcWoundChoiceProof(resolve_wound_choice(pending,body.injury,choice)))
             elif isinstance(pending,WoundConsequenceRequest):
-                member = state.participant(pc_actor)
+                from towr.domain.pc_actor_models import pc_actor_character_body
+                member = pc_actor_character_body(state,pc_actor)
                 if pending.consequence is WoundConsequence.LOSE_D10_TEETH:
                     die = rng.randint(1,10)
                     consume(PcBodyConsequenceProof(pending,die,None,die))
@@ -554,6 +615,23 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 consume(PcBlunderbussTargetProof(blunderbuss.request.kernel_request.id,
                     target,resolve_stagger_impact(target,rng,decisions=WarpedFormDecisions())))
             continue
+        from towr.domain.pc_cleaving_blow_models import (
+            expected_cleaving_start,current_cleaving_wave,next_cleaving_target,
+            PcCleavingTargetProof,PcCleavingEndProof,
+        )
+        cleaving=expected_cleaving_start(state)
+        if cleaving is not None:
+            consume(cleaving)
+            continue
+        cleaving=current_cleaving_wave(state)
+        if cleaving is not None:
+            target=next_cleaving_target(state)
+            if target is None:
+                consume(PcCleavingEndProof(cleaving.wave_id))
+            else:
+                consume(PcCleavingTargetProof(cleaving.wave_id,target,
+                    resolve_stagger_impact(target,rng,decisions=WarpedFormDecisions())))
+            continue
         distraction_expiry=expected_pc_npc_distraction_expiry(state)
         if distraction_expiry is not None:
             consume(distraction_expiry)
@@ -577,7 +655,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             finish_turn()
             continue
         turn = state.round_state.active_turn
-        if (turn is not None and turn.actor_id in scenario.enemy_activation_order
+        if (turn is not None and turn.actor_id in scenario.npc_activation_order
                 and state.enemy(turn.actor_id).definition.id=='pc-book-npc:great_stag'
                 and turn.action_slots and all(slot.executed for slot in turn.action_slots)):
             extra = build_pc_npc_extra_attack_slot(state)
@@ -632,6 +710,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             continue
         actor = combat.active_turn.actor_id
         action_id = pc_melee_action_id(state,actor)
+        from towr.domain.pc_npc_champion_models import is_npc_champion
+        if (is_npc_champion(state,actor) and not combat.active_turn.action_slots
+                and state.enemy(actor).state.injury.conditions.has(Condition.DEFENCELESS)):
+            finish_turn()
+            continue
         from towr.domain.pc_actor_models import pc_companion, pc_actor_injury
         if pc_companion(state, actor) is not None and not pc_broken_run_selected(state):
             from towr.domain.pc_companion_turn_models import expected_companion_wait, build_companion_recover
@@ -651,6 +734,20 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 finish_turn()
             continue
         if not combat.active_turn.action_slots:
+            from towr.domain.pc_medical_tactics import expected_medical_intent,committed_medical_intent
+            from towr.domain.pc_medical_equipment_models import expected_medical_preparation
+            medical_intent=expected_medical_intent(state)
+            if medical_intent is not None:
+                consume(medical_intent)
+                continue
+            if committed_medical_intent(state) is not None:
+                preparation=expected_medical_preparation(state)
+                if preparation is not None:
+                    consume(preparation)
+                    continue
+                consume(reserve_combat_action_slot(CombatActionSlotRequest(action_id+':reserve',combat,actor,
+                    pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
+                continue
             from towr.domain.pc_musician_tactics import expected_musician_intent,committed_musician_intent
             from towr.domain.pc_musician_equipment_models import plan_musician_equipment
             from towr.domain.pc_battlefield_musician_models import build_pc_musician_signal
@@ -750,6 +847,38 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
             continue
         if not combat.active_turn.action_slots[-1].executed:
+            from towr.domain.pc_medical_tactics import committed_medical_intent,MedicalActionKind
+            medical_intent=committed_medical_intent(state)
+            if medical_intent is not None:
+                choice=medical_intent.choice
+                from towr.domain.pc_medical_models import (build_medical_treatment,complete_medical_treatment,
+                    build_medical_surgery,complete_medical_surgery,PcMedicalTreatmentProof,PcMedicalSurgeryProof)
+                if choice.pickup_tool:
+                    from towr.domain.pc_medical_equipment_models import build_medical_tool_recover,complete_medical_tool_recover
+                    request=build_medical_tool_recover(state)
+                    consume(complete_medical_tool_recover(state,execute_recover_action(request,rng)))
+                else:
+                    surgery=choice.kind is MedicalActionKind.SURGERY
+                    if surgery:
+                        request,hand=build_medical_surgery(state,choice.target_id,choice.wound_sequence)
+                        test_request=request.dexterity_test;skill=Skill.DEXTERITY
+                    else:
+                        request=build_medical_treatment(state,choice.target_id,choice.wound_sequence)
+                        test_request=request.test;skill=Skill.RECALL
+                    test=decline=glorious=None;effective=test_request
+                    if test_request is not None:
+                        if actor in scenario.pc_activation_order:
+                            test,decline,glorious,effective=_resolve_pc_test(state,actor,skill,test_request,rng,decisions)
+                        else:
+                            test=resolve_test(test_request,rng,decisions=decisions)
+                    if surgery:
+                        result=complete_medical_surgery(replace(request,dexterity_test=effective),test)
+                        consume(PcMedicalSurgeryProof(request,hand,result,decline,glorious))
+                    else:
+                        prepared=(request if effective is test_request else replace(request,recover=replace(request.recover,
+                            choice=replace(request.recover.choice,recall_test=effective))))
+                        consume(PcMedicalTreatmentProof(request,complete_medical_treatment(prepared,test),decline,glorious))
+                continue
             from towr.domain.pc_oath_models import lady_prayer_selected, build_pc_lady_prayer, PcLadyPrayerProof
             if lady_prayer_selected(state):
                 from towr.domain.talent_lady_prayer_models import execute_lady_prayer
@@ -842,15 +971,21 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     guarded_casting_test(request.casting_request),rng,decisions)
                 consume(complete_pc_casting(state,test,decline,glorious))
             elif pc_melee_selected_action(state) is CombatActionKind.AIM:
-                if actor in scenario.enemy_activation_order:
+                from towr.domain.talent_careful_aim_models import careful_aim_application
+                if actor in scenario.npc_activation_order:
                     request=build_npc_aim(state)
-                    consume(PcNpcAimProof(request,execute_aim_action(request,rng,decisions=decisions)))
+                    result=execute_aim_action(request,rng,decisions=decisions)
+                    consume(PcNpcAimProof(request,result,careful_aim=careful_aim_application(state,result)))
                 else:
                     request = build_pc_aim(state)
-                    consume(PcAimProof(request,execute_aim_action(request,rng,decisions=decisions),
-                        _decline(state,actor,request.awareness_test.id,'test')))
+                    from towr.rules.aim_resolution import _complete_aim_action_after_test
+                    test,decline,glorious,effective=_resolve_pc_test(state,actor,Skill.AWARENESS,
+                        request.awareness_test,rng,decisions)
+                    result=_complete_aim_action_after_test(replace(request,awareness_test=effective),test)
+                    consume(PcAimProof(request,result,decline,glorious=glorious,
+                        careful_aim=careful_aim_application(state,result)))
             elif pc_melee_selected_action(state) is CombatActionKind.IMPROVISE:
-                if actor in scenario.enemy_activation_order:
+                if actor in scenario.npc_activation_order:
                     request = build_pc_npc_ranged_reload(state)
                     test = resolve_test(request.dexterity_test,rng,decisions=decisions)
                     consume(PcNpcRangedReloadProof(request,_complete_reload_action_after_test(request,test)))
@@ -916,7 +1051,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                         state.briarroot_bindings,bindings if result.resolution.removed else state.briarroot_bindings,
                         decline,glorious))
                     continue
-                if (actor in scenario.enemy_activation_order and weapon_recovery is not None
+                if (actor in scenario.npc_activation_order and weapon_recovery is not None
                         and can_pickup_briarroot_weapon(state,actor,weapon_recovery.weapon_id)):
                     request=build_briarroot_weapon_pickup(state,actor,weapon_recovery.weapon_id)
                     actual=execute_recover_action(request,rng)
@@ -953,7 +1088,18 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 if selected_pc_potion(state) is not None:
                     consume(build_pc_potion_recover(state))
                     continue
-                if actor in scenario.enemy_activation_order:
+                if actor in scenario.npc_activation_order:
+                    from towr.domain.pc_npc_champion_models import is_npc_champion,npc_champion_recover_request,npc_champion_body,PcNpcChampionRecoverProof
+                    if is_npc_champion(state,actor):
+                        from towr.domain.pc_heavy_wound_models import critical_for_action
+                        request=npc_champion_recover_request(state)
+                        before=npc_champion_body(state,actor)
+                        actual=execute_recover_action(request,rng)
+                        injury=battlefield_recovered_injury(before.injury,actual)
+                        injury=critical_for_action(replace(before,injury=injury),CombatActionKind.RECOVER,
+                            removes_prone=before.injury.conditions.has(Condition.PRONE) and not injury.conditions.has(Condition.PRONE))
+                        consume(PcNpcChampionRecoverProof(request,actual,before.injury,injury))
+                        continue
                     if pc_battlefield_npc_recover_selected(state):
                         request = build_pc_battlefield_npc_recover(state)
                         before = state.enemy(actor).state.injury
@@ -974,11 +1120,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             elif pc_melee_selected_action(state) is CombatActionKind.HELP:
                 from towr.domain.pc_allies_in_arms_models import build_allies_in_arms_application
                 from towr.domain.pc_npc_help_models import pc_npc_help_beneficiary
-                if actor in scenario.enemy_activation_order and pc_npc_help_beneficiary(state) is not None:
+                if actor in scenario.npc_activation_order and pc_npc_help_beneficiary(state) is not None:
                     request = build_pc_npc_help_action(state)
                     consume(PcNpcHelpProof(request,execute_automatic_help_action(request)))
                 else:
-                    if actor in scenario.enemy_activation_order:
+                    if actor in scenario.npc_activation_order:
                         from towr.domain.pc_npc_normal_help_models import (
                             build_npc_normal_help_action,npc_normal_help_choice,npc_help_weapon_use,complete_npc_ranged_help,
                         )

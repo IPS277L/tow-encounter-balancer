@@ -43,9 +43,10 @@ class PistolJsonTests(unittest.TestCase):
                 self.assertEqual('ranged' in raw[key]['party'][0]['pc'], pistol)
                 self.assertEqual(raw['schema_version'], '1')
                 if pistol:
+                    self.assertEqual(source.party[0].pc.initiative,3)
                     self.assertEqual(raw[key]['party'][0]['pc']['weapon'], 'pistol')
                     self.assertEqual(raw[key]['party'][0]['pc']['ranged'], {
-                        'ballistic_skill': 3, 'shooting': 4, 'initiative': 3, 'dexterity': 4,
+                        'ballistic_skill': 3, 'shooting': 4, 'dexterity': 4,
                         'has_blackpowder_lore': True, 'has_blackpowder_kit': True,
                         'ammunition_supply_confirmed': True,
                         'reload_hand_policy': 'two_available_hands'})
@@ -75,7 +76,7 @@ class PistolJsonTests(unittest.TestCase):
                 if field is None:
                     raw[key]['party'][0]['pc']['ranged'] = value
                 else:
-                    raw[key]['party'][0]['pc']['ranged'][field] = value
+                    (raw[key]['party'][0]['pc'] if field=='initiative' else raw[key]['party'][0]['pc']['ranged'])[field] = value
                 malformed.append(raw)
             for value in (None,1,'true'):
                 raw=deepcopy(base)

@@ -4,6 +4,7 @@ The Attack freezes geometry. Each exposed creature then owns its real Test,
 Wound and Fate window; no second combat action or synthetic Damage is added.
 """
 from __future__ import annotations
+from towr.domain.injury_models import injury_is_defeated
 
 from dataclasses import dataclass, field, replace
 
@@ -299,8 +300,7 @@ def expected_ablaze_hazard(state):
     bodies = tuple(row.snapshot.state.actor_id for row in state.companions
         if row.rider_id == actor and any(mount.actor_id == actor and mount.mounted for mount in state.mounts))
     for victim in (actor, *bodies):
-        if (_injury(state, victim).dead if victim in state.source.pc_activation_order
-                else _injury(state, victim).defeated):
+        if (injury_is_defeated(_injury(state,victim))):
             continue
         if not _injury(state, victim).conditions.has(Condition.ABLAZE):
             continue
@@ -455,11 +455,11 @@ def validate_weapon_area_scene(source):
     area_kinds = (WeaponKind.OIL_FLASK, WeaponKind.BLASTING_CHARGE,WeaponKind.DRAGON_BOW)
     has_area = any(unit.kind in area_kinds for member in source.party
         for unit in initial_pc_weapon_inventory(member).items)
-    has_area = has_area or any(item.kind in area_kinds for enemy in source.enemies
+    has_area = has_area or any(item.kind in area_kinds for enemy in source.npc_sources
         if enemy.definition.generated_components is not None for item in enemy.definition.generated_components.weapons)
     if not has_area:
         return
-    for enemy in source.enemies:
+    for enemy in source.npc_sources:
         if enemy.definition.generated_components is None:
             raise ValueError('weapon area needs full generated NPC skill and injury sources')
         if not any(profile.skill is Skill.ENDURANCE for profile in enemy.definition.protection):

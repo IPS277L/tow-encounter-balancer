@@ -40,7 +40,7 @@ class DynamicPcRangedSourceTests(unittest.TestCase):
                 member=parse_dynamic_encounter_request(json.dumps(raw)).request.party[0]
                 self.assertEqual(member.policy.value,'automatic_combat')
                 self.assertEqual((member.pc.ranged.ballistic_skill,member.pc.ranged.shooting,
-                    member.pc.ranged.initiative,member.pc.ranged.dexterity),(3,5,3,4))
+                    member.pc.initiative,member.pc.dexterity),(3,5,3,4))
                 self.assertEqual([item.id for item in member.combat_equipment],['weapon:1','weapon:backup'])
                 self.assertEqual([item.location.value for item in member.combat_equipment],['held','carried'])
                 self.assertEqual(member.pc.ranged.has_blackpowder_lore,None if weapon=='repeater_handbow' else True)
@@ -80,7 +80,7 @@ class DynamicPcRangedSourceTests(unittest.TestCase):
         document,scenario=native(request())
         self.assertEqual(parse_pc_melee_simulation_request(json.dumps(document)).request.scenario,scenario)
         source=document['scenario']['party'][0]
-        self.assertEqual(source['combat_equipment'][0],dict(id='weapon:1',weapon='repeater_pistol',location='held',hand='left',initially_loaded=True))
+        self.assertEqual(source['combat_equipment'][0],dict(id='weapon:1',weapon='repeater_pistol',location='held',hand='left',initially_loaded=True,quantity=1,initial_charges=0,gm_fit_confirmed=None))
         self.assertEqual(source['pc']['ranged']['repeater_bonus_policy'],'automatic')
         invalid=deepcopy(document);invalid['scenario']['party'][0]['policy']='automatic_melee'
         with self.assertRaises(PcMeleeInputError):parse_pc_melee_simulation_request(json.dumps(invalid))

@@ -56,7 +56,7 @@ def pc_battlefield_actor_speed(state: PcMeleeState, actor: str) -> MovementSpeed
         from towr.domain.pc_heavy_wound_models import restriction_sources
         if restriction_sources(state.participant(actor).injury,WoundRestriction.SPEED_IS_SLOW):
             return MovementSpeed.SLOW
-    elif actor not in state.source.enemy_activation_order:
+    elif actor not in state.source.npc_activation_order:
         from towr.domain.pc_companion_effect_models import companion_profile
         return companion_profile(state,actor).speed
     from towr.domain.pc_mount_models import pc_mount_speed
@@ -217,7 +217,7 @@ def _ready(state,target,kind,speed):
 
 
 def _athletics(state,actor,test_id):
-    if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+    if actor not in (*state.source.pc_activation_order,*state.source.npc_activation_order):
         from towr.domain.pc_companion_effect_models import companion_test_request
         return companion_test_request(state,actor,test_id,Skill.ATHLETICS)
     from towr.domain.pc_mount_models import pc_is_mounted

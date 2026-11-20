@@ -28,9 +28,12 @@ def magic_source():
     source = automatic_source(pc_count=3, enemy_count=2, rounds=3)
     party = []
     for index, member in enumerate(source.party):
-        wizard = (PcWizardProfile('human',3,5,1,('elementalism',),
+        wizard = (PcWizardProfile('human',5,1,('elementalism',),
             (PcSpellId.LIGHTNING_BLAST, PcSpellId.FIRE_BREATH),True) if index < 2 else None)
-        party.append(replace(member,wizard=wizard))
+        from tests.support.talent_sources import paid_talent
+        from towr.domain.talent_catalog import TalentId
+        party.append(replace(member,wizard=wizard,pc=replace(member.pc,reason=3 if wizard is not None else None),
+            talents=(paid_talent(TalentId.WIZARD),) if wizard is not None else ()))
     return replace(source,party=tuple(party),
         facts=replace(source.facts,daylight_confirmed=True))
 

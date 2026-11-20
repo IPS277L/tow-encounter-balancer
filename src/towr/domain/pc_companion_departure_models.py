@@ -3,6 +3,7 @@
 A defeated rider is not necessarily dead. Only an actual acknowledged death
 or exit receipt sends away this living animal; its HP and Conditions survive.
 """
+from towr.domain.injury_models import injury_is_defeated
 from dataclasses import dataclass, replace
 
 from towr.domain.injury_models import CharacterInjuryState, ProfileInjuryState
@@ -29,12 +30,14 @@ def _source_types():
         PcIncapacitatedTurnEndProof, PcProfileWoundProof, PcMinionStaggerDefeatProof)
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
     from towr.domain.pc_blunderbuss_models import PcBlunderbussProfileProof
+    from towr.domain.pc_cleaving_blow_models import PcCleavingProfileProof,PcCleavingMinionDefeatProof
     from towr.domain.pc_npc_exit_models import PcNpcExitProof
     from towr.domain.pc_falling_models import PcFallingProof
     from towr.domain.pc_weapon_area_models import PcWeaponHazardProof
     return (PcWoundCompletionProof, PcTurnEndProof, PcIncapacitatedTurnEndProof,
         PcProfileWoundProof, PcMinionStaggerDefeatProof, PcWarpedFormProfileProof,
-        PcBlunderbussProfileProof, PcNpcExitProof, PcFallingProof, PcWeaponHazardProof)
+        PcBlunderbussProfileProof, PcCleavingProfileProof, PcCleavingMinionDefeatProof,
+        PcNpcExitProof, PcFallingProof, PcWeaponHazardProof)
 
 
 def _after_departure_battlefield(previous, actor, *, mounted=False):
@@ -124,7 +127,7 @@ class PcCompanionDepartureProof:
         if (self.previous.rider_id != self.rider_id
                 or self.previous.snapshot.state.actor_id != self.actor_id
                 or not self.previous_mount.mounted and self.previous.retained_since_round is None
-                or self.previous.snapshot.state.injury.defeated
+                or injury_is_defeated(self.previous.snapshot.state.injury)
                 or self.state != replace(self.previous,retained_since_round=None,stored_spatial_usage=None)):
             raise ValueError('departure must preserve this living ridden/retained body and clear only its local presence')
         if self.battlefield != _after_departure_battlefield(self.previous_battlefield,self.actor_id,
@@ -150,6 +153,12 @@ def _killed(decision,rider):
     return decision.target_id == rider and decision.gm_approved and decision.disposition is NpcDefeatDisposition.KILLED
 
 
+def _cleaving_target(history, acknowledgement):
+    """The shared owner binds the exact still-open wave and target receipt."""
+    from towr.domain.pc_cleaving_blow_models import cleaving_wave_receipt
+    return cleaving_wave_receipt(history, acknowledgement)
+
+
 def _confirmation(state,rider):
     """Return the precise acknowledged source; raw injury never establishes it."""
     from towr.domain.pc_melee_result_models import (PcWoundCompletionProof,PcTurnEndProof,
@@ -160,6 +169,7 @@ def _confirmation(state,rider):
     from towr.domain.pc_weapon_area_models import PcWeaponHazardProof
     from towr.domain.pc_warped_form_models import PcWarpedFormProfileProof
     from towr.domain.pc_blunderbuss_models import PcBlunderbussProfileProof,PcBlunderbussTargetProof
+    from towr.domain.pc_cleaving_blow_models import PcCleavingProfileProof,PcCleavingMinionDefeatProof
     from towr.domain.pc_demigryph_models import pc_kernel_attack_types,pc_kernel_resolution
     from towr.domain.minion_defeat_models import NpcDefeatDisposition
     injury = pc_actor_injury(state,rider)
@@ -188,6 +198,18 @@ def _confirmation(state,rider):
             spec = pc_npc_stagger_defeat_spec(state.source.enemy(rider).definition)
             if spec is None or attack.request.kernel_request.minion_stagger_defeat != spec:
                 raise ValueError('rider flight lacks its actual printed fleeing source')
+            return index,proof,proof.source.source_id
+        if type(proof) is PcCleavingMinionDefeatProof and proof.target_id == rider and not pc:
+            from towr.domain.injury_models import MinionStaggerDefeatOutcome
+            replace(proof.source)
+            if not dead or proof.source.outcome is not MinionStaggerDefeatOutcome.FLED:
+                continue
+            _, target = _cleaving_target(state.history[:index], proof)
+            from towr.domain.pc_npc_ability_models import pc_npc_stagger_defeat_spec
+            spec = pc_npc_stagger_defeat_spec(state.source.enemy(rider).definition)
+            if (spec is None or target.request.minion_stagger_defeat != spec
+                    or not target.result.minion_stagger_defeat.state.defeated):
+                raise ValueError('Cleaving rider flight lacks its actual printed fleeing source')
             return index,proof,proof.source.source_id
         if not dead:
             continue
@@ -263,6 +285,17 @@ def _confirmation(state,rider):
                     state.source.participant(attack.request.actor_id).defeat_decision(rider)):
                 raise ValueError('nearby rider death changed its actual committed disposition')
             return index,proof,proof.resolution_id+':'+rider+':defeat'
+        elif type(proof) is PcCleavingProfileProof and not pc:
+            replace(proof)
+            if proof.target_id != rider or not proof.source.defeated or not _killed(proof.decision,rider):
+                continue
+            wave, target = _cleaving_target(state.history[:index], proof)
+            actor = wave.trigger.actor_id
+            if (actor not in state.source.pc_activation_order or proof.decision !=
+                    state.source.participant(actor).defeat_decision(rider)
+                    or not target.result.profile_wound.state.defeated):
+                raise ValueError('Cleaving rider death changed its actual committed disposition')
+            return index,proof,proof.wave_id+':'+rider+':defeat'
         else:
             continue
         if _confirmed_death_source(prefix,rider) != source_id:
@@ -284,7 +317,7 @@ def expected_companion_departure(state):
             raise TypeError('companion departure requires its exact body bank')
         replace(row)
         actor = row.snapshot.state.actor_id
-        if (row.snapshot.state.injury.defeated or any(type(proof) is PcCompanionDepartureProof
+        if (injury_is_defeated(row.snapshot.state.injury) or any(type(proof) is PcCompanionDepartureProof
                 and proof.actor_id == actor for proof in state.history)):
             continue
         from towr.domain.pc_companion_effect_models import companion_profile
@@ -319,7 +352,7 @@ def project_companion_departure(state,proof):
     updates = dict(companions=tuple(proof.state if row.rider_id == proof.rider_id else row for row in state.companions),
         mounts=tuple(proof.mount if row.actor_id == proof.rider_id else row for row in state.mounts),
         battlefield=proof.battlefield,round_state=proof.round_state)
-    if proof.rider_id in state.source.enemy_activation_order:
+    if proof.rider_id in state.source.npc_activation_order:
         from towr.domain.pc_npc_resilience_models import npc_current_resilience
         resilience = npc_current_resilience(state,proof.rider_id,mounted=False)
         updates['enemies'] = tuple(replace(row,state=replace(row.state,current_resilience=resilience))

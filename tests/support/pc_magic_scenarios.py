@@ -13,9 +13,9 @@ def magic_scenario(*, reason=2, willpower=1, level=1, rounds=1, enemies=2, pc_co
     source = automatic_source(pc_count=pc_count,enemy_count=enemies,rounds=rounds)
     wizard=AcquiredTalent(TalentId.WIZARD,tuple(TalentAcquisition(
         TalentAcquisitionPhase.ADVANCEMENT,TalentFunding.XP) for _ in range(level)))
-    mage = replace(source.party[0],talents=(wizard,),wizard=PcWizardProfile('human',reason,willpower,level,
+    mage = replace(source.party[0],talents=(wizard,),wizard=PcWizardProfile('human',willpower,level,
         ('elementalism',),spells,True),pc=replace(source.party[0].pc,
-            weapon_skill=1,melee=1,toughness=10,armour_bonus=armour))
+            weapon_skill=1,melee=1,toughness=10,armour_bonus=armour,reason=reason))
     opponents = []
     for enemy in source.enemies:
         definition = replace(enemy.definition,resilience=ResilienceProfile(100),

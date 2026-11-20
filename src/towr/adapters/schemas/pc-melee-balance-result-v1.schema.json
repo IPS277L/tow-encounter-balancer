@@ -64,20 +64,12 @@
                             "properties": {
                               "pc": {
                                 "required": [
-                                  "ranged"
+                                  "awareness"
                                 ],
                                 "properties": {
-                                  "ranged": {
-                                    "type": "object",
-                                    "required": [
-                                      "awareness"
-                                    ],
-                                    "properties": {
-                                      "awareness": {
-                                        "type": "integer",
-                                        "minimum": 1
-                                      }
-                                    }
+                                  "awareness": {
+                                    "type": "integer",
+                                    "minimum": 1
                                   }
                                 }
                               }
@@ -168,20 +160,12 @@
                       "properties": {
                         "pc": {
                           "required": [
-                            "ranged"
+                            "awareness"
                           ],
                           "properties": {
-                            "ranged": {
-                              "type": "object",
-                              "required": [
-                                "awareness"
-                              ],
-                              "properties": {
-                                "awareness": {
-                                  "type": "integer",
-                                  "minimum": 1
-                                }
-                              }
+                            "awareness": {
+                              "type": "integer",
+                              "minimum": 1
                             }
                           }
                         }
@@ -227,6 +211,65 @@
                   "not": {
                     "required": [
                       "aim"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "required": [
+              "template"
+            ],
+            "properties": {
+              "template": {
+                "required": [
+                  "npc_allies"
+                ],
+                "properties": {
+                  "npc_allies": {
+                    "type": "array",
+                    "minItems": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "properties": {
+                "summary": {
+                  "required": [
+                    "npc_ally_counts"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "properties": {
+                "summary": {
+                  "not": {
+                    "required": [
+                      "npc_ally_counts"
                     ]
                   }
                 }

@@ -54,10 +54,10 @@ def prepared(*, npc_actor=True, weapon=GeneratedWeapon.AXE, defenceless=False):
     member = replace(source.party[0], pc=replace(source.party[0].pc, weapon=PcMeleeWeapon.AXE, strength=1),
         armour=ArmourLoadout(barding=True), talents=(paid_talent(TalentId.ARMOUR_BANE),))
     component = source.enemies[0].definition.generated_components
-    ranged = (GeneratedRangedFacts(3, 4, 3, 4, True, True, True)
+    ranged = (GeneratedRangedFacts(3, 4,  True, True, True)
         if weapon in (GeneratedWeapon.PISTOL, GeneratedWeapon.REPEATER_PISTOL) else None)
     component = replace(component, strength=1, weapons=initial_generated_weapons(weapon),
-        armour=ArmourLoadout(barding=True), talents=(paid_talent(TalentId.ARMOUR_BANE),), ranged=ranged)
+        armour=ArmourLoadout(barding=True), talents=(paid_talent(TalentId.ARMOUR_BANE),), ranged=ranged, initiative=3 if ranged is not None else None,dexterity=4 if ranged is not None else None)
     source = replace(source, party=(member,), enemies=(component.participant('minion1'),), max_rounds=2,
         npc_ranged_policies=(() if ranged is None else (pc_npc_ranged_policy_for_generated(component, 'minion1'),)))
     base = initial_pc_melee_state(source)

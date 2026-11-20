@@ -74,7 +74,7 @@ class AlliesInArmsGenerationTests(unittest.TestCase):
         self.assertEqual(a.getstate(),b.getstate())
 
     def test_existing_full_facts_survive_weapon_mutation_and_only_fellowship_is_resampled(self):
-        search=space(weapon=(GeneratedWeapon.SWORD,GeneratedWeapon.DAGGER),fellowship=(2,3,4))
+        search=space(weapon=(GeneratedWeapon.SWORD,GeneratedWeapon.DAGGER),fellowship=(2,3,4),reason=(6,))
         original=search.sample(FirstChoices())
         facts=TalentOwnerFacts(fellowship=3,reason=6,origin=TalentOrigin.HUMAN,
             lores=(TalentLoreFact('anatomy'),))

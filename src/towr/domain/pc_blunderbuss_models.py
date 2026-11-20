@@ -235,7 +235,7 @@ def validate_pc_blunderbuss_history(state):
         if any(type(p) is PcBlunderbussNearbyProof for p in state.history):
             raise ValueError('nearby receipt requires its source cluster')
         return
-    injuries = {e.state.actor_id:e.state.injury for e in state.source.enemies}
+    injuries = {e.state.actor_id:e.state.injury for e in state.source.npc_sources}
     from towr.domain.pc_oath_models import initial_pc_oaths, PcOathNegationAckProof
     oath_bank = {row.actor_id:row.lady for row in initial_pc_oaths(state.source) if row.lady is not None}
     approached = set()
@@ -546,7 +546,7 @@ def validate_pc_battlefield_blunderbuss_history(state):
     from towr.domain.pc_melee_result_models import PcAttackProof
     from towr.domain.pc_battlefield_models import build_pc_battlefield
     from towr.domain.pc_battlefield_movement_models import pc_battlefield_after_proof
-    spatial=build_pc_battlefield(state.source.battlefield,state.source.pc_activation_order,
+    spatial=build_pc_battlefield(state.source.battlefield,state.source.player_activation_order,
         state.source.enemy_activation_order,state.source.facts.zone_id)
     opened=None
     completed=[]

@@ -101,9 +101,9 @@ def pc_npc_ranged_profile(definition: NpcDefinition,weapon_kind: WeaponKind | No
         if type(kind) is not WeaponKind or kind not in shooting:
             raise ValueError('NPC Shooting profile requires a real source inventory item')
         return PcNpcRangedProfile(RangedWeaponId(kind.value),
-            InlineProfile(facts.initiative,facts.dexterity) if facts.dexterity is not None else None,npc.strength,
-            awareness_profile=(InlineProfile(facts.initiative,facts.awareness)
-                if facts.awareness is not None else None))
+            InlineProfile(npc.initiative,npc.dexterity) if npc.dexterity is not None else None,npc.strength,
+            awareness_profile=(InlineProfile(npc.initiative,npc.awareness,pool_cap=2*npc.initiative)
+                if npc.awareness is not None else None))
     validate_pc_book_npc_definition(definition)
     if weapon_kind is not None and (type(weapon_kind) is not WeaponKind
             or weapon_kind.value not in ('pistol','ogre_pistol')):
@@ -140,7 +140,7 @@ def validate_pc_npc_ranged_policies(source) -> None:
         if type(policy) is not PcNpcRangedPolicy:
             raise TypeError('NPC ranged weapon policy must retain its exact type')
         replace(policy)
-    expected = tuple(enemy.state.actor_id for enemy in source.enemies
+    expected = tuple(enemy.state.actor_id for enemy in source.npc_sources
         if enemy.definition.id in PC_NPC_RANGED_DEFINITION_IDS
         or (enemy.definition.generated_components is not None
             and enemy.definition.generated_components.ranged is not None))

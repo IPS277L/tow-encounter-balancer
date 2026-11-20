@@ -50,7 +50,7 @@ def request_document(*, balance=False):
 class PcBlunderbussJsonTests(unittest.TestCase):
     def test_exact_firearm_and_cluster_sources_roundtrip_in_both_families(self):
         self.assertEqual((len(PC_RANGED_WEAPONS),len(PC_TWO_HANDED_RANGED_WEAPONS),
-            len(PC_FREE_RELOAD_WEAPONS)),(13,9,4))
+            len(PC_FREE_RELOAD_WEAPONS)),(15,10,5))
         for balance in (False,True):
             raw = request_document(balance=balance)
             key = 'template' if balance else 'scenario'
@@ -61,7 +61,7 @@ class PcBlunderbussJsonTests(unittest.TestCase):
             self.assertEqual(raw[key]['blunderbuss_nearby'],{
                 'initial_npc_clustered_confirmed':True,'target_priority':list(ORDER)})
             self.assertEqual(raw[key]['party'][0]['pc']['ranged'],{
-                'ballistic_skill':3,'shooting':4,'initiative':3,'dexterity':4,
+                'ballistic_skill':3,'shooting':4,'dexterity':4,
                 'has_blackpowder_lore':True,'has_blackpowder_kit':True,
                 'ammunition_supply_confirmed':True,
                 'reload_hand_policy':'two_available_hands'})

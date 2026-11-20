@@ -53,7 +53,7 @@ def _enemies(state, actor):
         priority = state.source.participant(actor).target_priority
         return tuple(target for target in priority if target in opponents) + tuple(
             target for target in opponents if target not in priority)
-    if actor in state.source.enemy_activation_order:
+    if actor in state.source.npc_activation_order:
         priority = state.source.enemy_target_priority
         return tuple(target for target in priority if target in opponents) + tuple(
             target for target in opponents if target not in priority)
@@ -247,7 +247,7 @@ def pc_battlefield_attack_available(state: PcMeleeState, actor: str, target: str
             if (selected in PC_RANGED_WEAPONS and not pc_weapon_allows_close_shooting(selected)
                     and _has_close_enemy(state,actor)):
                 return False
-        elif actor in state.source.enemy_activation_order:
+        elif actor in state.source.npc_activation_order:
             from towr.domain.pc_melee_result_models import pc_selected_npc_attack_profile
             selected=pc_selected_npc_attack_profile(state,actor)
             if (selected.skill is Skill.SHOOTING and selected.range_min is not RangedWeaponRange.CLOSE
@@ -617,7 +617,7 @@ def validate_pc_battlefield_history(state: PcMeleeState) -> None:
                 for p in state.history):
             raise ValueError('legacy encounter cannot acquire battlefield state or movement')
         return
-    initial = build_pc_battlefield(state.source.battlefield, state.source.pc_activation_order,
+    initial = build_pc_battlefield(state.source.battlefield, state.source.player_activation_order,
         state.source.enemy_activation_order, state.source.facts.zone_id)
     expected = initial
     for proof in state.history:
@@ -633,7 +633,7 @@ def pc_battlefield_npc_recover_selected(state: PcMeleeState) -> bool:
     if state.round_state.active_turn is None:
         return False
     actor = state.round_state.active_turn.actor_id
-    if actor not in state.source.enemy_activation_order:
+    if actor not in state.source.npc_activation_order:
         return False
     from towr.domain.pc_back_in_saddle_models import available_remount
     if available_remount(state, actor) is not None:
@@ -646,6 +646,9 @@ def pc_battlefield_npc_recover_selected(state: PcMeleeState) -> bool:
     conditions = _conditions(state, actor)
     if conditions.has(Condition.DEFENCELESS):
         return False
+    from towr.domain.pc_careful_aim_advice import npc_careful_aim_action
+    if npc_careful_aim_action(state, actor) is CombatActionKind.RECOVER:
+        return True
     from towr.domain.pc_oath_models import npc_oath_attack_blocked
     if npc_oath_attack_blocked(state, actor):
         return True  # No allowed ready attack: a real standard action, not Flagellant healing.
