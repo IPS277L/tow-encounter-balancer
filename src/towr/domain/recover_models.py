@@ -16,6 +16,9 @@ from towr.domain.injury_models import (
 )
 from towr.domain.magic_models import WizardMagicState
 from towr.domain.test_models import Skill, TestRequest, TestResult
+from towr.domain.talent_back_in_saddle_models import (
+    BACK_IN_SADDLE_RULE_ID, BackInSaddleSource, validate_back_in_saddle_source,
+)
 from towr.domain.turn_models import (
     ActionExecutionReceipt,
     CombatActionKind,
@@ -100,6 +103,7 @@ class RecoverStandardChoice:
     prone_target: RecoverConditionTarget | None = None
     mount: RecoverMountFollowUp | None = None
     object_interaction: RecoverObjectInteractionFollowUp | None = None
+    back_in_saddle_source: BackInSaddleSource | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.magic_state, WizardMagicState):
@@ -126,7 +130,24 @@ class RecoverStandardChoice:
             raise TypeError(
                 "object_interaction must be a Recover object follow-up or None"
             )
-        if self.prone_target is not None and self.mount is not None:
+        # Readmit the retained nested facts, including cached source objects.
+        replace(self.magic_state)
+        for selected in (self.staggered_target, self.prone_target, self.mount, self.object_interaction):
+            if selected is not None:
+                replace(selected)
+                if isinstance(selected, RecoverConditionTarget):
+                    replace(selected.conditions)
+        if self.back_in_saddle_source is not None:
+            if self.prone_target is None or self.mount is None:
+                raise ValueError('Back in the Saddle Recover requires both standing and remounting')
+            validate_back_in_saddle_source(self.back_in_saddle_source,
+                self.mount.actor_id, self.mount.mount_id)
+            if (self.prone_target.entity_id != self.mount.actor_id
+                    or self.prone_target.in_close_range is not None
+                    or not self.prone_target.conditions.has(Condition.PRONE)):
+                raise ValueError('Back in the Saddle Recover must remove this actor\'s own Prone')
+        if (self.prone_target is not None and self.mount is not None
+                and self.back_in_saddle_source is None):
             raise ValueError("Recover cannot remove Prone and mount a steed")
         if (
             self.staggered_target is not None
@@ -267,6 +288,7 @@ class RecoverActionExecutionRequest:
         _validate_non_empty_string(self.actor_id, "Recover actor_id")
         if not isinstance(self.actor_conditions, ConditionState):
             raise TypeError("actor_conditions must be a ConditionState")
+        replace(self.actor_conditions)
         _validate_bool(self.actor_has_enemy_in_zone, "actor_has_enemy_in_zone")
         _validate_slot_index(self.slot_index)
         if not isinstance(self.mode, RecoverMode):
@@ -303,6 +325,7 @@ class RecoverActionExecutionRequest:
         if turn is None or turn.actor_id != self.actor_id:
             raise ValueError("Recover requires the actor's active turn")
         if isinstance(self.choice, RecoverStandardChoice):
+            replace(self.choice)
             self._validate_standard(self.choice)
         elif isinstance(self.choice, RecoverTreatWoundChoice):
             self._validate_target(self.choice.target)
@@ -326,7 +349,7 @@ class RecoverActionExecutionRequest:
                 raise ValueError("Recover mount must be in Close Range")
             if choice.mount.actor_already_mounted:
                 raise ValueError("an already mounted actor cannot mount again")
-            if self.actor_conditions.has(Condition.PRONE):
+            if self.actor_conditions.has(Condition.PRONE) and choice.back_in_saddle_source is None:
                 raise ValueError("a Prone actor cannot use Recover to mount")
         if choice.object_interaction is not None:
             interaction = choice.object_interaction
@@ -391,6 +414,7 @@ class RecoverStandardResult:
     def __post_init__(self) -> None:
         if not isinstance(self.source, RecoverStandardChoice):
             raise TypeError("source must be a RecoverStandardChoice")
+        replace(self.source)
         changes = tuple(self.condition_changes)
         if not all(isinstance(item, RecoverConditionChange) for item in changes):
             raise TypeError("condition_changes must contain Recover changes")
@@ -591,6 +615,8 @@ class RecoverActionExecutionResult:
         if not isinstance(self.slot, CombatActionSlot):
             raise TypeError("slot must be a CombatActionSlot")
         source = self.source_request
+        replace(source)
+        replace(self.resolution)
         if (
             self.request_id != source.id
             or self.rule_id != source.rule_id
@@ -609,6 +635,10 @@ class RecoverActionExecutionResult:
         self._validate_resolution_provenance()
         self._validate_round_transition()
         rule_ids = _validate_rule_ids(self.applied_rule_ids)
+        saddle_source = (source.choice.back_in_saddle_source
+            if source.mode is RecoverMode.STANDARD else None)
+        if rule_ids.count(BACK_IN_SADDLE_RULE_ID) != int(saddle_source is not None):
+            raise ValueError('Recover trace lost, invented or duplicated Back in the Saddle provenance')
         required = {self.rule_id}
         if isinstance(self.resolution, RecoverTreatWoundResult):
             required.add(self.resolution.source.rule_id)
@@ -1072,6 +1102,8 @@ def _expected_recover_execution(
     updated_round_state = replace(request.round_state,
         active_turn=replace(turn, action_slots=updated_slots))
     values = [request.rule_id]
+    if request.mode is RecoverMode.STANDARD and request.choice.back_in_saddle_source is not None:
+        values.append(BACK_IN_SADDLE_RULE_ID)
     if request.healing_potion is not None:
         values.append(HEALING_POTION_RULE_ID)
     if isinstance(resolution, RecoverTreatWoundResult):

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from towr.domain.talent_acrobatic_models import (
+    AcrobaticSource, validate_acrobatic_source, validate_acrobatic_trace,
+)
+
 from dataclasses import dataclass, field, replace
 from enum import Enum
 
@@ -57,8 +61,10 @@ class ChargeMovementRequest:
     crosses_difficult_terrain: bool = False
     rule_id: str = CHARGE_MOVEMENT_RULE_ID
     terrain_resolution_deferred: bool = field(default=False,kw_only=True)
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
+        validate_acrobatic_source(self.acrobatic,self.actor_id)
         for value,name in ((self.id,'Charge movement id'),(self.actor_id,'actor_id'),
                 (self.target_id,'target_id')):
             _validate_non_empty_string(value,name)
@@ -138,7 +144,8 @@ class ChargeMovementRequest:
             _validate_non_empty_string(entity_id,'Charge path entity')
             if entity_id in (self.actor_id,self.target_id):
                 raise ValueError('Charge actor and destination are not crossed path entities')
-            if self.spatial_state.placement_for(entity_id).side_id != actor.side_id:
+            if (self.spatial_state.placement_for(entity_id).side_id != actor.side_id
+                    and not validate_acrobatic_source(self.acrobatic,self.actor_id)):
                 raise ValueError('Charge cannot pass through an enemy')
 
 
@@ -197,8 +204,14 @@ class ChargeMovementResult:
     spatial_state: SpatialBattleState
     round_state: CombatRoundState
     attack_allowed: bool
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
+        if type(self.source_request) is not ChargeMovementRequest:
+            raise TypeError('Charge result requires its exact movement source request')
+        validate_acrobatic_source(self.acrobatic,self.source_request.actor_id)
+        if self.acrobatic!=self.source_request.acrobatic:
+            raise ValueError('Charge movement lost its actual Acrobatic source')
         succeeded,conditions,application,spatial,combat = _charge_movement_parts(
             self.source_request,self.athletics_test_result)
         if (type(self.attack_allowed) is not bool or self.attack_allowed is not succeeded
@@ -259,8 +272,10 @@ class ChargeActionExecutionRequest:
     crosses_difficult_terrain: bool = False
     rule_id: str = "RULE-COMBAT-014:charge-action-execution"
     melee_bonus_rule_id: str = "RULE-COMBAT-009:charge-melee-bonus"
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_source(self.acrobatic,self.actor_id)
         _validate_non_empty_string(self.id, "Charge execution request id")
         if not isinstance(self.round_state, CombatRoundState):
             raise TypeError("round_state must be a CombatRoundState")
@@ -349,8 +364,13 @@ class ChargeActionExecutionResult:
     resolution: ResolutionResult
     melee_bonus: DiceModifier | None
     applied_rule_ids: tuple[str, ...]
+    path_entity_ids: tuple[str,...] = field(default=(),kw_only=True)
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_trace(self.acrobatic,self.actor_id,self.applied_rule_ids)
+        from towr.domain.movement_models import _validate_movement_path_source
+        _validate_movement_path_source(self.previous_spatial_state,self.actor_id,self.path_entity_ids,self.acrobatic)
         _validate_non_empty_string(self.request_id, "Charge request_id")
         _validate_non_empty_string(self.rule_id, "rule_id")
         _validate_non_empty_string(self.actor_id, "actor_id")
@@ -840,8 +860,10 @@ class LongChargeActionExecutionRequest:
     skill: Skill = Skill.ATHLETICS
     rule_id: str = "RULE-COMBAT-014:long-charge-action-execution"
     melee_bonus_rule_id: str = "RULE-COMBAT-009:charge-melee-bonus"
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_source(self.acrobatic,self.actor_id)
         _validate_non_empty_string(self.id, "Long Charge request id")
         if not isinstance(self.round_state, CombatRoundState):
             raise TypeError("round_state must be a CombatRoundState")
@@ -954,8 +976,13 @@ class LongChargeActionExecutionResult:
     resolution: ResolutionResult | None
     melee_bonus: DiceModifier | None
     applied_rule_ids: tuple[str, ...]
+    path_entity_ids: tuple[str,...] = field(default=(),kw_only=True)
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_trace(self.acrobatic,self.actor_id,self.applied_rule_ids)
+        from towr.domain.movement_models import _validate_movement_path_source
+        _validate_movement_path_source(self.previous_spatial_state,self.actor_id,self.path_entity_ids,self.acrobatic)
         _validate_non_empty_string(self.request_id, "Long Charge request_id")
         _validate_non_empty_string(self.rule_id, "rule_id")
         _validate_non_empty_string(self.actor_id, "actor_id")
@@ -1237,6 +1264,8 @@ def _validate_difficult_terrain_charge_pair(
     charge: ChargeActionExecutionRequest,
     traversal: DifficultTerrainTraversalRequest | DifficultTerrainTraversalResult,
 ) -> None:
+    replace(charge)
+    replace(traversal)
     terrain_request = traversal.source_request if isinstance(traversal, DifficultTerrainTraversalResult) else traversal
     target = charge.spatial_state.placement_for(charge.target_id)
     if charge.rule_id != "RULE-COMBAT-014:charge-action-execution":
@@ -1250,6 +1279,7 @@ def _validate_difficult_terrain_charge_pair(
         or charge.actor_conditions != terrain_request.actor_conditions
         or target.zone_id != terrain_request.destination_zone_id
         or charge.path_entity_ids != terrain_request.path_entity_ids
+        or charge.acrobatic != terrain_request.acrobatic
         or charge.crosses_obstacle is not terrain_request.crosses_obstacle
     ):
         raise ValueError(

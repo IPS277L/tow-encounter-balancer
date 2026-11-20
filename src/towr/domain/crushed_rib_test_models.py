@@ -282,6 +282,8 @@ def _completed_test(request, result):
     """Validate the full Grim witness purely, without re-executing its rolls."""
     _test(request, prepared=True)
     _typed(result, TestResult)
+    from towr.domain.honour_bound_models import validate_honour_bound_test_source
+    validate_honour_bound_test_source(request,result)
     trace = result.trace
     _typed(trace, RollTrace)
     _identifier(trace.request_id)
@@ -345,7 +347,7 @@ def _completed_casting(source, result):
         _integer(follow.amount)
         _typed(follow.source_kind, MiscastPoolIncreaseSourceKind)
         replace(follow)
-    successes = result.test.successes
+    successes = result.test.effective_successes
     nines = result.test.trace.final_values.count(9)
     follow_ups = () if not nines else (MiscastPoolIncreaseRequest(request.id + ':rule-of-nine', request.caster_id,
         nines, MiscastPoolIncreaseSourceKind.TEST, request.test.id, request.rule_id, _NINE_RULE),)

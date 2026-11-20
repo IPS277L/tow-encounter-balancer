@@ -1,5 +1,7 @@
 """The same explicit wizard facts survive generator input, files and native replay."""
 from copy import deepcopy
+from tests.support.talent_sources import paid_talent,paid_talent_document
+from towr.domain.talent_catalog import TalentId
 from dataclasses import replace
 import json
 from pathlib import Path
@@ -22,7 +24,7 @@ from towr.domain.pc_magic_source_models import PcSpellId, PcWizardProfile
 def wizard_request():
     document = json.loads(Path('docs/examples/dynamic/search.request.json').read_text(encoding='utf-8'))
     member = document['party'][0]
-    member['talents'] = [*member['talents'], 'wizard']
+    member['talents'] = [*member['talents'], paid_talent_document(TalentId.WIZARD)]
     member['characteristics']['reason'] = 3
     member['skills']['willpower'] = 5
     member['magic'] = dict(origin='human',wizard_level=1,lores=['elementalism'],
@@ -54,12 +56,12 @@ class PcMagicSourceJsonTests(unittest.TestCase):
             elif missing == 'magic':
                 del member['magic']
             else:
-                member['talents'].remove('wizard')
+                member['talents']=[entry for entry in member['talents'] if entry['id']!='wizard']
             with self.subTest(missing=missing), self.assertRaises(DynamicEncounterInputError):
                 parse_dynamic_encounter_request(json.dumps(document))
         document = wizard_request()
         del document['party'][0]['magic']
-        document['party'][0]['talents'].remove('wizard')
+        document['party'][0]['talents']=[entry for entry in document['party'][0]['talents'] if entry['id']!='wizard']
         with self.assertRaises(ValidationError):
             validate_dynamic_encounter_document(document)
 
@@ -91,9 +93,11 @@ class PcMagicSourceJsonTests(unittest.TestCase):
         self.assertEqual(member.pc.armour_bonus,0)
 
     def test_current_native_replay_preserves_full_wizard_profile(self):
-        wizard = parse_dynamic_encounter_request(json.dumps(wizard_request())).request.party[0].wizard
+        compiled = parse_dynamic_encounter_request(json.dumps(wizard_request())).request.party[0]
+        wizard = compiled.wizard
         scenario = automatic_source()
-        scenario = replace(scenario,party=(replace(scenario.party[0],wizard=wizard),scenario.party[1]),
+        scenario = replace(scenario,party=(replace(scenario.party[0],wizard=wizard,
+            talents=compiled.talents,talent_facts=compiled.talent_facts),scenario.party[1]),
             facts=replace(scenario.facts,daylight_confirmed=True))
         raw = dict(schema_version='1',kind='pc_melee_simulation',request_id='magic-source-roundtrip',
             ruleset='towr-pg1.4-gmg1.1',scenario=scenario_document(scenario),
@@ -110,8 +114,10 @@ class PcMagicSourceJsonTests(unittest.TestCase):
         wizard = parse_dynamic_encounter_request(json.dumps(wizard_request())).request.party[0].wizard
         source = automatic_source()
         with self.assertRaises(ValueError):
-            replace(source,party=(replace(source.party[0],wizard=wizard),source.party[1]))
-        source = replace(source,party=(replace(source.party[0],wizard=wizard),source.party[1]),
+            replace(source,party=(replace(source.party[0],wizard=wizard,
+                talents=(paid_talent(TalentId.WIZARD),)),source.party[1]))
+        source = replace(source,party=(replace(source.party[0],wizard=wizard,
+            talents=(paid_talent(TalentId.WIZARD),)),source.party[1]),
             facts=replace(source.facts,daylight_confirmed=True))
         raw = dict(schema_version='1',kind='pc_melee_simulation',request_id='daylight',
             ruleset='towr-pg1.4-gmg1.1',scenario=scenario_document(source),
@@ -126,7 +132,8 @@ class DynamicMagicObservationSchemaTests(unittest.TestCase):
         source = automatic_source(pc_count=1)
         if wizard:
             profile = PcWizardProfile('human',3,5,1,('elementalism',),(PcSpellId.LIGHTNING_BLAST,),True)
-            source = replace(source,party=(replace(source.party[0],wizard=profile),),
+            source = replace(source,party=(replace(source.party[0],wizard=profile,
+                talents=(paid_talent(TalentId.WIZARD),)),),
                 facts=replace(source.facts,daylight_confirmed=True))
         return dict(npcs=[dict(weapon_skill=3,strength=3,toughness=3,agility=3,
                 melee=3,defence=3,armour=dict(body=[],benefit=None,helmet=None,shield=None,barding=False),

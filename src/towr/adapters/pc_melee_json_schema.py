@@ -16,6 +16,7 @@ def _validator(kind: str, family: str = "simulation") -> Draft202012Validator:
     names = [f"pc-melee-{group}-{shape}-v1.schema.json"
              for group in ("simulation", "balance") for shape in ("request", "result", "error")]
     names.append("pc-melee-common.schema.json")
+    names.append("talent-common.schema.json")
     documents = {name: json.loads(files("towr.adapters.schemas").joinpath(name)
                  .read_text(encoding="utf-8")) for name in names}
     registry = Registry().with_resources(

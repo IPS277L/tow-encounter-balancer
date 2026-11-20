@@ -1,4 +1,5 @@
 """Typed NPC Distracted sources and confirmed-focus-death expiry (M42/M43)."""
+from towr.domain.pc_demigryph_models import pc_kernel_attack_types
 from dataclasses import dataclass,replace
 
 from towr.domain.condition_models import Condition
@@ -179,7 +180,7 @@ def _confirmed_death_source(history,actor):
                     raise ValueError('NPC focus death has a detached wave disposition')
                 return activation.activation_id+':'+actor+':defeat'
             attack=next((item for item in reversed(history[:index])
-                if type(item) in (PcAttackProof,PcDemigryphStrikeProof)),None)
+                if type(item) in pc_kernel_attack_types()),None)
             if (attack is None or attack.request.actor_id!=decision.attacker_id
                     or attack.request.target_id!=actor or pc_kernel_resolution(attack).profile_wound is None
                     or pc_kernel_resolution(attack).profile_wound.state_change!=proof.source):
@@ -259,7 +260,7 @@ def validate_pc_npc_distractions(state):
         if not ordinary_started and tuple(encountered)!=encounter_order:
             raise ValueError('ordinary combat cannot skip selected grudge encounters')
         ordinary_started=True
-        if type(proof) in (PcAttackProof,PcDemigryphStrikeProof):
+        if type(proof) in pc_kernel_attack_types():
             attack=proof
         elif type(proof) is PcProfileWoundProof:
             if attack is None:

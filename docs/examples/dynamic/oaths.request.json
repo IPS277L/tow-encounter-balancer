@@ -1,0 +1,272 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:oaths-example",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc:oath",
+      "characteristics": {
+        "weapon_skill": 2,
+        "strength": 3,
+        "toughness": 3,
+        "agility": 3
+      },
+      "skills": {
+        "melee": 2,
+        "defence": 3,
+        "athletics": 3,
+        "endurance": 3
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "sword",
+            "location": "right_hand"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [
+        {
+          "id": "honour_bound",
+          "acquisitions": [
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": {
+                "oath_id": "protect-allies"
+              },
+              "devotion_confirmed": null
+            }
+          ]
+        },
+        {
+          "id": "blessings_of_the_lady",
+          "acquisitions": [
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            }
+          ]
+        }
+      ],
+      "resources": {
+        "fate": 1
+      },
+      "consumables": [],
+      "oath_context": {
+        "gm_confirmation_id": "gm:scene",
+        "in_good_standing_confirmed": true,
+        "oath_id": "protect-allies",
+        "combat_tests_fulfil_oath_confirmed": true,
+        "forbidden_attack_skills": [],
+        "fleeing_breaks_oath": false,
+        "lady_prayer_before_battle_confirmed": false,
+        "honour_bound_used_this_session": false,
+        "unmitigated_success_scope_confirmed": true
+      },
+      "talent_facts": {
+        "weapon_skill": null,
+        "ballistic_skill": null,
+        "strength": null,
+        "toughness": null,
+        "initiative": null,
+        "agility": null,
+        "reason": null,
+        "fellowship": null,
+        "origin": "bretonnian_human",
+        "lores": [
+          {
+            "id": "high_society",
+            "magic": false
+          }
+        ],
+        "status": null,
+        "equipment": [],
+        "grail_quest_completed": false,
+        "can_cast_spells": false
+      }
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      3,
+      4,
+      5
+    ],
+    "strength": [
+      4,
+      5
+    ],
+    "toughness": [
+      2,
+      3,
+      4
+    ],
+    "agility": [
+      2,
+      3,
+      4
+    ],
+    "melee": [
+      3,
+      4,
+      5
+    ],
+    "athletics": [
+      3,
+      4,
+      5
+    ],
+    "weapon": [
+      "dagger",
+      "staff",
+      "sword"
+    ],
+    "abilities": [
+      []
+    ],
+    "defence": [
+      3,
+      4,
+      5
+    ],
+    "shield": [
+      null,
+      "shield"
+    ],
+    "allowed_talents": [],
+    "ballistic_skill": [
+      2,
+      3,
+      4
+    ],
+    "initiative": [
+      2,
+      3,
+      4
+    ],
+    "shooting": [
+      3,
+      4,
+      5
+    ],
+    "dexterity": [
+      3,
+      4,
+      5
+    ],
+    "armour": [
+      null,
+      "light_armour"
+    ],
+    "weapon_count": [
+      1
+    ],
+    "initial_loaded": [
+      true
+    ],
+    "allowed_oath_sources": [
+      {
+        "talents": [
+          {
+            "id": "honour_bound",
+            "acquisitions": [
+              {
+                "phase": "advancement",
+                "funding": "xp",
+                "choice": {
+                  "oath_id": "protect-allies"
+                },
+                "devotion_confirmed": null
+              }
+            ]
+          },
+          {
+            "id": "blessings_of_the_lady",
+            "acquisitions": [
+              {
+                "phase": "advancement",
+                "funding": "xp",
+                "choice": null,
+                "devotion_confirmed": null
+              }
+            ]
+          }
+        ],
+        "context": {
+          "gm_confirmation_id": "gm:scene",
+          "in_good_standing_confirmed": true,
+          "oath_id": "protect-allies",
+          "combat_tests_fulfil_oath_confirmed": true,
+          "forbidden_attack_skills": [
+            "shooting"
+          ],
+          "fleeing_breaks_oath": false,
+          "lady_prayer_before_battle_confirmed": false,
+          "honour_bound_used_this_session": false,
+          "unmitigated_success_scope_confirmed": false
+        },
+        "talent_facts": {
+          "weapon_skill": null,
+          "ballistic_skill": null,
+          "strength": null,
+          "toughness": null,
+          "initiative": null,
+          "agility": null,
+          "reason": null,
+          "fellowship": null,
+          "origin": "bretonnian_human",
+          "lores": [
+            {
+              "id": "high_society",
+              "magic": false
+            }
+          ],
+          "status": null,
+          "equipment": [],
+          "grail_quest_completed": false,
+          "can_cast_spells": false
+        }
+      }
+    ]
+  },
+  "npc_count": {
+    "minimum": 1,
+    "maximum": 1
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 3,
+      "denominator": 5
+    },
+    "started_rounds": {
+      "numerator": 3,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 1,
+    "exploration_trials": 1,
+    "finalist_trials": 1,
+    "top_k": 1,
+    "max_total_trials": 2
+  },
+  "max_rounds": 3,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "close",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh",
+    "two_handed_max_range": "long"
+  }
+}

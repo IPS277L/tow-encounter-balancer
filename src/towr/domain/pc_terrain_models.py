@@ -5,6 +5,8 @@ action and never reruns that movement. Completed-crossing K1 checks preserve
 the frozen movement prefix and its resource usage.
 """
 from __future__ import annotations
+from towr.domain.pc_acrobatic_models import actor_acrobatic_source
+from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
 
 from dataclasses import dataclass,replace
 from typing import TYPE_CHECKING
@@ -123,11 +125,12 @@ class PcTerrainTraversalProof:
 
 
 def _staff_support(state,actor):
+    from towr.domain.pc_actor_models import pc_actor_injury,pc_actor_inventory
     pc=actor in state.source.pc_activation_order
     member=state.participant(actor) if pc else None
-    injury=member.injury if pc else state.enemy(actor).state.injury
+    injury=pc_actor_injury(state,actor)
     if injury.conditions.has(Condition.DRAINED):return None  # No benefit, hence no optional Staff hand use.
-    inventory=member.weapon_inventory if pc else state.enemy(actor).state.weapon_inventory
+    inventory=pc_actor_inventory(state,actor)
     if inventory is None:return None
     if pc:
         from towr.domain.pc_heavy_wound_models import usable_hands,injured_hands
@@ -147,8 +150,8 @@ def _staff_support(state,actor):
 def _terrain_test(state,actor,test_id,staff):
     from towr.domain.pc_battlefield_manoeuvre_models import _athletics
     test=_athletics(state,actor,test_id)
-    injury=(state.participant(actor).injury if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury)
+    from towr.domain.pc_actor_models import pc_actor_injury
+    injury=pc_actor_injury(state,actor)
     modifiers=test.dice_modifiers
     if staff is not None:
         from towr.domain.weapon_effect_preparation import weapon_kind_test_modifiers
@@ -197,12 +200,12 @@ def expected_pc_terrain_traversal(state):
         from towr.domain.pc_melee_result_models import pc_melee_action_id
         identifier=pc_melee_action_id(state,actor)+':terrain:move:'+str(index)
         staff=_staff_support(state,actor)
-        injury=(state.participant(actor).injury if actor in state.source.pc_activation_order
-            else state.enemy(actor).state.injury)
+        from towr.domain.pc_actor_models import pc_actor_injury
+        injury=pc_actor_injury(state,actor)
         test=_terrain_test(state,actor,identifier+':athletics',staff)
         traversal=DifficultTerrainTraversalRequest(identifier,state.round_state,before.spatial,actor,
             injury.conditions,test,after.spatial.placement_for(actor).zone_id,
-            completed_crossing=after.spatial)
+            completed_crossing=after.spatial,acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,path,battlefield=before))
         return PcTerrainTraversalRequest(identifier,actor,index,move,after,crossed,staff,traversal)
     return None
 
@@ -244,7 +247,11 @@ def project_pc_terrain(state,proof):
         if injury.conditions.has(Condition.CRITICALLY_INJURED):
             conditions=conditions.with_condition(Condition.CRITICALLY_INJURED)
         updates['party']=_party_update(state,actor,injury=replace(injury,conditions=conditions),fate=fate)
-    else:
+    elif actor in state.source.enemy_activation_order:
         injury=state.enemy(actor).state.injury
         updates['enemies']=_enemy_update(state,actor,replace(injury,conditions=canonical.conditions))
+    else:
+        from towr.domain.pc_actor_models import pc_actor_injury,pc_actor_npc_update
+        injury=pc_actor_injury(state,actor)
+        updates.update(pc_actor_npc_update(state,actor,injury=replace(injury,conditions=canonical.conditions)))
     return updates

@@ -268,9 +268,9 @@ def _validate_casting(result: CowardlyFlightCastingResult) -> None:
     _equal(casting, CastingTestResult(
         source.id + ":casting", source.actor_id, SPELL.lore_id, casting.test,
         replace(source.magic_state, casting_lore_id=SPELL.lore_id,
-                casting_successes=source.magic_state.casting_successes + casting.test.successes,
-                latest_casting_roll_successes=casting.test.successes),
-        source.magic_state.casting_successes, casting.test.successes, added, follow_ups,
+                casting_successes=source.magic_state.casting_successes + casting.test.effective_successes,
+                latest_casting_roll_successes=casting.test.effective_successes),
+        source.magic_state.casting_successes, casting.test.effective_successes, added, follow_ups,
         ("RULE-MAGIC-004:casting-test", "RULE-MAGIC-003:rule-of-nine"),
     ), "Casting Test/state/follow-ups")
     _equal(execution.applied_rule_ids, ("RULE-COMBAT-004:casting-improvise-execution",), "action rules")
@@ -393,7 +393,7 @@ def _validate_spell(result: CowardlyFlightCastingResult) -> None:
         if not isinstance(resolved, CowardlyFlightWillpowerResult):
             raise TypeError("Willpower result must be typed")
         _normal_test(resolved.test, request.test.id, request.test.profile)
-        resisted = resolved.test.successes >= request.potency
+        resisted = resolved.test.effective_successes >= request.potency
         state = request.target_state
         application = None
         if not resisted:

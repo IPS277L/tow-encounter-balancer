@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import tempfile
 from threading import Thread
+import time
 import unittest
 from unittest.mock import patch
 
@@ -21,6 +22,7 @@ CHECK = r'''<script>
 (async()=>{
  if(window.parent!==window)return;
  function check(value,message){if(!value)throw Error(message);document.body.setAttribute('data-ui-stage',message);}
+ const talentSource=(id,funding='xp')=>({id,acquisitions:[{phase:'creation',funding,choice:null,devotion_confirmed:null}]});
  try{
   document.body.setAttribute('data-ui-check','running');
   while(!byId('request').value)await new Promise(resolve=>setTimeout(resolve,50));
@@ -53,20 +55,32 @@ CHECK = r'''<script>
   byId('request').value=beforeThrowing;byId('request').dispatchEvent(new Event('input'));byId('request-visual-tab').click();check(canonical(read())===beforeThrowing,'Throwing UI exercise restores the original source');
   const beforeWizard=canonical(read());
   let wizardEntry=document.querySelector('[data-role="talent-entry"][data-member="0"]');wizardEntry.value='wizard';wizardEntry.dispatchEvent(new Event('input'));document.querySelector('#talent-options-0 [role="option"]').click();
-  check(read().party[0].talents.includes('wizard') && read().party[0].magic.wizard_level===1 && read().party[0].magic.memorised_spells.join(',')==='lightning_blast','Wizard tag creates explicit visible magic facts');
+  check(read().party[0].talents.some(value=>value.id==='wizard') && read().party[0].magic.wizard_level===1 && read().party[0].magic.memorised_spells.join(',')==='lightning_blast','Wizard tag creates explicit visible magic facts');
   const reason=document.querySelector('[data-path="party/0/characteristics/reason"]'),willpower=document.querySelector('[data-path="party/0/skills/willpower"]');check(reason && !reason.disabled && willpower && !willpower.disabled && reason.title.includes('(Reason)') && willpower.title.includes('(Willpower)'),'wizard activates real Reason and Willpower fields');
   let wizardLevel=document.querySelector('[data-path="party/0/magic/wizard_level"]');wizardLevel.value='4';wizardLevel.dispatchEvent(new Event('change'));
-  let breath=document.querySelector('[data-spell="fire_breath"][data-member="0"]');breath.checked=true;breath.dispatchEvent(new Event('change'));check(read().party[0].magic.wizard_level===4 && read().party[0].magic.memorised_spells.length===2,'wizard rank and known spells are editable facts');
+  let breath=document.querySelector('[data-spell="fire_breath"][data-member="0"]');breath.checked=true;breath.dispatchEvent(new Event('change'));check(read().party[0].magic.wizard_level===4 && read().party[0].talents.find(value=>value.id==='wizard').acquisitions.length===4 && read().party[0].magic.memorised_spells.length===2,'wizard rank and known spells are editable facts');
+  const coherentWizard=canonical(read()),mismatchedWizard=read();
+  mismatchedWizard.party[0].magic.wizard_level=2;byId('request').value=pretty(mismatchedWizard);byId('request').dispatchEvent(new Event('input'));byId('request-visual-tab').click();
+  check(read().party[0].magic.wizard_level===2 && read().party[0].talents.find(value=>value.id==='wizard').acquisitions.length===4 && byId('request-visual').textContent.includes('не совпадает'),'raw JSON Wizard mismatch remains an explicit invalid source rather than being repaired');
+  wizardLevel=document.querySelector('[data-path="party/0/magic/wizard_level"]');wizardLevel.value='4';wizardLevel.dispatchEvent(new Event('change'));check(canonical(read())===coherentWizard,'explicit Wizard level edit restores both coherent source fields');
   let kit=document.querySelector('[data-path="party/0/magic/arcane_paraphernalia"]');kit.checked=false;kit.dispatchEvent(new Event('change'));check(!read().party[0].magic.arcane_paraphernalia && byId('request-visual').textContent.includes('импровизированный комплект пока не поддержан'),'missing magical kit remains an explicit unsupported draft');
   const wizardDraft=canonical(read());byId('request-json-tab').click();byId('request-visual-tab').click();check(canonical(read())===wizardDraft,'wizard facts survive JSON and card switching');
   document.querySelector('[aria-label="Удалить талант Маг (Wizard)"]').click();check(canonical(read())===beforeWizard && !document.querySelector('[data-path="party/0/characteristics/reason"]') && !document.querySelector('[data-path="party/0/skills/willpower"]'),'removing Wizard restores nonmagical input without hidden magic fields');
   const beforeCombatTalents=canonical(read());
   const addCombatTag=value=>{const entry=document.querySelector('[data-role="talent-entry"][data-member="0"]');entry.value=value;entry.dispatchEvent(new Event('input'));document.querySelector('#talent-options-0 [role="option"]').click();};
-  addCombatTag('wild_attack');check(read().party[0].talents.includes('wild_attack') && !read().party[0].talent_acquisition && byId('request-visual').textContent.includes('не выполнены требования'),'earned Wild Attack preserves missing Strength requirement without an automatic waiver');
-  let freeCombat=document.querySelector('[data-path="party/0/talent_acquisition/wild_attack"]');check(freeCombat && !freeCombat.checked,'selected combat talent exposes explicit acquisition fact');freeCombat.checked=true;freeCombat.dispatchEvent(new Event('change'));
-  addCombatTag('defensive_stance');check(read().party[0].talent_acquisition.wild_attack==='creation_free' && !document.querySelector('[data-path="party/0/talent_acquisition/defensive_stance"]').checked,'Defensive Stance defaults to earned independently');
-  const combatDraft=canonical(read());byId('request-json-tab').click();byId('request-visual-tab').click();check(canonical(read())===combatDraft && document.querySelector('[data-path="party/0/talent_acquisition/wild_attack"]').checked,'combat tags and acquisition survive switching');
-  document.querySelector('[aria-label="Удалить талант Дикая атака (Wild Attack)"]').click();check(!read().party[0].talent_acquisition && read().party[0].talents.includes('defensive_stance'),'removing combat tag cleans matching acquisition only');document.querySelector('[aria-label="Удалить талант Оборонительная стойка (Defensive Stance)"]').click();check(canonical(read())===beforeCombatTalents,'combat talent removal restores source without hidden facts');
+  addCombatTag('wild_attack');check(read().party[0].talents.some(value=>value.id==='wild_attack') && read().party[0].talents.find(value=>value.id==='wild_attack').acquisitions[0].funding==='xp' && byId('request-visual').textContent.toLowerCase().includes('не выполнены требования'),'paid Wild Attack preserves missing Strength requirement without an automatic waiver');
+  let freeCombat=document.querySelector('[data-path="party/0/talents/0/acquisitions/0/funding"]');check(freeCombat && freeCombat.value==='xp','selected combat talent exposes explicit acquisition facts');freeCombat.value='free';freeCombat.dispatchEvent(new Event('change'));
+  addCombatTag('defensive_stance');check(read().party[0].talents[0].acquisitions[0].funding==='free' && document.querySelector('[data-path="party/0/talents/1/acquisitions/0/funding"]').value==='xp','Defensive Stance defaults to paid acquisition independently');
+  const combatDraft=canonical(read());byId('request-json-tab').click();byId('request-visual-tab').click();check(canonical(read())===combatDraft && document.querySelector('[data-path="party/0/talents/0/acquisitions/0/funding"]').value==='free','complete acquisition facts survive switching');
+  document.querySelector('[aria-label="Удалить талант Дикая атака (Wild Attack)"]').click();check(read().party[0].talents.length===1 && read().party[0].talents[0].id==='defensive_stance' && read().party[0].talents[0].acquisitions[0].funding==='xp','removing a tag preserves another complete acquired source');document.querySelector('[aria-label="Удалить талант Оборонительная стойка (Defensive Stance)"]').click();check(canonical(read())===beforeCombatTalents,'combat talent removal restores source without hidden facts');
+  const beforeChoiceTalent=canonical(read());addCombatTag('hatred');
+  check(read().party[0].talents[0].acquisitions[0].choice.group_id==='' && byId('request-visual').textContent.includes('неполный черновик'),'required Talent choice stays an explicit incomplete draft');
+  let hatredGroup=document.querySelector('[data-path="party/0/talents/0/acquisitions/0/choice/group_id"]');hatredGroup.value='group:beastmen';hatredGroup.dispatchEvent(new Event('change'));
+  let talentOrigin=document.querySelector('[data-path="party/0/talent_facts/origin"]');talentOrigin.value='empire_human';talentOrigin.dispatchEvent(new Event('change'));
+  check(read().party[0].talent_facts.origin==='empire_human' && !Object.hasOwn(read().party[0].talent_facts,'grail_quest_completed') && !Object.hasOwn(read().party[0].talent_facts,'can_cast_spells'),'editing optional Origin does not fabricate GM or casting confirmations');
+  const choiceDraft=canonical(read());byId('request-json-tab').click();byId('request-visual-tab').click();check(canonical(read())===choiceDraft && read().party[0].talents[0].acquisitions[0].choice.group_id==='group:beastmen','typed choice and optional owner facts survive view switching');
+  check(document.querySelector('.talent-tag.pending') && byId('request-visual').textContent.includes('Эффекты ещё не подключены'),'known unimplemented Talent remains a visibly unsupported draft');
+  byId('request').value=beforeChoiceTalent;byId('request').dispatchEvent(new Event('input'));byId('request-visual-tab').click();
   const beforePcRanged=canonical(read());
   let rangedWeapon=document.querySelector('[data-path="party/0/equipment/weapons/0/weapon"]');check([...rangedWeapon.options].some(option=>option.value==='pistol') && [...rangedWeapon.options].some(option=>option.value==='repeater_handbow'),'three player Close ranged weapons are available');rangedWeapon.value='pistol';rangedWeapon.dispatchEvent(new Event('change'));
   check(read().party[0].equipment.weapons[0].initially_loaded && !read().party[0].ranged.has_blackpowder_lore && !read().party[0].ranged.ammunition_supply_confirmed,'Pistol item shows its actual charge without granting Lore or supply');
@@ -201,10 +215,10 @@ CHECK = r'''<script>
   check(!talent.hasAttribute('list') && !document.querySelector('datalist') && talent.getAttribute('aria-expanded')==='true','custom talent dropdown opens');
   check(suggestions.getBoundingClientRect().top>=talent.getBoundingClientRect().bottom && suggestions.getBoundingClientRect().width>=talent.getBoundingClientRect().width-1 && Number.parseFloat(getComputedStyle(suggestion).fontSize)>=13,'readable talent menu anchored below input');
   talent.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));check(talent.getAttribute('aria-expanded')==='false','Escape closes suggestions');
-  talent.value='missing';talent.dispatchEvent(new Event('input'));check(suggestions.textContent.includes('Добавить «missing»'),'custom talent can be added from dropdown');
+  talent.value='missing';talent.dispatchEvent(new Event('input'));check(suggestions.classList.contains('hidden') && !suggestions.querySelector('[role="option"]'),'unknown Talent IDs cannot be added from the closed catalog');
   talent.value='';talent.dispatchEvent(new Event('input'));suggestions.querySelector('[role="option"]').click();
-  check(!document.querySelector('[data-action="add-talent"]') && read().party[0].talents.join(',')==='lucky','dropdown click adds talent without a separate button');
-  check(read().party[0].talents.join(',')==='lucky' && document.querySelector('.talent-tag'),'talent becomes a tag');
+  check(!document.querySelector('[data-action="add-talent"]') && read().party[0].talents.map(value=>value.id).join(',')==='lucky','dropdown click adds talent without a separate button');
+  check(read().party[0].talents.map(value=>value.id).join(',')==='lucky' && document.querySelector('.talent-tag'),'talent becomes a tag');
   const talentTag=document.querySelector('.talent-tag');check(!talentTag.hasAttribute('title') && talentTag.dataset.tooltip.includes('Судьбы'),'talent tag uses custom hint');talentTag.focus({preventScroll:true});check(!byId('tag-tooltip').hidden && byId('tag-tooltip').textContent===talentTag.dataset.tooltip && talentTag.getAttribute('aria-describedby')==='tag-tooltip','keyboard focus opens an accessible tag tooltip');document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));check(byId('tag-tooltip').hidden,'Escape dismisses tag tooltip');talentTag.blur();
   const tagAppearance=tag=>{const style=getComputedStyle(tag);return [tag.getBoundingClientRect().height,style.fontSize,style.lineHeight,style.borderRadius].join('|');},talentTagAppearance=tagAppearance(talentTag);check(talentTag.getBoundingClientRect().height===26,'removable talent tag uses compact result tag height');
   const tagList=document.querySelector('.talent-tags');check(tagList.getBoundingClientRect().top-tagList.previousElementSibling.getBoundingClientRect().bottom>=12 && tagList.nextElementSibling.getBoundingClientRect().top-tagList.getBoundingClientRect().bottom>=14,'talent tags have breathing room above and below');
@@ -220,10 +234,10 @@ CHECK = r'''<script>
   for(const [button,color] of [[addButtons[0],'rgb(70, 102, 82)'],[deleteButtons[0],'rgb(150, 89, 89)']]){button.classList.add('ui-test-hover');const style=getComputedStyle(button);check(style.color===color,'green add and red delete hover');const a=luminance(style.color),b=luminance(background(button));check((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,'colored hover remains readable');button.classList.remove('ui-test-hover');}
   check(addButtons.every(button=>getComputedStyle(button).borderStyle==='solid' && getComputedStyle(button).borderColor==='rgb(204, 212, 223)' && getComputedStyle(button).backgroundColor==='rgb(255, 255, 255)'),'compact add buttons have a visible light border and white surface');
   talent=document.querySelector('[data-role="talent-entry"][data-member="0"]');talent.value='lucky';talent.dispatchEvent(new Event('input'));talent.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));check(read().party[0].talents.length===1,'duplicate tag prevented');
-  talent.value='Mighty Blow';talent.dispatchEvent(new Event('input'));document.querySelector('#talent-options-0 [role="option"]').click();check(document.querySelector('.talent-tag.pending'),'unsupported talent stays visible in draft');
+  talent.value='Acrobatic';talent.dispatchEvent(new Event('input'));document.querySelector('#talent-options-0 [role="option"]').click();check(document.querySelector('.talent-tag.pending'),'unsupported talent stays visible in draft');
   document.querySelector('[aria-label="Удалить талант Могучий удар (Mighty Blow)"]').click();document.querySelector('[aria-label="Удалить талант Удачливый (Lucky)"]').click();check(read().party[0].talents.length===0,'talent tags removable');
-  talent=document.querySelector('[data-role="talent-entry"][data-member="0"]');talent.focus();talent.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown'}));talent.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));check(read().party[0].talents.join(',')==='lucky','keyboard selection adds immediately');document.querySelector('[aria-label="Удалить талант Удачливый (Lucky)"]').click();
-  talent=document.querySelector('[data-role="talent-entry"][data-member="0"]');talent.value='luck';talent.dispatchEvent(new Event('input'));talent.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));check(read().party[0].talents.join(',')==='lucky','Enter selects matching talent instead of creating a partial tag');document.querySelector('[aria-label="Удалить талант Удачливый (Lucky)"]').click();
+  talent=document.querySelector('[data-role="talent-entry"][data-member="0"]');talent.focus();talent.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown'}));talent.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));check(read().party[0].talents.map(value=>value.id).join(',')==='lucky','keyboard selection adds immediately');document.querySelector('[aria-label="Удалить талант Удачливый (Lucky)"]').click();
+  talent=document.querySelector('[data-role="talent-entry"][data-member="0"]');talent.value='luck';talent.dispatchEvent(new Event('input'));talent.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));check(read().party[0].talents.map(value=>value.id).join(',')==='lucky','Enter selects matching talent instead of creating a partial tag');document.querySelector('[aria-label="Удалить талант Удачливый (Lucky)"]').click();
   document.querySelector('[data-action="add-consumables"]').click();
   kind=document.querySelector('[data-path="party/0/consumables/0/kind"]');kind.value='enhancement_potion';kind.dispatchEvent(new Event('change'));
   let attribute=document.querySelector('[data-path="party/0/consumables/0/characteristic"]');attribute.value='agility';attribute.dispatchEvent(new Event('change'));
@@ -251,8 +265,8 @@ CHECK = r'''<script>
   check(['ballistic_skill','initiative','shooting','dexterity','awareness','throwing','brawn','endurance'].every(key=>document.querySelector('[data-path="search_space/'+key+'"]')),'manual Shooting, Aim, Throwing, Brawn and Endurance facts are editable');
   check(planningSearchSpace(automaticSource).weapon.length===39 && ['greatsword','foot_spear','polearm','longbow','repeater_handgun','weighted_net','sling','knuckledusters','cavalry_spear','lance'].every(weapon=>planningSearchSpace(automaticSource).weapon.includes(weapon)) && !planningSearchSpace(automaticSource).weapon.includes('unarmed') && planningSearchSpace(automaticSource).shield.join(',')===',shield','client automatic envelope includes physical weapons without inventing an Unarmed item');
   check(document.querySelectorAll('[data-path^="search_space/mount/"]').length===7 && document.querySelectorAll('[data-path^="search_space/weapon_grip/"]').length===2,'all six mount kinds and variable grips are explicit optional search constraints');
-  check(document.querySelectorAll('[data-path^="search_space/allowed_talents/"]').length===3 && planningSearchSpace(automaticSource).allowed_talents.join(',')==='magic_resistance,defensive_stance,wild_attack','generated talents are permitted components, not prewritten subsets');
-  for(const talent of ['magic_resistance','defensive_stance','wild_attack']){const box=document.querySelector('[data-path="search_space/allowed_talents/'+talent+'"]');box.checked=false;box.dispatchEvent(new Event('change'));}check(read().search_space.allowed_talents.length===0 && automaticSearchPlan(read()).max_candidates>=1,'empty permitted talents is a valid search space');
+  check(document.querySelectorAll('[data-path^="search_space/allowed_talents/"]').length===7 && planningSearchSpace(automaticSource).allowed_talents.join(',')==='magic_resistance,defensive_stance,wild_attack,mighty_blow,rapid_reload,armour_bane,allies_in_arms','generated talents are permitted components, not prewritten subsets');
+  for(const talent of ['magic_resistance','defensive_stance','wild_attack','mighty_blow','rapid_reload','armour_bane','allies_in_arms']){const box=document.querySelector('[data-path="search_space/allowed_talents/'+talent+'"]');box.checked=false;box.dispatchEvent(new Event('change'));}check(read().search_space.allowed_talents.length===0 && automaticSearchPlan(read()).max_candidates>=1,'empty permitted talents is a valid search space');
   byId('request-json-tab').click();check(!byId('request').classList.contains('hidden'),'JSON request tab');
   const edited=read();edited.party[0].characteristics.toughness+=1;byId('request').value=pretty(edited);byId('request').dispatchEvent(new Event('input'));
   byId('request-visual-tab').click();check(document.querySelector('[data-path="party/0/characteristics/toughness"]').value===String(edited.party[0].characteristics.toughness),'JSON edit visible in card');
@@ -328,7 +342,7 @@ CHECK = r'''<script>
   const hintRect=byId('tag-tooltip').getBoundingClientRect();check(hintRect.left>=0 && hintRect.right<=innerWidth && hintRect.top>=0 && hintRect.bottom<=innerHeight,'tooltip stays inside viewport');hoveredTag.dispatchEvent(new PointerEvent('pointerleave',{relatedTarget:byId('tag-tooltip')}));byId('tag-tooltip').dispatchEvent(new PointerEvent('pointerenter'));await new Promise(resolve=>setTimeout(resolve,150));check(!byId('tag-tooltip').hidden,'tooltip remains available while pointer moves onto it');byId('tag-tooltip').dispatchEvent(new PointerEvent('pointerleave'));check(byId('tag-tooltip').hidden,'tooltip closes after leaving tag and hint');
   const replayButton=byId('result-card-heading').querySelector('[data-action="download-replay"]');check(byId('result-card-heading').querySelectorAll('button').length===1 && replayButton.textContent==='' && replayButton.querySelector('svg') && replayButton.getAttribute('aria-label') && replayButton.title,'only accessible replay icon remains');check(replayButton.getBoundingClientRect().height===byId('download').getBoundingClientRect().height && buttonPaint(replayButton)===buttonPaint(byId('download')) && hoverChanges(replayButton),'replay icon shares existing size styling and hover');
   const duplicate=JSON.parse(JSON.stringify(candidate));duplicate.npcs=[candidate.npcs[0],candidate.npcs[0]];renderResultVisual({...result,validations:[duplicate],explored:[]});check(document.querySelectorAll('#result-visual>.result-card>.npc-card').length===2,'identical opponents remain separate cards');renderResultVisual(result);
-  const talentPreview=JSON.parse(JSON.stringify(result));talentPreview.validations=[{...talentPreview.validations[0],npcs:[{...candidate.npcs[0],weapon_skill:4,strength:4,talents:['magic_resistance','defensive_stance','wild_attack']}]}];talentPreview.explored=[];const talentRoot=node('div');renderResultVisual(talentPreview,talentRoot);for(const title of ['Magic Resistance','Defensive Stance','Wild Attack'])check([...talentRoot.querySelectorAll('.item-tag')].some(tag=>tag.textContent.includes(title) && tag.dataset.tooltip),'real NPC talent tags have descriptive custom tooltips');
+  const talentPreview=JSON.parse(JSON.stringify(result));talentPreview.validations=[{...talentPreview.validations[0],npcs:[{...candidate.npcs[0],weapon_skill:4,strength:4,talents:['magic_resistance','defensive_stance','wild_attack'].map(id=>talentSource(id))}]}];talentPreview.explored=[];const talentRoot=node('div');renderResultVisual(talentPreview,talentRoot);for(const title of ['Magic Resistance','Defensive Stance','Wild Attack'])check([...talentRoot.querySelectorAll('.item-tag')].some(tag=>tag.textContent.includes(title) && tag.dataset.tooltip),'real NPC talent tags have descriptive custom tooltips');
   const equipmentPreview=JSON.parse(JSON.stringify(result));equipmentPreview.validations=[{...equipmentPreview.validations[0],npcs:['axe','sword','warhammer','morning_star'].map(weapon=>({...candidate.npcs[0],weapons:[{id:'weapon',weapon,location:'held',hand:'left'}],defence:6,armour:{body:['light_armour'],benefit:'light_armour',helmet:null,shield:'shield',barding:false}}))}];equipmentPreview.explored=[];const previewRoot=node('div');renderResultVisual(equipmentPreview,previewRoot);check(previewRoot.querySelectorAll('.npc-card').length===4 && [...previewRoot.querySelectorAll('.npc-card')].every(card=>card.querySelector('[data-stat="defence"]').textContent==='6' && [...card.querySelectorAll('.item-tag')].some(tag=>tag.textContent.includes('Shield') && tag.dataset.tooltip.includes('+1 Resilience'))),'generated Defence and Shield are real result fields and tags');for(const [index,word] of ['armoured','Defence','Staggered','−1d'].entries())check(previewRoot.querySelectorAll('.npc-card')[index].querySelector('.item-tag').dataset.tooltip.includes(word),'each new weapon has its actual Trait tooltip');
   const removedTag=document.querySelector('#result-visual .item-tag');removedTag.focus({preventScroll:true});renderResultVisual(result);check(byId('tag-tooltip').hidden,'rerender clears a tooltip whose tag was replaced');
   showTagTooltip(document.querySelector('#result-visual .item-tag'));setResultView('json');check(byId('tag-tooltip').hidden,'switching away from cards clears tag tooltip');setResultView('visual');
@@ -430,8 +444,8 @@ CHECK = r'''<script>
    await loadProfile(npcKey,JSON.stringify(changedNpc));byId('result-card-heading').querySelector('[data-action="reset-npc-draft"]').click();check(npcDrafts.size===0 && canonical(lastResult)===profileReport,'reset composition discards only its draft');
    const rangedNpc={...originalNpc,weapons:[{id:'weapon',weapon:'repeater_handbow',location:'held',hand:'left',initially_loaded:true}],armour:{...originalNpc.armour,shield:null},ranged:{ballistic_skill:2,shooting:5,initiative:4,dexterity:3,ammunition_supply_confirmed:true,has_blackpowder_lore:null,has_blackpowder_kit:null}};
    await loadProfile(npcKey,JSON.stringify(rangedNpc));check(['ballistic_skill','shooting','initiative','dexterity'].every(key=>document.querySelector('#result-visual>.result-card .npc-card [data-stat="'+key+'"]').textContent===String(rangedNpc.ranged[key])),'granular generated ranged import fills the actual BS I Shooting Dexterity cells');check(document.querySelector('#result-visual>.result-card .npc-card').textContent.includes('(Repeater Handbow)'),'generated ranged weapon has a bilingual tag');await profileInput(npcKey).parentElement.querySelector('[data-action="save-npc"]').onclick();check(canonical(JSON.parse(profileExports.at(-1).text))===canonical(rangedNpc),'ranged NPC character export retains all source permissions');await loadProfile(npcKey,JSON.stringify(originalNpc));check(npcDrafts.size===0 && canonical(lastResult)===profileReport,'restoring ranged draft keeps the original report intact');
-   const rich=JSON.parse(JSON.stringify(profileSource.party[0]));rich.actor_id='pc:imported';rich.equipment.weapons.push({id:'spare:granular',weapon:'glaive',location:'carried'});rich.equipment.armour.push({id:'heavy:granular',kind:'heavy_armour',location:'carried'});rich.consumables=[{id:'potion:granular',kind:'enhancement_potion',quantity:3,characteristic:'ballistic_skill'}];rich.talents=['lucky','wild_attack','Future talent'];rich.talent_acquisition={wild_attack:'creation_free'};
-   await loadProfile('player:0','\uFEFF'+JSON.stringify(rich));check(canonical(read().party[0])===canonical(rich) && canonical(read().party.slice(1))===canonical(profileSource.party.slice(1)) && !byId('result-stale').classList.contains('hidden'),'player import preserves full unsupported inventory and marks report stale');check(document.querySelector('[data-path="party/0/talent_acquisition/wild_attack"]').checked,'granular import restores explicit Character Creation fact');
+   const rich=JSON.parse(JSON.stringify(profileSource.party[0]));rich.actor_id='pc:imported';rich.equipment.weapons.push({id:'spare:granular',weapon:'glaive',location:'carried'});rich.equipment.armour.push({id:'heavy:granular',kind:'heavy_armour',location:'carried'});rich.consumables=[{id:'potion:granular',kind:'enhancement_potion',quantity:3,characteristic:'ballistic_skill'}];rich.talents=[talentSource('lucky'),talentSource('wild_attack','free'),talentSource('mighty_blow','free')];
+   await loadProfile('player:0','\uFEFF'+JSON.stringify(rich));check(canonical(read().party[0])===canonical(rich) && canonical(read().party.slice(1))===canonical(profileSource.party.slice(1)) && !byId('result-stale').classList.contains('hidden'),'player import preserves full unsupported inventory and marks report stale');check(document.querySelector('[data-path="party/0/talents/1/acquisitions/0/funding"]').value==='free','granular import restores explicit Character Creation fact');
    await profileInput('player:0').parentElement.querySelector('[data-action="save-player"]').onclick();check(canonical(JSON.parse(profileExports.at(-1).text))===canonical(rich),'rich player file roundtrip retains gear consumables talents and Fate');
    for(const text of [JSON.stringify(originalNpc),'{',JSON.stringify({...rich,actor_id:profileSource.party[1].actor_id})]){await loadProfile('player:0',text);check(byId('status').className==='error' && canonical(read().party[0])===canonical(rich),'wrong invalid or duplicate-ID player files leave source intact');}
    await profileInput('player:0').onchange({target:{files:[{size:2*1024*1024+1,text:()=>{throw Error('oversize file must not be read');}}],value:''}});check(byId('status').textContent.includes('2 МиБ') && canonical(read().party[0])===canonical(rich),'oversized character file is rejected before reading');
@@ -481,7 +495,8 @@ class LocalUiBrowserTests(unittest.TestCase):
                             # shooting. Allow virtual polling without dumping
                             # the DOM before the server's real work completes.
                             # Polling and async file-validation steps advance
-                            # virtual time; keep the real 45s deadline below.
+                            # virtual time. The host additionally allows Edge
+                            # startup/shutdown after its own 45s browser limit.
                             '--virtual-time-budget=240000', '--timeout=45000',
                             '--user-data-dir=' + str(Path(folder)/'profile'), f'http://127.0.0.1:{server.server_port}/']
                         if os.name == 'nt':
@@ -493,11 +508,20 @@ class LocalUiBrowserTests(unittest.TestCase):
                                 f'-ArgumentList {quote(subprocess.list2cmdline(arguments))} '
                                 f'-WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput {quote(str(output))} '
                                 f'-RedirectStandardError {quote(str(errors))}; exit $p.ExitCode')
-                            result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', script],
-                                capture_output=True, timeout=45)
+                            started = time.monotonic()
+                            try:
+                                result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', script],
+                                    capture_output=True, timeout=75)
+                            except subprocess.TimeoutExpired as error:
+                                self.preserve_browser_evidence(output=output, errors=errors,
+                                    metadata=f'host timeout75s; browser limit45s; elapsed={time.monotonic()-started:.3f}s')
+                                error.add_note('Browser DOM/stderr evidence: .cache/local-ui-browser-last.*')
+                                raise
                             dom = output.read_text(encoding='utf-8')
+                            self.preserve_browser_evidence(output=output, errors=errors,
+                                metadata=f'host completed; elapsed={time.monotonic()-started:.3f}s; exit={result.returncode}')
                         else:
-                            result = subprocess.run([BROWSER, *arguments], capture_output=True, timeout=45)
+                            result = subprocess.run([BROWSER, *arguments], capture_output=True, timeout=75)
                             dom = result.stdout.decode('utf-8', errors='replace')
                         self.assertEqual(result.returncode, 0, result.stderr[-2000:])
                         error_at = dom.find('data-ui-error=')
@@ -507,6 +531,18 @@ class LocalUiBrowserTests(unittest.TestCase):
                 finally:
                     server.shutdown()
                     thread.join(5)
+
+    @staticmethod
+    def preserve_browser_evidence(*, output, errors, metadata):
+        folder = Path('.cache')
+        folder.mkdir(exist_ok=True)
+        for original, suffix in ((output, 'dom.html'), (errors, 'stderr.log')):
+            destination = folder / ('local-ui-browser-last.' + suffix)
+            try:
+                destination.write_bytes(original.read_bytes() if original.exists() else b'')
+            except OSError as error:
+                metadata += '\nCould not copy ' + str(original) + ': ' + str(error)
+        (folder / 'local-ui-browser-last.metadata.txt').write_text(metadata + '\n', encoding='utf-8')
 
 
 if __name__ == '__main__':

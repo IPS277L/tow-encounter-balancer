@@ -1,5 +1,7 @@
 """Actual one-handed shield equipment and the fixed M53 fighting policy."""
 from __future__ import annotations
+from towr.domain.pc_acrobatic_models import actor_acrobatic_source
+from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
 
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -96,6 +98,7 @@ def pc_has_working_shield(member: PcMeleeParticipantState) -> bool:
 
 
 def pc_shield_recover_hand(member: PcMeleeParticipantState, *, state=None) -> PcWeaponHand | None:
+    from towr.domain.pc_weapon_inventory import equipment_usable_hands
     if member.shield is None or member.shield.location is not PcShieldLocation.DROPPED:
         return None
     if state is not None and not pc_shield_is_close(state, member.actor_id):
@@ -111,7 +114,7 @@ def pc_shield_recover_hand(member: PcMeleeParticipantState, *, state=None) -> Pc
         return None
     if member.weapon_hand is PcTwoHandedGrip.BOTH:
         return None
-    return next((side for side in usable_hands(member)
+    return next((side for side in equipment_usable_hands(member)
         if side is not member.weapon_hand and side not in injured_hands(member)),None)
 
 
@@ -130,10 +133,12 @@ def pc_shield_resilience(state: PcMeleeState, actor: str) -> ResilienceProfile:
     # worn item (e.g. Helmet) without adding imaginary Resilience.
     from towr.domain.armour_models import armour_is_worn
     worn=(armour_is_worn(source.armour) if source.armour is not None else source.armour_worn is True)
-    return ResilienceProfile(pc.toughness,bonus,
+    base=ResilienceProfile(pc.toughness,bonus,
         armoured=True if worn and bonus == 0 else None,
         mundane_armour_ward=(source.armour is not None
             and source.armour.benefit is BodyArmour.METEORIC_IRON))
+    from towr.domain.pc_armour_bane_models import armour_bane_resilience
+    return armour_bane_resilience(state,actor,base)
 
 
 def pc_defence_hand(member: PcMeleeParticipantState, attack_skill: Skill) -> PcWeaponHand | PcTwoHandedGrip | None:
@@ -155,6 +160,9 @@ def pc_protection_hand(member: PcMeleeParticipantState, attack_skill: Skill,
 
 
 def expected_pc_shield_release(state: PcMeleeState) -> PcShieldReleaseProof | None:
+    from towr.domain.pc_bash_attack_models import expected_bash_pc_shield_release
+    bash=expected_bash_pc_shield_release(state)
+    if bash is not None:return bash
     if state.pending or state.pending_wound is not None:
         return None
     turn = state.round_state.active_turn
@@ -479,7 +487,7 @@ def expected_pc_shield_approach(state):
         terrain=terrain_test_required_for_route(state,actor,route)
         request = FreeMovementRequest(pc_melee_action_id(state, actor)+':shield:approach',
             state.round_state, spatial, actor, speed, member.injury.conditions, route,
-            crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain)
+            crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain,acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,route))
         result = resolve_free_movement(request)
     elif not battlefield_path_available(state, actor, (), close_to_ids=close):
         return None
@@ -505,8 +513,24 @@ def pc_shield_approach_updates(state, proof):
 def validate_pc_shields(state):
     """A ground Shield is the source-owned item witnessed by its journal."""
     from towr.domain.pc_melee_result_models import PcRecoverProof
+    from towr.domain.pc_musician_equipment_models import PcMusicianEquipmentProof
+    from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
     expected = {actor: None for actor in state.source.pc_activation_order}
     for index, proof in enumerate(state.history):
+        if type(proof) is PcMusicianRecoverProof:
+            replace(proof)
+            proof=proof.equipment
+        if type(proof) is PcMusicianEquipmentProof and proof.actor_id in expected:
+            replace(proof)
+            previous,current=proof.previous.shield,proof.state.shield
+            if previous!=current:
+                if (proof.history_index!=index or previous is None or current is None
+                        or previous.location is not PcShieldLocation.HELD
+                        or previous.ground!=expected[proof.actor_id]
+                        or current.location is not PcShieldLocation.DROPPED
+                        or current.ground is None or expected[proof.actor_id] is not None):
+                    raise ValueError('music Shield release changed its actual source or drop position')
+                expected[proof.actor_id]=current.ground
         if type(proof) is PcShieldDropProof:
             if (proof.history_index != index or not 0 <= proof.loss_witness_history_index < index
                     or state.history[proof.loss_witness_history_index] != proof.loss_witness

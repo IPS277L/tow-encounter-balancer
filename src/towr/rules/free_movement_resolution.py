@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from towr.domain.talent_acrobatic_models import validate_acrobatic_source, acrobatic_rule_ids
+
 from dataclasses import replace
 
 from towr.domain.condition_models import Condition
@@ -75,6 +77,7 @@ def resolve_free_move_prone_removal(
 
 def resolve_free_movement(request: FreeMovementRequest) -> FreeMovementResult:
     """Move the active actor along one legal incidental free-move route."""
+    replace(request)
     state = request.state
     actor = state.placement_for(request.actor_id)
     if request.actor_id in state.free_move_used_entity_ids:
@@ -100,7 +103,7 @@ def resolve_free_movement(request: FreeMovementRequest) -> FreeMovementResult:
 
     for entity_id in request.path_entity_ids:
         crossed = state.placement_for(entity_id)
-        if crossed.side_id != actor.side_id:
+        if crossed.side_id != actor.side_id and not validate_acrobatic_source(request.acrobatic,request.actor_id):
             raise ValueError("free movement cannot pass through an enemy")
 
     updated_placements = tuple(
@@ -122,6 +125,8 @@ def resolve_free_movement(request: FreeMovementRequest) -> FreeMovementResult:
         ),
     )
     return FreeMovementResult(
+        acrobatic=request.acrobatic,
+        path_entity_ids=request.path_entity_ids,
         request_id=request.id,
         rule_id=request.rule_id,
         round_state=request.round_state,
@@ -137,6 +142,7 @@ def resolve_free_movement(request: FreeMovementRequest) -> FreeMovementResult:
                     request.rule_id,
                     SPEED_MOVEMENT_RULE_ID,
                     ZONE_GRAPH_RULE_ID,
+                    *acrobatic_rule_ids(request.acrobatic,request.actor_id),
                 )
             )
         ),

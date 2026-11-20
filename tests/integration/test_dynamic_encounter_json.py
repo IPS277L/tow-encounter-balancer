@@ -1,4 +1,6 @@
 from copy import deepcopy
+from tests.support.talent_sources import paid_talent_document
+from towr.domain.talent_catalog import TalentId
 from dataclasses import replace, asdict
 import json
 import os
@@ -112,7 +114,7 @@ class DynamicEncounterJsonTests(unittest.TestCase):
         self.assertEqual(set(member), {'actor_id','characteristics','skills','equipment','talents','resources','consumables'})
         raw = deepcopy(self.document)
         raw['party'][0]['equipment']['armour'] = [dict(id='body',kind='light_armour',location='worn'),dict(id='shield',kind='shield',location='right_hand'),dict(id='helmet',kind='helmet',location='worn')]
-        raw['party'][0]['talents'] = ['lucky']
+        raw['party'][0]['talents'] = [paid_talent_document(TalentId.LUCKY)]
         command = parse_dynamic_encounter_request(json.dumps(raw))
         compiled = command.request.party[0]
         self.assertIs(compiled.policy, PcMeleePolicy.AUTOMATIC_COMBAT)
@@ -141,7 +143,7 @@ class DynamicEncounterJsonTests(unittest.TestCase):
         raw.pop('search_space')
         raw['party'] = raw['party'][:1]
         raw['party'][0]['equipment']['armour'] = [dict(id='body',kind='light_armour',location='worn'),dict(id='shield',kind='shield',location='right_hand'),dict(id='helmet',kind='helmet',location='worn')]
-        raw['party'][0]['talents'] = ['lucky']
+        raw['party'][0]['talents'] = [paid_talent_document(TalentId.LUCKY)]
         raw['npc_count'] = dict(minimum=1, maximum=1)
         raw['targets']['started_rounds'] = dict(numerator=1, denominator=1)
         raw['max_rounds'] = 1
@@ -206,7 +208,8 @@ class DynamicEncounterJsonTests(unittest.TestCase):
         self.assertEqual(member.initial_weapon_hand.value,'left')
         self.assertIsNone(member.backup_weapon_policy)
         self.assertEqual(json.loads(command.source_json),raw)
-        for field, value in (('talents',['lucky','Mighty Blow']), ('consumables',[
+        for field, value in (('talents',[paid_talent_document(TalentId.LUCKY),
+                paid_talent_document(TalentId.ACROBATIC)]), ('consumables',[
                 dict(id='potion',kind='enhancement_potion',quantity=2,characteristic='ballistic_skill')])):
             raw = deepcopy(self.document)
             raw['party'][0][field] = value

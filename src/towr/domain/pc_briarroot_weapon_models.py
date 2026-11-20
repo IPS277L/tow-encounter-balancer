@@ -5,6 +5,8 @@ actual inventory transition and a static ground marker; the binding owner then
 settles its mandatory release. Natural weapons never enter this item bank.
 """
 from __future__ import annotations
+from towr.domain.pc_acrobatic_models import actor_acrobatic_source
+from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
 
 from dataclasses import dataclass,field,replace
 from typing import TYPE_CHECKING
@@ -681,7 +683,7 @@ def expected_briarroot_weapon_approach(state,actor,weapon_id):
         terrain=terrain_test_required_for_route(state,actor,tuple(route))
         request=FreeMovementRequest(pc_melee_action_id(state,actor)+':briarroot:weapon-approach:'+weapon_id,
             state.round_state,spatial,actor,speed,_injury(state,actor).conditions,tuple(route),
-            crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain)
+            crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain,acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,tuple(route)))
         result=resolve_free_movement(request)
         after=replace(with_actor_placement(previous,actor,current,
             close_to_ids=close if current==destination else ()),spatial=result.state)
@@ -716,7 +718,8 @@ def validate_briarroot_dropped_weapons(state):
             if previous!=proof.previous_item:
                 raise ValueError('Hammer extraction lost its actual embedded item prefix')
             bank=_set_item(bank,proof.item)
-        magical=getattr(proof,'magic_weapon',None) if type(proof) is PcAttackProof else None
+        from towr.domain.pc_demigryph_models import pc_kernel_attack_types
+        magical=getattr(proof,'magic_weapon',None) if type(proof) in pc_kernel_attack_types() else None
         if magical is not None:
             for previous,item in magical.drops:
                 actual=next((row for row in bank if (row.owner_id,row.weapon_id)==(item.owner_id,item.weapon_id)),None)

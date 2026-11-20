@@ -55,6 +55,7 @@ def view(*,npc=False,body=BodyArmour.HEAVY):
     return SimpleNamespace(source=source,party=tuple(parties.values()),enemies=tuple(opposition.values()),
         participant=parties.__getitem__,enemy=opposition.__getitem__,history=(dismount,),
         battlefield=spatial,mounts=tuple(after if item.actor_id==actor else item for item in base.mounts),
+        companions=base.companions,oaths=base.oaths,
         pending=(),pending_wound=None,magic_pending=None,magic_modifiers=(),round_state=base.round_state)
 
 

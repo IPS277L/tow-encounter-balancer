@@ -91,7 +91,7 @@ class AnatomyInfectionRecallResult:
             self.request_id != source.id
             or self.rule_id != source.rule_id
             or self.test_result.trace.request_id != source.recall_test.id
-            or self.available_successes != self.test_result.successes
+            or self.available_successes != self.test_result.effective_successes
         ):
             raise ValueError("Anatomy Recall result has stale provenance")
         rule_ids = _validate_rule_ids(self.applied_rule_ids)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from towr.domain.talent_acrobatic_models import validate_acrobatic_source, acrobatic_rule_ids
+
 from dataclasses import replace
 
 from towr.domain.charge_models import (
@@ -60,7 +62,7 @@ def _complete_charge_movement_after_test(request: ChargeMovementRequest, test_re
         ))
         conditions = application.state
     return ChargeMovementResult(request,test_result,request.actor_conditions,conditions,
-        application,spatial,combat,succeeded)
+        application,spatial,combat,succeeded,acrobatic=request.acrobatic)
 
 
 def execute_charge_movement(request: ChargeMovementRequest, rng: RandomSource, *, decisions=None):
@@ -80,6 +82,7 @@ def execute_charge_action(
     decisions: ResolutionDecisionProvider | None = None,
 ) -> ChargeActionExecutionResult:
     """Move to a Medium Range enemy and resolve the Charge attack."""
+    replace(request)
     if request.rule_id != CHARGE_ACTION_EXECUTION_RULE_ID:
         raise ValueError("Charge request uses an unknown source rule")
     if request.melee_bonus_rule_id != CHARGE_MELEE_BONUS_RULE_ID:
@@ -127,7 +130,7 @@ def execute_charge_action(
         raise ValueError("base Charge target must be within Medium Range")
     for entity_id in request.path_entity_ids:
         crossed = spatial_state.placement_for(entity_id)
-        if crossed.side_id != actor.side_id:
+        if crossed.side_id != actor.side_id and not validate_acrobatic_source(request.acrobatic,request.actor_id):
             raise ValueError("Charge cannot pass through an enemy")
 
     attack = request.kernel_request.attack
@@ -169,6 +172,7 @@ def execute_charge_action(
         request.slot_index,request.speed,request.actor_conditions,
         RangedWeaponRange.SHORT if actor.zone_id == target.zone_id else RangedWeaponRange.MEDIUM,
         request.actor_began_turn_in_enemy_close_range,path_entity_ids=request.path_entity_ids,
+        acrobatic=request.acrobatic,
         rule_id=request.rule_id))
     updated_spatial_state = movement.spatial_state
 
@@ -206,6 +210,8 @@ def execute_charge_action(
     if melee_bonus is not None:
         applied_rule_ids.append(melee_bonus.rule_id)
     return ChargeActionExecutionResult(
+        acrobatic=request.acrobatic,
+        path_entity_ids=request.path_entity_ids,
         request_id=request.id,
         rule_id=request.rule_id,
         actor_id=request.actor_id,
@@ -225,7 +231,7 @@ def execute_charge_action(
         kernel_request=prepared_kernel_request,
         resolution=resolution,
         melee_bonus=melee_bonus,
-        applied_rule_ids=tuple(applied_rule_ids),
+        applied_rule_ids=(*applied_rule_ids,*acrobatic_rule_ids(request.acrobatic,request.actor_id)),
     )
 
 
@@ -387,6 +393,7 @@ def execute_long_charge_action(
     decisions: ResolutionDecisionProvider | None = None,
 ) -> LongChargeActionExecutionResult:
     """Test Athletics for a two-Zone Charge, then attack or stop short."""
+    replace(request)
     if request.rule_id != LONG_CHARGE_ACTION_EXECUTION_RULE_ID:
         raise ValueError("Long Charge request uses an unknown source rule")
     if request.melee_bonus_rule_id != CHARGE_MELEE_BONUS_RULE_ID:
@@ -452,7 +459,7 @@ def execute_long_charge_action(
         raise ValueError("Long Charge route must cross exactly two Zone links")
     for entity_id in request.path_entity_ids:
         crossed = spatial_state.placement_for(entity_id)
-        if crossed.side_id != actor.side_id:
+        if crossed.side_id != actor.side_id and not validate_acrobatic_source(request.acrobatic,request.actor_id):
             raise ValueError("Long Charge cannot pass through an enemy")
 
     attack = request.kernel_request.attack
@@ -471,7 +478,8 @@ def execute_long_charge_action(
         request.id,request.round_state,spatial_state,request.actor_id,request.target_id,
         request.slot_index,request.speed,request.actor_conditions,RangedWeaponRange.LONG,
         request.actor_began_turn_in_enemy_close_range,request.athletics_test,
-        request.intermediate_zone_id,request.path_entity_ids,rule_id=request.rule_id),
+        request.intermediate_zone_id,request.path_entity_ids,rule_id=request.rule_id,
+        acrobatic=request.acrobatic),
         rng,decisions=decisions)
     athletics_result = movement.athletics_test_result
     stagger_application = None
@@ -546,6 +554,8 @@ def execute_long_charge_action(
     )
 
     return LongChargeActionExecutionResult(
+        acrobatic=request.acrobatic,
+        path_entity_ids=request.path_entity_ids,
         request_id=request.id,
         rule_id=request.rule_id,
         actor_id=request.actor_id,
@@ -578,6 +588,7 @@ def execute_long_charge_action(
                 (
                     LONG_CHARGE_ACTION_EXECUTION_RULE_ID,
                     ZONE_GRAPH_RULE_ID,
+                    *acrobatic_rule_ids(request.acrobatic,request.actor_id),
                     *athletics_result.trace.applied_rule_ids,
                     *(
                         stagger_application.applied_rule_ids

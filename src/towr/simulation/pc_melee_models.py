@@ -3,6 +3,16 @@ from towr.simulation.pc_ranged_statistics import PcRangedCount,validate_pc_range
 
 from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount,validate_npc_ranged_counts
 from towr.simulation.pc_extra_attack_statistics import PcExtraAttackCount,validate_pc_extra_attack_counts
+from towr.simulation.pc_rapid_reload_statistics import (
+    PcRapidReloadCount, rapid_reload_count_by_actor, validate_rapid_reload_counts,
+    validate_npc_aim_counts,
+)
+from towr.simulation.pc_immediate_attack_statistics import (
+    PcImmediateAttackCount, validate_immediate_attack_counts,
+)
+from towr.simulation.pc_companion_statistics import PcCompanionCount, validate_companion_counts
+from towr.simulation.pc_musician_statistics import PcMusicianCount, validate_musician_counts
+from towr.simulation.pc_oath_statistics import PcOathCount, validate_oath_counts, validate_oath_fate_budget
 
 from collections import Counter
 from dataclasses import dataclass, field, replace
@@ -17,7 +27,7 @@ SEED_SCHEME = 'towr:pc-melee-trial:v1'
 
 
 def pc_has_aim_capability(scenario) -> bool:
-    return any(PcMeleeWeapon.HOCHLAND_LONG_RIFLE in pc_initial_weapon_kinds(member)
+    return any(member.pc.ranged is not None and member.pc.ranged.awareness is not None
         for member in scenario.party)
 
 
@@ -81,9 +91,10 @@ def validate_aim_counts(counts, scenario, *, trials, actions, started_rounds, gl
     for member,aim,second in zip(scenario.party,counts.action_counts,counts.second_action_spend_counts,strict=True):
         if aim.count > min(started_rounds,trials*scenario.max_rounds):
             raise ValueError('Aim count exceeds the one-Aim-per-own-turn budget')
-        if (PcMeleeWeapon.HOCHLAND_LONG_RIFLE not in pc_initial_weapon_kinds(member)
-                and (aim.count or second.count)):
-            raise ValueError('only the admitted Hochland actor can Aim or fund this Second Action')
+        if aim.count and (member.pc.ranged is None or member.pc.ranged.awareness is None):
+            raise ValueError('Aim counts require this actor actual ranged Awareness source')
+        if PcMeleeWeapon.HOCHLAND_LONG_RIFLE not in pc_initial_weapon_kinds(member) and second.count:
+            raise ValueError('only the admitted Hochland actor can fund this Second Action')
         if second.count > aim.count:
             raise ValueError('Second Action count requires its actual preceding Aim')
         policy = member.aim_second_action_policy
@@ -262,6 +273,8 @@ def validate_npc_help_counts(counts,scenario,*,trials:int,help_trials:int|None,
     if not 0<=help_trials<=trials or not help_trials<=total<=actions or (total>0)!=(help_trials>0):
         raise ValueError('NPC Help counts contradict trials/actions')
     helpers={policy.helper_id for policy in scenario.npc_help_policies}
+    helpers.update(enemy.state.actor_id for enemy in scenario.enemies
+        if enemy.definition.generated_components is not None)
     # Every non-Help trial still starts at least one round. Each configured NPC
     # can execute at most one ordinary action per started round in this family.
     budget=min(started_rounds-(trials-help_trials),help_trials*scenario.max_rounds)
@@ -588,7 +601,8 @@ def validate_potion_use_counts(counts, scenario, *, trials: int, actions: int,
 
 def validate_automatic_action_budget(help_counts,recover_counts,scenario,*,started_rounds,
                                      potion_counts=None, magic_counts=None,
-                                     pc_extra_counts=None, aim_counts=None):
+                                     pc_extra_counts=None, aim_counts=None,rapid_reload_counts=None,
+                                     pc_ranged_counts=None,music_counts=None,oath_counts=None):
     """An automatic PC cannot count two support actions in its one turn."""
     from towr.domain.pc_melee_models import PcMeleePolicy
     potions = Counter()
@@ -597,25 +611,44 @@ def validate_automatic_action_budget(help_counts,recover_counts,scenario,*,start
     casting = {row.actor_id: row.casting_actions for row in magic_counts or ()}
     extras = {row.actor_id: row.count for row in pc_extra_counts or ()}
     aiming = {row.actor_id: row.count for row in aim_counts.action_counts} if aim_counts is not None else {}
+    rapid=rapid_reload_count_by_actor(rapid_reload_counts,scenario)
+    ranged={row.actor_id:row.shots+row.reload_actions for row in pc_ranged_counts or ()}
+    seconds={row.actor_id:row.count for row in aim_counts.second_action_spend_counts} if aim_counts is not None else {}
+    music={row.actor_id:row.actions+row.pickups for row in music_counts or ()}
+    prayers={row.actor_id:row.prayers for row in oath_counts or ()}
     for member,helped,recovered in zip(scenario.party,help_counts,recover_counts,strict=True):
         # A Duellist pair consumes the standard Attack and the only second
         # action. It cannot share that source turn with Aim/Help/Recover/Cast.
         if (pc_extra_counts is not None and helped.count+recovered.count
                 +potions[member.actor_id]+casting.get(member.actor_id,0)
-                +extras.get(member.actor_id,0)+aiming.get(member.actor_id,0)>started_rounds):
+                +music.get(member.actor_id,0)+prayers.get(member.actor_id,0)
+                +extras.get(member.actor_id,0)+aiming.get(member.actor_id,0)>started_rounds+rapid.get(member.actor_id,0)
+                    +(seconds.get(member.actor_id,0) if music.get(member.actor_id,0) or prayers.get(member.actor_id,0) else 0)):
             raise ValueError('Duellist pairs and other standard actions exceed the same actor turn budget')
         if (member.policy is PcMeleePolicy.AUTOMATIC_COMBAT
-                and helped.count+recovered.count+potions[member.actor_id]+casting.get(member.actor_id,0)>started_rounds):
+                and helped.count+recovered.count+potions[member.actor_id]+casting.get(member.actor_id,0)
+                    +music.get(member.actor_id,0)+prayers.get(member.actor_id,0)>started_rounds+(seconds.get(member.actor_id,0) if music.get(member.actor_id,0) or prayers.get(member.actor_id,0) else 0)):
             raise ValueError('automatic Help, ally Recover, potions and Casting exceed the same actor turn budget')
+        if (helped.count+recovered.count+potions[member.actor_id]+casting.get(member.actor_id,0)
+                +music.get(member.actor_id,0)+prayers.get(member.actor_id,0)
+                +extras.get(member.actor_id,0)+aiming.get(member.actor_id,0)+ranged.get(member.actor_id,0)
+                >started_rounds+rapid.get(member.actor_id,0)+seconds.get(member.actor_id,0)):
+            raise ValueError('PC observed actions exceed the same actor standard and actual second-action budget')
 
 
-def validate_npc_action_budget(extra_counts,help_counts,recover_counts,*,started_rounds,ranged_counts=None):
+def validate_npc_action_budget(extra_counts,help_counts,recover_counts,*,started_rounds,ranged_counts=None,
+                              rapid_reload_counts=None,npc_aim_counts=None,music_counts=None,oath_counts=None):
     """An ability Attack pair cannot borrow another actor's unused turn."""
     helped={row.actor_id:row.count for row in help_counts}
     recovered={row.actor_id:row.count for row in recover_counts}
     ranged={row.actor_id:row.shots+row.reload_actions for row in ranged_counts or ()}
+    rapid={row.actor_id:row.count for row in rapid_reload_counts or ()}
+    aimed={row.actor_id:row.count for row in npc_aim_counts or ()}
+    music={row.actor_id:row.actions+row.pickups for row in music_counts or ()}
+    prayers={row.actor_id:row.prayers for row in oath_counts or ()}
     for row in extra_counts:
-        if row.count+helped[row.actor_id]+recovered[row.actor_id]+ranged.get(row.actor_id,0)>started_rounds:
+        if (row.count+helped[row.actor_id]+recovered[row.actor_id]+ranged.get(row.actor_id,0)
+                +aimed.get(row.actor_id,0)+music.get(row.actor_id,0)+prayers.get(row.actor_id,0)>started_rounds+rapid.get(row.actor_id,0)):
             raise ValueError('NPC Attack pairs and other actions exceed the same actor turn budget')
 
 
@@ -704,6 +737,12 @@ class PcMeleeTrialRecord:
     npc_ranged_counts: tuple[PcNpcRangedCount, ...] | None = field(default=None,kw_only=True)
     pc_ranged_counts: tuple[PcRangedCount,...] | None = field(default=None,kw_only=True)
     pc_extra_attack_counts: tuple[PcExtraAttackCount,...] | None = field(default=None,kw_only=True)
+    rapid_reload_counts: tuple[PcRapidReloadCount,...] | None = field(default=None,kw_only=True)
+    npc_aim_counts: tuple[PcAimCount,...] | None = field(default=None,kw_only=True)
+    immediate_attack_counts: tuple[PcImmediateAttackCount,...] | None = field(default=None,kw_only=True)
+    companion_counts: tuple[PcCompanionCount,...] | None = field(default=None,kw_only=True)
+    music_counts: tuple[PcMusicianCount,...] | None = field(default=None,kw_only=True)
+    oath_counts: tuple[PcOathCount,...] | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         validate_pc_melee_scenario_admission(self.source_scenario)
@@ -733,8 +772,24 @@ class PcMeleeTrialRecord:
         validate_pc_extra_attack_counts(self.pc_extra_attack_counts,self.source_scenario,trials=1,
             extra_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
         pc_extras=sum(item.count for item in self.pc_extra_attack_counts or ())
+        validate_npc_aim_counts(self.npc_aim_counts,self.source_scenario,trials=1,
+            actions=self.executed_actions,started_rounds=self.started_rounds)
+        validate_rapid_reload_counts(self.rapid_reload_counts,self.source_scenario,trials=1,
+            actions=self.executed_actions,started_rounds=self.started_rounds,
+            pc_ranged_counts=self.pc_ranged_counts,npc_ranged_counts=self.npc_ranged_counts,
+            aim_counts=self.aim,npc_aim_counts=self.npc_aim_counts,
+            pc_extra_counts=self.pc_extra_attack_counts,npc_extra_counts=self.npc_extra_attack_counts)
+        rapid=sum(row.count for row in self.rapid_reload_counts or ())
+        validate_immediate_attack_counts(self.immediate_attack_counts,self.source_scenario,
+            actions=self.executed_actions,started_rounds=self.started_rounds)
+        validate_companion_counts(self.companion_counts,self.source_scenario,trials=1,started_rounds=self.started_rounds)
+        validate_musician_counts(self.music_counts,self.source_scenario,trials=1,
+            started_rounds=self.started_rounds,actions=self.executed_actions)
+        validate_oath_counts(self.oath_counts,self.source_scenario,trials=1,
+            started_rounds=self.started_rounds,actions=self.executed_actions)
+        companion_actions=sum(row.recover_actions+row.movement_actions for row in self.companion_counts or ())
         actors = len(self.source_scenario.party) + len(self.source_scenario.enemies)
-        if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds+extras+pc_extras+seconds:
+        if not self.completed_rounds <= self.executed_actions <= actors*self.started_rounds+extras+pc_extras+seconds+rapid+companion_actions:
             raise ValueError('actions contradict the round/actor budget')
         if self.outcome is PcMeleeOutcome.ROUND_LIMIT and self.completed_rounds != self.source_scenario.max_rounds:
             raise ValueError('round limit must complete the full source budget')
@@ -760,6 +815,8 @@ class PcMeleeTrialRecord:
             actions=pc_injury_budget)
         validate_glorious_counts(self.glorious_spend_counts,self.source_scenario,
             trials=1,spend_trials=None)
+        validate_oath_fate_budget(self.oath_counts,self.source_scenario,self.glorious_spend_counts,
+            self.aim,trials=1)
         validate_help_counts(self.help_action_counts,self.source_scenario,trials=1,help_trials=None,
             actions=self.executed_actions,started_rounds=self.started_rounds)
         validate_ally_recover_counts(self.ally_recover_action_counts,self.source_scenario,trials=1,
@@ -767,28 +824,37 @@ class PcMeleeTrialRecord:
         validate_potion_use_counts(self.potion_use_counts,self.source_scenario,trials=1,
             actions=self.executed_actions,started_rounds=self.started_rounds)
         validate_pc_ranged_counts(self.pc_ranged_counts,self.source_scenario,
-            actions=self.executed_actions,started_rounds=self.started_rounds,help_counts=self.help_action_counts)
+            actions=self.executed_actions,started_rounds=self.started_rounds,help_counts=self.help_action_counts,
+            rapid_reload_counts=self.rapid_reload_counts)
         validate_npc_ranged_counts(self.npc_ranged_counts,self.source_scenario,
-            actions=self.executed_actions,started_rounds=self.started_rounds)
+            actions=self.executed_actions,started_rounds=self.started_rounds,rapid_reload_counts=self.rapid_reload_counts)
         validate_magic_counts(self.magic_counts,self.source_scenario,trials=1,
             actions=self.executed_actions,started_rounds=self.started_rounds,
             unsupported_trials=int(self.outcome is PcMeleeOutcome.UNSUPPORTED_PATH))
         validate_automatic_action_budget(self.help_action_counts,self.ally_recover_action_counts,
             self.source_scenario,started_rounds=self.started_rounds,potion_counts=self.potion_use_counts,
-            magic_counts=self.magic_counts,pc_extra_counts=self.pc_extra_attack_counts,aim_counts=self.aim)
+            magic_counts=self.magic_counts,pc_extra_counts=self.pc_extra_attack_counts,aim_counts=self.aim,
+            rapid_reload_counts=self.rapid_reload_counts,pc_ranged_counts=self.pc_ranged_counts,
+            music_counts=self.music_counts,oath_counts=self.oath_counts)
         validate_npc_help_counts(self.npc_help_action_counts,self.source_scenario,trials=1,
             help_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds)
         validate_npc_recover_counts(self.npc_recover_action_counts,self.source_scenario,trials=1,
             recover_trials=None,actions=self.executed_actions,started_rounds=self.started_rounds,
             warped_form_counts=self.npc_warped_form_counts)
         validate_npc_action_budget(self.npc_extra_attack_counts,self.npc_help_action_counts,
-            self.npc_recover_action_counts,started_rounds=self.started_rounds,ranged_counts=self.npc_ranged_counts)
+            self.npc_recover_action_counts,started_rounds=self.started_rounds,ranged_counts=self.npc_ranged_counts,
+            rapid_reload_counts=self.rapid_reload_counts,npc_aim_counts=self.npc_aim_counts,
+            music_counts=self.music_counts,oath_counts=self.oath_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
-                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*(extras+pc_extras)+(self.aim.total_action_count if self.aim is not None else 0)+sum(row.casting_actions for row in self.magic_counts or ())+sum(row.shots+row.reload_actions for row in self.npc_ranged_counts or ())+sum(row.shots+row.reload_actions for row in self.pc_ranged_counts or ())>self.executed_actions:
+                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*(extras+pc_extras)+(self.aim.total_action_count if self.aim is not None else 0)+sum(row.count for row in self.npc_aim_counts or ())+sum(row.casting_actions for row in self.magic_counts or ())+sum(row.shots+row.reload_actions for row in self.npc_ranged_counts or ())+sum(row.shots+row.reload_actions for row in self.pc_ranged_counts or ())+sum(row.actions+row.pickups for row in self.music_counts or ())+sum(row.prayers for row in self.oath_counts or ())>self.executed_actions:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_scenario,trials=1,exit_trials=None)
         if sum(item.count for item in self.npc_exit_counts)>npc_injury_budget:
             raise ValueError('NPC exits exceed actual source injury opportunities')
+
+    @property
+    def total_immediate_attack_count(self) -> int:
+        return sum(row.count for row in self.immediate_attack_counts or ())
 
 
 @dataclass(frozen=True, slots=True)
@@ -841,6 +907,10 @@ class PcMeleeSimulationResult:
     @property
     def total_action_count(self) -> int:
         return sum(record.executed_actions for record in self.records)
+
+    @property
+    def total_immediate_attack_count(self) -> int:
+        return sum(record.total_immediate_attack_count for record in self.records)
 
     @property
     def total_started_round_count(self) -> int:

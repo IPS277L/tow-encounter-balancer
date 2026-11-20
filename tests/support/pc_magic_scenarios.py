@@ -4,12 +4,16 @@ from tests.support.pc_tactics_fixtures import automatic_source
 from towr.domain.attack_models import ResilienceProfile,DamageProfile
 from towr.domain.test_models import InlineProfile
 from towr.domain.pc_magic_source_models import PcWizardProfile,PcSpellId
+from towr.domain.talent_catalog import TalentId
+from towr.domain.talent_models import AcquiredTalent,TalentAcquisition,TalentAcquisitionPhase,TalentFunding
 
 
 def magic_scenario(*, reason=2, willpower=1, level=1, rounds=1, enemies=2, pc_count=1,
                    spells=(PcSpellId.LIGHTNING_BLAST,PcSpellId.FIRE_BREATH), armour=0):
     source = automatic_source(pc_count=pc_count,enemy_count=enemies,rounds=rounds)
-    mage = replace(source.party[0],wizard=PcWizardProfile('human',reason,willpower,level,
+    wizard=AcquiredTalent(TalentId.WIZARD,tuple(TalentAcquisition(
+        TalentAcquisitionPhase.ADVANCEMENT,TalentFunding.XP) for _ in range(level)))
+    mage = replace(source.party[0],talents=(wizard,),wizard=PcWizardProfile('human',reason,willpower,level,
         ('elementalism',),spells,True),pc=replace(source.party[0].pc,
             weapon_skill=1,melee=1,toughness=10,armour_bonus=armour))
     opponents = []

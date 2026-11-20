@@ -57,6 +57,10 @@ def critical_injury_state_after_test(
     replace(request)
     if type(test) is not TestResult or type(test.trace) is not RollTrace:
         raise TypeError('critical injury requires its actual Test result')
+    if test.honour_bound is not None:
+        replace(test)
+        if test.honour_bound.activation.state.actor_id != request.actor_id:
+            raise ValueError('critical Endurance outcome belongs to another actor')
     trace = test.trace
     if type(trace.request_id) is not str or trace.request_id != request.test_id:
         raise ValueError('critical Endurance Test belongs to another source')

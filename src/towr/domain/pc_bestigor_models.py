@@ -1,6 +1,8 @@
 """Source-bound Bestigor choices and one next-Attack entitlement from actual W1."""
 from __future__ import annotations
 
+from towr.domain.pc_demigryph_models import pc_kernel_attack_types
+
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -121,7 +123,7 @@ def pc_bestigor_glorious_source(state, actor_id):
     last_attack = None
     entitlement = None
     for index,proof in enumerate(state.history):
-        if type(proof) in (PcAttackProof,PcDemigryphStrikeProof):
+        if type(proof) in pc_kernel_attack_types():
             last_attack = proof
             if proof.request.actor_id == actor_id:
                 entitlement = None

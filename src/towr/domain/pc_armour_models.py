@@ -19,6 +19,11 @@ def actor_armour(state,actor: str) -> ArmourLoadout | None:
     if actor in state.source.enemy_activation_order:
         components=state.enemy(actor).definition.generated_components
         return components.armour if components is not None else None
+    from towr.domain.pc_actor_models import pc_companion
+    row = pc_companion(state, actor)
+    if row is not None:
+        from towr.domain.pc_companion_effect_models import companion_profile
+        return companion_profile(state, actor).armour
     raise ValueError('armour query requires an actual encounter actor')
 
 

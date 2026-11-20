@@ -9,7 +9,7 @@ function planningSearchSpace(data){
  // Client estimate for planning/manual initialization. Execution derives its
  // authoritative automatic envelope on the server from the admitted party.
  if(data.search_space)return data.search_space;
- const space={weapon:generatedWeaponIds.filter(key=>!explicitlyPermittedWeaponIds.has(key)),weapon_count:[1,2,3],initial_loaded:[true],armour:[null,'light_armour','heavy_armour','full_plate_armour'],secondary_armour:[null],helmet:[null,'helmet'],shield:[null,'shield'],barding:[false,true],rider_kind:['human','elf','other'],agilulf_code_confirmed:null,weapon_grip:['1h','2h'],mount:[null,'horse','bretonnian_warhorse','elven_steed'],abilities:[[]],allowed_talents:['magic_resistance','defensive_stance','wild_attack']};
+ const space={weapon:generatedWeaponIds.filter(key=>!explicitlyPermittedWeaponIds.has(key)),weapon_count:[1,2,3],initial_loaded:[true],armour:[null,'light_armour','heavy_armour','full_plate_armour'],secondary_armour:[null],helmet:[null,'helmet'],shield:[null,'shield'],barding:[false,true],rider_kind:['human','elf','other'],agilulf_code_confirmed:null,weapon_grip:['1h','2h'],mount:[null,'horse','bretonnian_warhorse','elven_steed'],abilities:[[]],allowed_talents:[...generatedExecutableTalentIds]};
  for(const key of ['weapon_skill','strength','toughness','agility','melee','defence','athletics','endurance']){
   const skill=['melee','defence','athletics','endurance'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
   const values=data.party.map(m=>Number((skill?m.skills:m.characteristics)?.[key]));
@@ -18,14 +18,20 @@ function planningSearchSpace(data){
   const high=Math.max(low,Math.min(ceiling,Math.max(...values)+1));
   space[key]=Array.from({length:high-low+1},(_,i)=>low+i);
  }
- for(const key of ['ballistic_skill','initiative','shooting','dexterity','awareness','throwing','brawn']){
-  const skill=['shooting','dexterity','awareness','throwing','brawn'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
+ space.musician_instrument_hands=[1,2];
+ for(const key of ['ballistic_skill','initiative','shooting','dexterity','awareness','throwing','brawn','leadership']){
+  const skill=['shooting','dexterity','awareness','throwing','brawn','leadership'].includes(key),floor=skill?2:1,ceiling=skill?6:10;
   const values=data.party.map(m=>Number((skill?m.skills:m.characteristics)?.[key])).filter(Number.isSafeInteger);
   if(!values.length){space[key]=skill?[3,4,5]:[2,3,4];continue;}
   const low=Math.max(floor,Math.min(ceiling,Math.min(...values)-1));
   const high=Math.max(low,Math.min(ceiling,Math.max(...values)+1));
   space[key]=Array.from({length:high-low+1},(_,i)=>low+i);
  }
+ const fellowship=data.party.map(member=>Number(member.characteristics?.fellowship??member.talent_facts?.fellowship)).filter(Number.isSafeInteger);
+ if(fellowship.length){
+  const low=Math.max(1,Math.min(10,Math.min(...fellowship)-1)),high=Math.max(low,Math.min(10,Math.max(...fellowship)+1));
+  space.fellowship=Array.from({length:high-low+1},(_,i)=>low+i);
+ }else space.fellowship=[2,3,4];
  for(const member of data.party){
   if(member.magic?.memorised_spells?.includes('lightning_blast')){
    const reason=Number(member.characteristics?.reason),willpower=Number(member.skills?.willpower);
@@ -63,7 +69,7 @@ function simulationCostEstimate(data){
  const pcRanged=data.party.filter(member=>playerRangedRequirements(member)).length/data.party.length;
  const pcMagic=data.party.reduce((total,member)=>total+(member.magic?.memorised_spells?.length||0),0)/data.party.length;
  const equipment=data.party.reduce((total,member)=>total+Number(Boolean(playerRangedRequirements(member))&&(member.equipment?.weapons?.length||0)>1)+Number((member.equipment?.armour||[]).some(item=>['shield','briarroot_shield'].includes(item.kind)&&['left_hand','right_hand'].includes(item.location))),0)/data.party.length;
- const pcTalents=data.party.reduce((total,member)=>total+(member.talents||[]).filter(talent=>['defensive_stance','wild_attack'].includes(talent)).length,0)/data.party.length;
+ const pcTalents=data.party.reduce((total,member)=>total+(member.talents||[]).filter(talent=>pcCombatTalentIds.includes(talent.id)).length,0)/data.party.length;
  const npcTalents=Array.isArray(space.allowed_talents)?space.allowed_talents.length:0;
  const abilities=Math.max(...space.abilities.map(group=>group.length));
  const m=searchCostModel;
@@ -120,7 +126,13 @@ function automaticSearchPlan(data){
  if(space.weapon.some(weapon=>pcThrowingWeapons.has(weapon))){
   for(const key of ['throwing',...(shooting?[]:['ballistic_skill'])]){const values=space[key]||(key==='throwing'?[3,4,5]:[2,3,4]);if(!Array.isArray(values)||!values.length)throw Error('Задайте допустимые значения: '+key);profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);}
  }
- if(!Array.isArray(space.allowed_talents)||new Set(space.allowed_talents).size!==space.allowed_talents.length||space.allowed_talents.some(t=>!['magic_resistance','defensive_stance','wild_attack'].includes(t)))throw Error('Проверьте разрешённые таланты (Talents) NPC.');
+ if(!Array.isArray(space.allowed_talents)||new Set(space.allowed_talents).size!==space.allowed_talents.length||space.allowed_talents.some(t=>!generatedExecutableTalentIds.includes(t)))throw Error('Проверьте разрешённые таланты (Talents) NPC.');
+ if(space.allowed_talents.includes('allies_in_arms')||space.allowed_talents.includes('battlefield_musician')){const values=space.fellowship||[2,3,4];if(!Array.isArray(values)||!values.length||values.some(value=>!Number.isSafeInteger(value)||value<1))throw Error('Проверьте Обаяние (Fellowship) NPC.');profiles=Math.min(1e12,profiles*values.length);bits+=Math.log2(values.length);}
+ if(space.allowed_talents.includes('battlefield_musician')){
+  const leadership=space.leadership||[3,4,5],hands=space.musician_instrument_hands||[1,2];
+  if(!Array.isArray(leadership)||!leadership.length||leadership.some(value=>!Number.isSafeInteger(value)||value<2||value>6)||!Array.isArray(hands)||!hands.length||hands.some(value=>value!==1&&value!==2))throw Error('Проверьте Лидерство (Leadership) и хват инструментов (Musician’s Gear) NPC.');
+  profiles=Math.min(1e12,profiles*leadership.length*hands.length);bits+=Math.log2(leadership.length)+Math.log2(hands.length);
+ }
  // Upper bound only: Requirements filter the sampled subsets on the server.
  profiles=Math.min(1e12,profiles*Math.pow(2,space.allowed_talents.length));bits+=space.allowed_talents.length;
  const cost=executionCostEstimate(data);

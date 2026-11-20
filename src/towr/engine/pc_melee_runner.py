@@ -42,7 +42,7 @@ from towr.domain.pc_npc_aim_models import (PcNpcAimProof,build_npc_aim,expected_
 from towr.rules.aim_resolution import execute_aim_action
 from towr.rules.fate_resolution import spend_fate_for_second_action
 from towr.domain.pc_blunderbuss_models import PcBlunderbussNearbyProof, build_pc_blunderbuss_nearby, PcNearbyDecisions, pc_blunderbuss_snapshot
-from towr.domain.pc_blunderbuss_models import (PcBlunderbussTargetProof,PcBlunderbussProfileProof,
+from towr.domain.pc_blunderbuss_models import (PcBlunderbussTargetProof,PcBlunderbussProfileProof,PcBlunderbussMinionDefeatProof,
     PcBlunderbussEndProof,current_pc_blunderbuss_wave,next_pc_blunderbuss_target,
     pc_blunderbuss_pending_npc_target,pc_blunderbuss_profile_decision)
 from towr.domain.resolution_models import NearbyTargetsStaggerRequest
@@ -144,11 +144,18 @@ def _decline(state, actor_id, source_id, window):
     return PcFateDecline(actor_id,source_id,window,state.source.participant(actor_id).fate_policy)
 
 
-def _resolve_pc_test(state, actor_id, skill, request, rng, decisions):
+def _resolve_pc_test(state, actor_id, skill, request, rng, decisions, *, area_attack=False):
     wild = pending_wild_attack(state)
     if skill is Skill.MELEE and wild is not None and wild.actor_id == actor_id:
         decisions = RerollAllFailures()
     initial = roll_test_initial(request,rng)
+    from towr.domain.pc_oath_models import pc_can_honour_unmitigated, choose_pc_honour_outcome
+    from towr.domain.honour_bound_models import HONOUR_BOUND_GLORIOUS_RULE_ID
+    if (pc_can_honour_unmitigated(state, actor_id)
+            and not any(value.rule_id == HONOUR_BOUND_GLORIOUS_RULE_ID for value in request.quality_modifiers)):
+        raw = complete_test(initial, rng, decisions=decisions)
+        return (choose_pc_honour_outcome(state, actor_id, request, raw, area_attack=area_attack),
+            _decline(state,actor_id,request.id,'test'), None, request)
     selected = build_pc_glorious_spend(state,actor_id,skill,initial)
     if selected is None:
         return complete_test(initial,rng,decisions=decisions),_decline(state,actor_id,request.id,'test'),None,request
@@ -156,25 +163,42 @@ def _resolve_pc_test(state, actor_id, skill, request, rng, decisions):
     return complete_test(initial,rng,request=spend.test,decisions=RerollAllFailures()),None,spend,spend.test
 
 
-def _execute_demigryph_strike(state, request, protection_request, rng, decisions):
+def _execute_immediate_strike(state,request,protection_request,rng,decisions):
+    """A real weapon K1 strike with its own permission and no ordinary slot."""
+    from towr.domain.pc_immediate_attack_models import PcImmediateStrikeProof
+    # The Test/Fate/K1 mechanism is shared with the other outside-slot strike;
+    # only the physical intent and the resulting typed proof differ.
+    return _execute_free_strike(state,request,protection_request,rng,decisions,immediate=True)
+
+
+def _execute_demigryph_strike(state,request,protection_request,rng,decisions):
+    return _execute_free_strike(state,request,protection_request,rng,decisions,immediate=False)
+
+
+def _execute_free_strike(state, request, protection_request, rng, decisions,*,immediate):
     """Resolve the mount's K1 strike without executing its parent's action again."""
     from towr.domain.pc_weapon_intent_models import build_pc_explicit_attack_weapon_intent
-    weapon_intent = build_pc_explicit_attack_weapon_intent(state,request.actor_id,
-        request.target_id,request.id,mount_attack=True)
+    weapon_intent = (request.weapon_intent if immediate else build_pc_explicit_attack_weapon_intent(state,
+        request.actor_id,request.target_id,request.id,mount_attack=True))
     protection=prepare_protection(protection_request)
     actor=request.actor_id
-    pc_actor=actor if actor in state.source.pc_activation_order else request.target_id
+    pc_actor=(actor if actor in state.source.pc_activation_order else request.target_id
+        if request.target_id in state.source.pc_activation_order else None)
     attack_request=request.kernel_request.attack
     decline=glorious=None
     if actor==pc_actor:
+        from towr.domain.pc_oath_models import attack_has_area_followups
         attacker,decline,glorious,effective=_resolve_pc_test(state,pc_actor,Skill.MELEE,
-            attack_request.attacker_test,rng,decisions)
+            attack_request.attacker_test,rng,decisions,area_attack=attack_has_area_followups(attack_request))
         defender=(None if attack_request.defender_test is None else
             resolve_test(attack_request.defender_test,rng,decisions=decisions))
         attack_request=replace(attack_request,attacker_test=effective)
     else:
         attacker=resolve_test(attack_request.attacker_test,rng,decisions=decisions)
-        if attack_request.defender_test is None:
+        if pc_actor is None:
+            defender=(None if attack_request.defender_test is None else
+                resolve_test(attack_request.defender_test,rng,decisions=decisions))
+        elif attack_request.defender_test is None:
             defender=None
         else:
             defender,decline,glorious,effective=_resolve_pc_test(state,pc_actor,
@@ -184,7 +208,17 @@ def _execute_demigryph_strike(state, request, protection_request, rng, decisions
     kernel=replace(request.kernel_request,attack=attack_request)
     from towr.domain.pc_give_ground_models import pc_attack_decisions
     resolution=_resolve_kernel_attack_after_test(kernel,attack,rng,decisions=pc_attack_decisions(state,request,decisions))
-    return PcDemigryphStrikeProof(request,protection,resolution,decline,glorious,weapon_intent=weapon_intent)
+    if not immediate:
+        return PcDemigryphStrikeProof(request,protection,resolution,decline,glorious,weapon_intent=weapon_intent)
+    from towr.domain.pc_immediate_attack_models import PcImmediateStrikeProof
+    from towr.domain.pc_magic_weapon_models import prepare_magic_weapon_attack
+    from towr.domain.pc_armour_bane_models import build_armour_bane_application
+    proof=PcImmediateStrikeProof(request,protection,resolution,decline,glorious,
+        help_applications=pc_attack_help_applications(state,request.kernel_request.attack,
+            weapon_intent=weapon_intent),
+        npc_help_applications=pc_npc_attack_help_applications(state,request.kernel_request.attack))
+    return replace(proof,magic_weapon=prepare_magic_weapon_attack(state,request,proof.execution,weapon_intent),
+        armour_bane=build_armour_bane_application(state,request,proof.execution,weapon_intent.attack_use))
 
 
 def apply_pc_melee_step(current: PcMeleeState, step: PcMeleeStep) -> PcMeleeState:
@@ -213,11 +247,14 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
     """Run the explicit policy until a real terminal outcome, budget or stop."""
     state = initial_pc_melee_state(scenario)
     steps = []
-    decisions = _Decisions()
+    from towr.domain.pc_oath_models import LadyWoundDecisions
+    decisions = LadyWoundDecisions(_Decisions())
 
     def consume(proof):
         nonlocal state
         proof=complete_weighted_net_equipment_proof(state,proof)
+        from towr.domain.pc_tool_models import complete_pc_tool_equipment_proof
+        proof=complete_pc_tool_equipment_proof(state,proof)
         step = PcMeleeStep(state,proof)
         steps.append(step)
         state = step.state
@@ -254,6 +291,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             consume(PcTurnEndProof(result,decline,critical))
 
     while True:
+        from towr.domain.pc_oath_models import expected_oath_negation_ack
+        oath_ack = expected_oath_negation_ack(state)
+        if oath_ack is not None:
+            consume(oath_ack)
+            continue
         from towr.domain.pc_magic_weapon_models import expected_scarab_charge
         scarab_charge=expected_scarab_charge(state)
         if scarab_charge is not None:
@@ -306,6 +348,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
         if dismount is not None:
             consume(dismount)
             continue
+        from towr.domain.pc_mount_retention_models import expected_pc_mount_retention
+        retention = expected_pc_mount_retention(state)
+        if retention is not None:
+            consume(retention)
+            continue
         if falling_acknowledgement_source(state) is not None:
             consume(build_pc_falling_acknowledgement(state))
             continue
@@ -322,6 +369,25 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 if falling.actor_id in scenario.enemy_activation_order and result.profile_wound is not None:
                     disposition=falling_npc_disposition(scenario,falling.actor_id)
             consume(PcFallingProof(falling,test,result,decline,glorious,disposition))
+            continue
+        from towr.domain.pc_companion_departure_models import expected_companion_departure
+        departure=expected_companion_departure(state)
+        if departure is not None:
+            consume(departure)
+            continue
+        from towr.domain.pc_companion_landing_models import expected_companion_landing
+        landing=expected_companion_landing(state)
+        if landing is not None:
+            consume(landing)
+            continue
+        from towr.domain.pc_back_in_saddle_models import expected_back_in_saddle_move, expected_back_in_saddle_recover
+        paid_remount = expected_back_in_saddle_recover(state)
+        if paid_remount is not None:
+            consume(paid_remount)
+            continue
+        remount = expected_back_in_saddle_move(state)
+        if remount is not None:
+            consume(remount)
             continue
         from towr.domain.pc_weapon_area_models import (weapon_hazard_completion,expected_weapon_area_step,
             expected_ablaze_hazard,PcWeaponHazardRequest,PcWeaponHazardProof,weapon_hazard_resolution_request)
@@ -395,19 +461,23 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             blunderbuss=current_pc_blunderbuss_wave(state)
             nearby_target=pc_blunderbuss_pending_npc_target(state)
             if nearby_target is not None:
+                if type(pending) is MinionStaggerDefeatCause:
+                    consume(PcBlunderbussMinionDefeatProof(blunderbuss.request.kernel_request.id,pc_actor,pending))
+                    continue
                 if type(pending) is not ProfileStateChangeRequest:
                     raise ValueError('unexpected ordinary nearby Minion continuation')
                 consume(PcBlunderbussProfileProof(blunderbuss.request.kernel_request.id,pc_actor,
                     pending,pc_blunderbuss_profile_decision(state,nearby_target)))
                 continue
             wave = current_warped_form(state)
-            if wave is not None and pc_actor in scenario.enemy_activation_order:
+            from towr.domain.pc_actor_models import pc_companion
+            if wave is not None and pc_actor not in scenario.pc_activation_order:
                 if type(pending) is MinionStaggerDefeatCause:
                     consume(PcWarpedFormMinionDefeatProof(wave.activation_id, pc_actor))
                 elif type(pending) is ProfileStateChangeRequest:
                     policy = next(p for p in scenario.npc_warped_form_policies if p.actor_id == wave.actor_id)
                     decision = (next(d for d in policy.npc_defeat_decisions if d.target_id == pc_actor)
-                        if pending.defeated else None)
+                        if pending.defeated and pc_companion(state,pc_actor) is None else None)
                     consume(PcWarpedFormProfileProof(wave.activation_id, pc_actor, pending, decision))
                 else:
                     raise ValueError('unexpected wave NPC continuation')
@@ -518,7 +588,6 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             continue
         turn = state.round_state.active_turn
         if (turn is not None and turn.actor_id in scenario.pc_activation_order
-                and scenario.participant(turn.actor_id).wizard is not None
                 and state.participant(turn.actor_id).injury.dead):
             finish_turn()
             continue
@@ -537,6 +606,14 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             continue
         if pc_broken_run_selected(state) and not state.round_state.active_turn.action_slots:
             actor=state.round_state.active_turn.actor_id
+            from towr.domain.pc_battlefield_musician_models import build_pc_musician_signal
+            from towr.domain.talent_battlefield_musician_models import BattlefieldMusicianSignalKind
+            from towr.domain.pc_musician_effect_models import PcMusicianSignalProof
+            from towr.rules.battlefield_musician_resolution import issue_battlefield_musician_signal
+            signal=build_pc_musician_signal(state,BattlefieldMusicianSignalKind.RETREAT)
+            if signal is not None:
+                consume(PcMusicianSignalProof(issue_battlefield_musician_signal(signal)))
+                continue
             consume(reserve_combat_action_slot(CombatActionSlotRequest(pc_melee_action_id(state,actor)+':reserve',
                 state.round_state,actor,pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
             continue
@@ -555,7 +632,52 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             continue
         actor = combat.active_turn.actor_id
         action_id = pc_melee_action_id(state,actor)
+        from towr.domain.pc_actor_models import pc_companion, pc_actor_injury
+        if pc_companion(state, actor) is not None and not pc_broken_run_selected(state):
+            from towr.domain.pc_companion_turn_models import expected_companion_wait, build_companion_recover
+            waiting = expected_companion_wait(state)
+            if waiting is not None:
+                consume(waiting)
+            elif not combat.active_turn.action_slots:
+                consume(reserve_combat_action_slot(CombatActionSlotRequest(action_id+':reserve',combat,actor,
+                    pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
+            elif not combat.active_turn.action_slots[-1].executed:
+                request = build_companion_recover(state)
+                from towr.domain.pc_ally_recover_models import expected_pc_standard_recover
+                result = expected_pc_standard_recover(request)
+                before = pc_actor_injury(state, actor)
+                consume(PcBattlefieldRecoverProof(request,result,before,battlefield_recovered_injury(before,result)))
+            else:
+                finish_turn()
+            continue
         if not combat.active_turn.action_slots:
+            from towr.domain.pc_musician_tactics import expected_musician_intent,committed_musician_intent
+            from towr.domain.pc_musician_equipment_models import plan_musician_equipment
+            from towr.domain.pc_battlefield_musician_models import build_pc_musician_signal
+            from towr.domain.pc_musician_effect_models import PcMusicianSignalProof
+            from towr.rules.battlefield_musician_resolution import issue_battlefield_musician_signal
+            music_intent=expected_musician_intent(state)
+            if music_intent is not None:
+                consume(music_intent)
+                continue
+            music=committed_musician_intent(state)
+            if music is not None:
+                if not music.choice.music_pickup:
+                    equipment=plan_musician_equipment(state,actor,music.choice.music_item_id)
+                    if equipment is not None:
+                        consume(equipment)
+                        continue
+                    signal=build_pc_musician_signal(state)
+                    if signal is not None:
+                        consume(PcMusicianSignalProof(issue_battlefield_musician_signal(signal)))
+                        continue
+                consume(reserve_combat_action_slot(CombatActionSlotRequest(action_id+':reserve',
+                    combat,actor,pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
+                continue
+            cleanup=plan_musician_equipment(state,actor,None)
+            if cleanup is not None:
+                consume(cleanup)
+                continue
             from towr.domain.pc_npc_weapon_inventory import expected_npc_weapon_equip
             npc_equip=expected_npc_weapon_equip(state)
             if npc_equip is not None:
@@ -563,6 +685,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 continue
             exit_request = build_pc_npc_exit(state,actor)
             if exit_request is not None:
+                from towr.domain.talent_battlefield_musician_models import BattlefieldMusicianSignalKind
+                signal=build_pc_musician_signal(state,BattlefieldMusicianSignalKind.RETREAT)
+                if signal is not None:
+                    consume(PcMusicianSignalProof(issue_battlefield_musician_signal(signal)))
+                    continue
                 consume(PcNpcExitProof(exit_request,resolve_free_movement(exit_request)))
                 continue
             approach = expected_pc_npc_approach(state)
@@ -623,6 +750,11 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                 pc_melee_action_declaration(state),ActionSlotGrant.STANDARD)))
             continue
         if not combat.active_turn.action_slots[-1].executed:
+            from towr.domain.pc_oath_models import lady_prayer_selected, build_pc_lady_prayer, PcLadyPrayerProof
+            if lady_prayer_selected(state):
+                from towr.domain.talent_lady_prayer_models import execute_lady_prayer
+                consume(PcLadyPrayerProof(execute_lady_prayer(build_pc_lady_prayer(state))))
+                continue
             demigryph_intent=expected_pc_demigryph_intent(state)
             if demigryph_intent is not None:
                 consume(demigryph_intent)
@@ -678,7 +810,33 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                         extension_request=extension,extension_result=completed,
                         fate_decline=decline,glorious=glorious,target_id=target))
                 continue
-            if pc_is_casting_action(state):
+            from towr.domain.pc_musician_tactics import committed_musician_intent
+            from towr.domain.pc_battlefield_musician_models import (
+                build_pc_musician_action,build_pc_musician_recover,PcMusicianRecoverProof,
+            )
+            from towr.domain.pc_musician_effect_models import PcMusicianActionProof
+            from towr.domain.pc_musician_equipment_models import plan_musician_equipment
+            from towr.rules.battlefield_musician_resolution import complete_battlefield_musician_action
+            music=committed_musician_intent(state)
+            if music is not None and music.choice.music_pickup:
+                request=build_pc_musician_recover(state)
+                from towr.domain.pc_ally_recover_models import expected_pc_standard_recover
+                result=expected_pc_standard_recover(request)
+                equipment=plan_musician_equipment(state,actor,music.choice.music_item_id,pickup=True)
+                if equipment is None:
+                    raise ValueError('committed music pickup lost its actual dropped instrument')
+                consume(PcMusicianRecoverProof(result,equipment))
+            elif music is not None:
+                request=build_pc_musician_action(state,item_id=music.choice.music_item_id)
+                if actor in scenario.pc_activation_order:
+                    test,decline,glorious,effective=_resolve_pc_test(state,actor,Skill.LEADERSHIP,
+                        request.leadership_test,rng,decisions)
+                    result=complete_battlefield_musician_action(replace(request,leadership_test=effective),test)
+                    consume(PcMusicianActionProof(result,decline,glorious))
+                else:
+                    test=resolve_test(request.leadership_test,rng,decisions=decisions)
+                    consume(PcMusicianActionProof(complete_battlefield_musician_action(request,test)))
+            elif pc_is_casting_action(state):
                 request = build_pc_casting_request(state)
                 test,decline,glorious,_ = _resolve_pc_test(state,actor,Skill.WILLPOWER,
                     guarded_casting_test(request.casting_request),rng,decisions)
@@ -814,21 +972,36 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                         briarroot_weapon_pickup=complete_briarroot_pc_pickup(state,actual),
                         pc_shield_pickup=complete_pc_shield_pickup(state,actual)))
             elif pc_melee_selected_action(state) is CombatActionKind.HELP:
-                if actor in scenario.enemy_activation_order:
+                from towr.domain.pc_allies_in_arms_models import build_allies_in_arms_application
+                from towr.domain.pc_npc_help_models import pc_npc_help_beneficiary
+                if actor in scenario.enemy_activation_order and pc_npc_help_beneficiary(state) is not None:
                     request = build_pc_npc_help_action(state)
                     consume(PcNpcHelpProof(request,execute_automatic_help_action(request)))
                 else:
-                    request = build_pc_help_action(state)
-                    test,decline,glorious,effective = _resolve_pc_test(state,actor,request.help_skill,
-                        request.help_test,rng,decisions)
-                    execution = _complete_help_action(replace(request,help_test=effective),test)
-                    from towr.domain.pc_help_models import pc_help_beneficiary_weapon,pc_selected_help_policy
-                    from towr.domain.pc_ranged_models import complete_pc_ranged_help
-                    from towr.domain.pc_help_models import pc_help_weapon_use
-                    consume(PcHelpProof(request,execution,decline,glorious,
-                        weapon_use=pc_help_weapon_use(state),
-                        beneficiary_weapon_item_id=pc_help_beneficiary_weapon(state,pc_selected_help_policy(state)),
-                        ranged_use=complete_pc_ranged_help(state,request,replace(request,help_test=effective),execution)))
+                    if actor in scenario.enemy_activation_order:
+                        from towr.domain.pc_npc_normal_help_models import (
+                            build_npc_normal_help_action,npc_normal_help_choice,npc_help_weapon_use,complete_npc_ranged_help,
+                        )
+                        request=build_npc_normal_help_action(state)
+                        test=resolve_test(request.help_test,rng)
+                        execution=_complete_help_action(request,test)
+                        decline=glorious=None
+                        weapon_use=npc_help_weapon_use(state,actor,request.help_skill)
+                        item=npc_normal_help_choice(state).beneficiary_weapon_item_id
+                        ranged_use=complete_npc_ranged_help(state,request,execution)
+                    else:
+                        request = build_pc_help_action(state)
+                        test,decline,glorious,effective = _resolve_pc_test(state,actor,request.help_skill,
+                            request.help_test,rng,decisions)
+                        execution = _complete_help_action(replace(request,help_test=effective),test)
+                        from towr.domain.pc_help_models import pc_help_beneficiary_weapon,pc_selected_help_policy,pc_help_weapon_use
+                        from towr.domain.pc_ranged_models import complete_pc_ranged_help
+                        weapon_use=pc_help_weapon_use(state)
+                        item=pc_help_beneficiary_weapon(state,pc_selected_help_policy(state))
+                        ranged_use=complete_pc_ranged_help(state,request,replace(request,help_test=effective),execution)
+                    consume(PcHelpProof(request,execution,decline,glorious,weapon_use=weapon_use,
+                        beneficiary_weapon_item_id=item,ranged_use=ranged_use,
+                        allies_in_arms=build_allies_in_arms_application(state,execution)))
             else:
                 blood_rage = expected_pc_npc_blood_rage(state)
                 if blood_rage is not None:
@@ -846,23 +1019,29 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     if pc_uses_mount_attack(state,actor) else None)
                 protection = prepare_protection(protection_request)
                 _validate_attack_action_slot(request)
-                pc_actor = actor if actor in scenario.pc_activation_order else request.target_id
-                pc_test = (request.kernel_request.attack.attacker_test if actor == pc_actor
-                    else request.kernel_request.attack.defender_test)
+                pc_actor = (actor if actor in scenario.pc_activation_order else request.target_id
+                    if request.target_id in scenario.pc_activation_order else None)
+                pc_test = (None if pc_actor is None else request.kernel_request.attack.attacker_test
+                    if actor == pc_actor else request.kernel_request.attack.defender_test)
                 decline,glorious = None,None
                 attack_request = request.kernel_request.attack
                 if actor == pc_actor:
+                    from towr.domain.pc_oath_models import attack_has_area_followups
                     attacker,decline,glorious,effective = _resolve_pc_test(state,pc_actor,
                         Skill.MELEE if mount_attack is not None else pc_attack_skill(state,pc_actor),
-                        pc_test,rng,decisions)
-                    defender = resolve_test(attack_request.defender_test,rng,decisions=decisions)
+                        pc_test,rng,decisions,area_attack=attack_has_area_followups(attack_request))
+                    defender = (None if attack_request.defender_test is None else
+                        resolve_test(attack_request.defender_test,rng,decisions=decisions))
                     attack_request = replace(attack_request,attacker_test=effective)
                 else:
                     npc_glorious_source = pc_bestigor_glorious_source(state, actor)
                     attacker = resolve_test(attack_request.attacker_test,rng,
                         decisions=RerollAllFailures() if (npc_glorious_source is not None
                             or pending_wild_attack(state) is not None) else decisions)
-                    if pc_test is None:
+                    if pc_actor is None:
+                        defender = (None if attack_request.defender_test is None else
+                            resolve_test(attack_request.defender_test,rng,decisions=decisions))
+                    elif pc_test is None:
                         defender = None
                     else:
                         skill = protection.source_request.selected_skill
@@ -883,7 +1062,7 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     replace(request,kernel_request=effective_kernel),execution)
                     if mount_attack is None and actor!=pc_actor and weapon_intent.attack_skill is Skill.SHOOTING else None)
                 proof = PcAttackProof(request,protection,execution,decline,glorious,
-                    pc_attack_help_applications(state,request.kernel_request.attack,mount_attack=mount_attack is not None),
+                    pc_attack_help_applications(state,request.kernel_request.attack,mount_attack=mount_attack is not None,weapon_intent=weapon_intent),
                     pc_npc_attack_help_applications(state,request.kernel_request.attack),
                     npc_glorious_source=pc_bestigor_glorious_source(state, actor),ranged_shot=ranged_shot,
                     npc_ranged_shot=npc_ranged_shot,mount_attack=mount_attack,weapon_intent=weapon_intent)
@@ -894,7 +1073,30 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
                     weapon_area=weapon_area_snapshot(state,request,execution,weapon_intent.attack_use))
                 from towr.domain.pc_magic_weapon_models import prepare_magic_weapon_attack
                 proof=replace(proof,magic_weapon=prepare_magic_weapon_attack(state,request,execution,weapon_intent))
+                from towr.domain.pc_armour_bane_models import build_armour_bane_application
+                proof=replace(proof,armour_bane=build_armour_bane_application(state,request,execution,
+                    weapon_intent.attack_use if mount_attack is None else None))
                 consume(replace(proof,nearby_snapshot=pc_blunderbuss_snapshot(state,proof)))
+            continue
+        from towr.domain.pc_bash_attack_models import expected_bash_decision,pending_bash_decision,build_pc_bash_strike
+        decision=expected_bash_decision(state)
+        if decision is not None:
+            consume(decision)
+            continue
+        if pending_bash_decision(state) is not None:
+            from towr.domain.pc_npc_weapon_inventory import expected_npc_weapon_equip
+            ready=(expected_npc_shield_drop(state) or expected_pc_shield_release(state)
+                or expected_pc_weapon_swap(state) or expected_npc_weapon_equip(state))
+            if ready is not None:
+                consume(ready)
+                continue
+            wild=expected_wild_attack(state)
+            if wild is not None:
+                consume(wild)
+                continue
+            strike=build_pc_bash_strike(state)
+            if strike is None:raise ValueError('committed Bash has no actual ready Melee strike')
+            consume(_execute_immediate_strike(state,*strike,rng,decisions))
             continue
         demigryph_strike=build_pc_demigryph_strike(state)
         if demigryph_strike is not None:
@@ -909,7 +1111,9 @@ def run_pc_melee_scenario(scenario, rng: RandomSource) -> PcMeleeScenarioResult:
             consume(PcAimSecondActionProof(spend_fate_for_second_action(second_action)))
             continue
         from towr.domain.pc_duellist_models import build_pc_duellist_second_action
-        extra_slot = build_pc_npc_extra_attack_slot(state) or build_pc_duellist_second_action(state)
+        from towr.domain.pc_rapid_reload_models import build_pc_rapid_reload_second_action
+        extra_slot = (build_pc_npc_extra_attack_slot(state) or build_pc_duellist_second_action(state)
+            or build_pc_rapid_reload_second_action(state))
         if extra_slot is not None:
             consume(reserve_combat_action_slot(extra_slot))
             continue

@@ -430,8 +430,13 @@ def _validate_opposed_result(
         or result.opponent.trace.request_id != request.opponent.id
     ):
         raise ValueError("opposed result belongs to another Move Quietly Test")
-    initiator = result.initiator.successes
-    opponent = result.opponent.successes
+    if result.initiator.honour_bound is not None or result.opponent.honour_bound is not None:
+        from towr.rules.opposed_test import complete_opposed_test
+        if result != complete_opposed_test(request,result.initiator,result.opponent):
+            raise ValueError('Move Quietly opposed outcome changed its actual Honour Bound source')
+        return
+    initiator = result.initiator.effective_successes
+    opponent = result.opponent.effective_successes
     if initiator == 0 and opponent == 0:
         expected = (
             OpposedOutcome.BOTH_FAIL,

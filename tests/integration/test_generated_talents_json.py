@@ -7,6 +7,8 @@ from random import Random
 import unittest
 from unittest.mock import patch
 from tests.support.armour_fixtures import armour_document
+from tests.support.talent_sources import paid_talent
+from towr.adapters._talent_json import acquired_talents_document
 
 from towr.adapters.character_files import parse_character_file
 from towr.adapters.dynamic_encounter_json import (
@@ -16,7 +18,9 @@ from towr.adapters.dynamic_encounter_json import (
 from towr.adapters._pc_melee_scenario_json import scenario_document
 from towr.adapters.pc_melee_json import parse_pc_melee_simulation_request
 from towr.adapters.pc_melee_json_errors import PcMeleeInputError
-from towr.domain.generated_npc_models import GeneratedTalent
+from towr.domain.generated_npc_models import TalentId
+from towr.domain.talent_actor_models import GENERATED_TALENT_POOL
+CONNECTED_TALENTS=(TalentId.MAGIC_RESISTANCE,TalentId.DEFENSIVE_STANCE,TalentId.WILD_ATTACK)
 from towr.simulation.pc_melee_models import PcMeleeSimulationRequest
 from towr.simulation.pc_melee_simulation import run_pc_melee_simulation
 from towr.simulation.pc_melee_parallel import run_pc_melee_simulation_parallel
@@ -37,7 +41,7 @@ def talent_request():
 
 def source_with_all_talents():
     command=parse_dynamic_encounter_request(json.dumps(talent_request()))
-    npc=replace(command.request.space.sample(Random(0)),talents=tuple(GeneratedTalent))
+    npc=replace(command.request.space.sample(Random(0)),talents=tuple(paid_talent(t) for t in CONNECTED_TALENTS))
     return command.request.scenario((npc,),'generated-all-talents'),npc
 
 
@@ -45,14 +49,14 @@ class GeneratedTalentJsonTests(unittest.TestCase):
     def test_permitted_talents_are_a_pool_and_empty_disables_talent_generation(self):
         raw=talent_request()
         command=parse_dynamic_encounter_request(json.dumps(raw))
-        self.assertEqual(command.request.space.allowed_talents,tuple(GeneratedTalent))
+        self.assertEqual(command.request.space.allowed_talents,CONNECTED_TALENTS)
         raw['search_space']['allowed_talents']=[]
         empty=parse_dynamic_encounter_request(json.dumps(raw)).request.space
         self.assertEqual(empty.allowed_talents,())
         self.assertEqual(empty.sample(Random(0)).talents,())
         raw['search_space']=None
         self.assertEqual(parse_dynamic_encounter_request(json.dumps(raw)).request.space.allowed_talents,
-            tuple(GeneratedTalent))
+            GENERATED_TALENT_POOL)
 
     def test_permitted_talents_are_required_typed_unique_and_closed_before_rng(self):
         for values in (None,[True],['unknown'],['wild_attack','wild_attack'],[['wild_attack']]):
@@ -75,7 +79,7 @@ class GeneratedTalentJsonTests(unittest.TestCase):
                 benefit=None if npc.armour.benefit is None else npc.armour.benefit.value,
                 helmet=None if npc.armour.helmet is None else npc.armour.helmet.value,
                 shield=None if npc.armour.shield is None else npc.armour.shield.value,barding=npc.armour.barding),
-            abilities=[],talents=[talent.value for talent in npc.talents],
+            abilities=[],talents=acquired_talents_document(npc.talents),
             mount=None,rider_kind=None,agilulf_code_confirmed=None,
             throwing=None,brawn=npc.brawn,ballistic_skill=None)
         self.assertEqual(parse_character_file(json.dumps(raw),'npc'),raw)
@@ -93,7 +97,7 @@ class GeneratedTalentJsonTests(unittest.TestCase):
             ruleset='towr-pg1.4-gmg1.1',scenario=scenario_document(scenario),
             simulation=dict(master_seed='42',trials=1),execution=dict(mode='sequential'))
         self.assertEqual(raw['scenario']['enemies'][0]['definition']['generated_components']['talents'],
-            [talent.value for talent in GeneratedTalent])
+            acquired_talents_document(tuple(paid_talent(t) for t in CONNECTED_TALENTS)))
         self.assertEqual(parse_pc_melee_simulation_request(json.dumps(raw)).request.scenario,scenario)
         for changes in (dict(weapon_skill=2),dict(strength=3),dict(talents=['unknown'])):
             changed=deepcopy(raw)
@@ -114,7 +118,7 @@ class GeneratedTalentJsonTests(unittest.TestCase):
         self.assertEqual(report['total_trials'],2)
         for candidate in report['explored']+report['validations']:
             npc=candidate['npcs'][0]
-            self.assertTrue(set(npc['talents'])<=set(raw['search_space']['allowed_talents']))
+            self.assertTrue({entry['id'] for entry in npc['talents']}<=set(raw['search_space']['allowed_talents']))
             self.assertEqual(candidate['replay']['scenario']['enemies'][0]['definition']['generated_components'],npc)
             self.assertEqual(parse_character_file(json.dumps(npc),'npc'),npc)
 

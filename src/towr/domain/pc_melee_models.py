@@ -1,8 +1,10 @@
 """Immutable authored input for the first PC melee encounter (ADR-0065)."""
 from dataclasses import dataclass, field, replace
+from towr.domain.oath_context_models import OathBattleContext, validate_oath_context
 from enum import Enum
 from towr.domain.pc_combat_equipment_models import PcWeaponItem
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec
+from towr.domain.battlefield_music_models import BattlefieldMusicAcoustics
 from towr.domain.pc_single_combat_models import PcSingleCombatPair
 from towr.domain.pc_mount_models import CombatMount, RiderKind, initial_pc_mounts
 from towr.domain.armour_models import ArmourLoadout
@@ -11,7 +13,8 @@ from towr.domain.attack_models import ConditionImpactSpec, DamageProfile, Resili
 from towr.domain.condition_models import Condition,ConditionState
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.pc_magic_source_models import PcWizardProfile
-from towr.domain.pc_combat_talent_models import PcCombatTalent
+from towr.domain.talent_models import AcquiredTalent, TalentOwnerFacts, has_talent
+from towr.domain.tool_inventory_models import ToolItemSource, initial_tool_inventory, validate_tool_equipment_hands
 from towr.domain.fate_models import (
     FateBurnRecord, FateRefreshRecord, FateSessionState, FateSpendRecord,
 )
@@ -182,7 +185,7 @@ class PcGloriousPolicy:
         for skill in skills:
             _typed(skill, Skill, "Glorious skill")
             if skill not in (Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE,
-                    Skill.SHOOTING, Skill.DEXTERITY, Skill.WILLPOWER, Skill.THROWING, Skill.BRAWN):
+                    Skill.SHOOTING, Skill.DEXTERITY, Skill.WILLPOWER, Skill.LEADERSHIP, Skill.THROWING, Skill.BRAWN):
                 raise ValueError("Glorious skill is outside the PC melee boundary")
         _integer(self.maximum_initial_successes, "Glorious success threshold", minimum=0)
         _integer(self.minimum_remaining_spends, "Glorious session reserve", minimum=0)
@@ -333,9 +336,13 @@ class PcMeleeDefinition:
     throwing: int | None = field(default=None,kw_only=True)
     brawn: int | None = field(default=None,kw_only=True)
     ballistic_skill: int | None = field(default=None,kw_only=True)
+    fellowship: int | None = field(default=None,kw_only=True)
+    leadership: int | None = field(default=None,kw_only=True)
+    tools: tuple[ToolItemSource, ...] = field(default=(),kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.id, "PC definition")
+        initial_tool_inventory(self.id, self.tools)
         for name in ("weapon_skill", "strength", "toughness", "agility"):
             _integer(getattr(self, name), name, minimum=1)
         for characteristic, skill in (
@@ -343,6 +350,10 @@ class PcMeleeDefinition:
             (self.agility, self.athletics), (self.toughness, self.endurance),
         ):
             TestProfile(characteristic, skill)
+        if self.fellowship is not None:
+            _integer(self.fellowship, 'Fellowship', minimum=1)
+        if self.leadership is not None:
+            self.leadership_profile
         _typed(self.weapon, PcMeleeWeapon, "PC weapon")
         if self.weapon not in PC_EXECUTABLE_WEAPONS:
             raise ValueError("this weapon requires its unfinished encounter effect owner")
@@ -414,6 +425,12 @@ class PcMeleeDefinition:
         return TestProfile(self.toughness, self.endurance)
 
     @property
+    def leadership_profile(self) -> TestProfile:
+        if self.fellowship is None or self.leadership is None:
+            raise ValueError('Leadership requires explicit Fellowship and Leadership ratings')
+        return TestProfile(self.fellowship, self.leadership)
+
+    @property
     def resilience(self) -> ResilienceProfile:
         return ResilienceProfile(self.toughness, self.armour_bonus)
 
@@ -474,7 +491,9 @@ class PcMeleeParticipant:
     consumables: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
     wizard: PcWizardProfile | None = field(default=None, kw_only=True)
     armour_worn: bool | None = field(default=None, kw_only=True)
-    combat_talents: tuple[PcCombatTalent,...] = field(default=(),kw_only=True)
+    talents: tuple[AcquiredTalent,...] = field(default=(),kw_only=True)
+    talent_facts: TalentOwnerFacts | None = field(default=None,kw_only=True)
+    oath_context: OathBattleContext | None = field(default=None,kw_only=True)
     combat_equipment: tuple[PcWeaponItem,...] | None = field(default=None,kw_only=True)
     mount: CombatMount | None = field(default=None,kw_only=True)
     armour: ArmourLoadout | None = field(default=None,kw_only=True)
@@ -512,10 +531,6 @@ class PcMeleeParticipant:
             raise ValueError('Agilulf code confirmation requires its actual armour source')
         from towr.domain.pc_mount_models import validate_mount_rider
         validate_mount_rider(self.mount,self.rider_kind)
-        from towr.domain.pc_combat_talent_models import validate_pc_combat_talents
-        validate_pc_combat_talents(self.combat_talents,self.pc)
-        if self.combat_talents and self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
-            raise ValueError('PC combat Talents currently require automatic melee tactics')
         if self.armour_worn is not None:
             _typed(self.armour_worn,bool,'worn armour fact')
             if self.pc.armour_bonus > 0 and not self.armour_worn:
@@ -526,6 +541,14 @@ class PcMeleeParticipant:
             replace(self.wizard)
             if self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
                 raise ValueError('PC magic currently requires automatic melee tactics')
+        _readmit_fate(self.fate, self.actor_id)
+        from towr.domain.talent_actor_models import validate_pc_talent_source
+        validate_pc_talent_source(self)
+        validate_oath_context(self.talents, self.oath_context)
+        from towr.domain.talent_catalog import TalentId
+        if any(value.id in (TalentId.DEFENSIVE_STANCE,TalentId.WILD_ATTACK)
+                for value in self.talents) and self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
+            raise ValueError('PC combat Talents currently require automatic melee tactics')
         if type(self.consumables) is not tuple or any(type(item) is not ConsumableItem for item in self.consumables):
             raise TypeError('PC consumables require an ordered tuple of typed items')
         for item in self.consumables:
@@ -537,7 +560,6 @@ class PcMeleeParticipant:
             raise ValueError('PC consumable instance IDs must be unique')
         if self.consumables and self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
             raise ValueError('potion use currently requires automatic melee tactics')
-        _readmit_fate(self.fate, self.actor_id)
         if self.close_shooting_protection_skill is not None:
             _typed(self.close_shooting_protection_skill, Skill, "PC Close Shooting Protection skill")
             if self.close_shooting_protection_skill not in (Skill.MELEE, Skill.ATHLETICS):
@@ -597,7 +619,10 @@ class PcMeleeParticipant:
             if PcMeleeWeapon.HOCHLAND_LONG_RIFLE not in pc_initial_weapon_kinds(self):
                 raise ValueError('Aim Second Action policy requires Hochland')
         configured = (self.near_miss_policy is not None or self.glorious_policy is not None
-            or self.aim_second_action_policy is not None)
+            or self.aim_second_action_policy is not None
+            or (self.fate_policy is PcFatePolicy.CONFIGURED and self.oath_context is not None
+                and self.oath_context.unmitigated_success_scope_confirmed
+                and has_talent(self.talents, TalentId.HONOUR_BOUND)))
         if configured != (self.fate_policy is PcFatePolicy.CONFIGURED):
             raise ValueError("configured Fate needs explicit criteria; decline requires null policies")
         if self.policy is PcMeleePolicy.HELP_ALLY_OR_ATTACK_OR_RECOVER_SELF:
@@ -637,6 +662,14 @@ class PcMeleeParticipant:
         object.__setattr__(self, "defeat_decisions", decisions)
         from towr.domain.pc_combat_equipment_models import validate_pc_combat_equipment
         validate_pc_combat_equipment(self)
+        if self.pc.tools:
+            from towr.domain.pc_weapon_inventory import initial_pc_weapon_inventory
+            weapons = initial_pc_weapon_inventory(self)
+            tool_ids = {item.id for item in self.pc.tools}
+            other_ids = {item.source_item_id for item in weapons.items} | {item.id for item in self.consumables}
+            if tool_ids & other_ids:
+                raise ValueError('tools, weapons and consumables require distinct source item IDs')
+            validate_tool_equipment_hands(initial_tool_inventory(self.actor_id, self.pc.tools), weapons)
         if self.pc.ranged is not None and self.pc.ranged.repeater_bonus_policy is PcRepeaterBonusPolicy.AUTOMATIC:
             if self.policy is not PcMeleePolicy.AUTOMATIC_COMBAT:
                 raise ValueError('automatic Repeater mode requires automatic combat policy')
@@ -735,6 +768,7 @@ class PcMeleeScenario:
     short_range_opening: PcShortRangeOpening | None = field(default=None,kw_only=True)
     blunderbuss_nearby: PcBlunderbussNearby | None = field(default=None,kw_only=True)
     battlefield: PcBattlefieldSpec | None = field(default=None,kw_only=True)
+    music_acoustics: BattlefieldMusicAcoustics | None = field(default=None,kw_only=True)
     single_combat_pairs: tuple[PcSingleCombatPair,...] = field(default=(),kw_only=True)
 
     def __post_init__(self) -> None:
@@ -742,6 +776,9 @@ class PcMeleeScenario:
             _identifier(getattr(self, name), name)
         _typed(self.facts, PcMeleeFacts, "PC melee facts")
         replace(self.facts)
+        if self.music_acoustics is not None:
+            _typed(self.music_acoustics, BattlefieldMusicAcoustics, 'music acoustic facts')
+            replace(self.music_acoustics)
         if self.npc_broken_exit_policy is not None:
             _typed(self.npc_broken_exit_policy,PcAdjacentNpcExitPolicy,"NPC Broken exit policy")
             replace(self.npc_broken_exit_policy)
@@ -816,6 +853,14 @@ class PcMeleeScenario:
         pc_ids = tuple(member.actor_id for member in party)
         enemy_ids = tuple(enemy.state.actor_id for enemy in enemies)
         all_ids = (*pc_ids, *enemy_ids)
+        if self.music_acoustics is not None and self.music_acoustics.blocked_zone_pairs:
+            if self.battlefield is None:
+                raise ValueError('acoustic barriers need actual distinct battlefield Zones')
+            from towr.domain.pc_battlefield_models import build_pc_battlefield
+            graph = build_pc_battlefield(self.battlefield, pc_ids, enemy_ids, self.facts.zone_id).spatial.graph
+            if any(not graph.contains(self.facts.zone_id + ':' + key)
+                    for pair in self.music_acoustics.blocked_zone_pairs for key in pair):
+                raise ValueError('acoustic barrier references an absent battlefield Zone')
         from towr.domain.pc_scene_feature_models import validate_scene_visibility_actors
         validate_scene_visibility_actors(self.battlefield,all_ids)
         if len(set(all_ids)) != len(all_ids):
@@ -1012,6 +1057,11 @@ def _readmit_profile_enemy(enemy: NpcParticipantSnapshot) -> None:
             raise ValueError('generated NPC must retain its complete fresh item/profile source')
         validate_pc_melee_source_types(enemy,expected)
         return
+    # The legacy authored-profile owner has no item-sourced Talent execution.
+    # Its descriptive source may contain acquisitions; admission must reject
+    # them rather than silently treating them as generated components.
+    from towr.domain.talent_actor_models import validate_npc_definition_talent_scope
+    validate_npc_definition_talent_scope(definition,frozenset())
     great_stag = definition.id == 'pc-book-npc:great_stag'
     net_goblin = definition.id == NET_DEFINITION_ID
     generated = definition.generated_components is not None

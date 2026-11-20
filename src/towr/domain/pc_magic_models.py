@@ -1,7 +1,7 @@
 """Bounded PC Casting, direct spell effects and mandatory Miscast journal phases."""
 from __future__ import annotations
 
-from dataclasses import dataclass, fields, is_dataclass, replace
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from typing import TYPE_CHECKING
 
 from towr.domain.condition_models import Condition
@@ -12,9 +12,9 @@ from towr.domain.magic_models import (WizardMagicState, CastingTestRequest, Cast
 from towr.domain.action_execution_models import (CastingAttemptExecutionRequest, CastingAttemptExecutionResult,
     CastingActionPostTestRequest, CastingActionPostTestResult, CastingActionMiscastPreparationRequest,
     CastingActionMiscastPreparationResult, SkippedCastingTestAfterActionRequest,SkippedCastingTestAfterActionResult)
-from towr.domain.magic_models import MiscastPoolResolutionResult,MiscastPreparationResult
+from towr.domain.magic_models import MiscastPoolResolutionResult,MiscastPreparationResult,MiscastTableEntryId
 from towr.domain.resolution_models import StaggerImpactResult
-from towr.domain.injury_models import ProfileWoundResult
+from towr.domain.injury_models import ProfileInjuryState, ProfileWoundResult
 from towr.domain.condition_models import ConditionApplicationResult
 from towr.domain.minion_defeat_models import MinionDefeatDecision
 from towr.domain.wound_lifecycle_models import CharacterWoundLifecycleRollResult,FixedCharacterWoundLifecycleCompletionResult
@@ -116,6 +116,13 @@ class PcMagicEffectProof:
     result: (StaggerImpactResult | ProfileWoundResult | ConditionApplicationResult
         | CharacterWoundLifecycleRollResult | FixedCharacterWoundLifecycleCompletionResult | None) = None
     decision: MinionDefeatDecision | None = None
+    previous_injury: ProfileInjuryState | None = field(default=None, kw_only=True)
+
+    def __post_init__(self):
+        if self.previous_injury is not None:
+            if type(self.previous_injury) is not ProfileInjuryState:
+                raise TypeError('companion magic effect retains its exact own profile before snapshot')
+            replace(self.previous_injury)
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +156,8 @@ def magic_hand(state, actor):
 
 def magic_test_modifiers(state, actor, skill):
     dice, qualities = [], []
+    from towr.domain.pc_oath_models import honour_quality_modifiers
+    qualities.extend(honour_quality_modifiers(state, actor))
     for modifier in state.magic_modifiers:
         if modifier.target_id != actor:
             continue
@@ -171,7 +180,8 @@ def consume_magic_modifiers(modifiers, proof):
     from towr.domain.recover_models import RecoverStandardResult
     used, removed, visited = set(), set(), set()
     paths = {'execution','resolution','result','casting','test','test_result','attack',
-        'attacker_test','defender_test','critical','completion','wound_effect','exacting','awareness_test_result','athletics_test_result'}
+        'attacker_test','defender_test','critical','completion','wound_effect','exacting','awareness_test_result','athletics_test_result',
+        'help_test_result'}
     def visit(value):
         if id(value) in visited:
             return
@@ -199,6 +209,8 @@ def guarded_casting_test(request):
 def build_pc_casting_request(state):
     from towr.domain.pc_melee_result_models import _pc_test, pc_melee_action_id
     actor = state.round_state.active_turn.actor_id
+    if actor not in state.source.pc_activation_order:
+        raise ValueError('Casting requires an actual PC Wizard, not a passive profile body')
     wizard = state.source.participant(actor).wizard
     member = state.participant(actor)
     from towr.domain.pc_armour_models import actor_bound_to_chivalric_combat
@@ -208,19 +220,30 @@ def build_pc_casting_request(state):
         raise ValueError('Casting requires a living able Wizard and a usable hand')
     action_id = pc_melee_action_id(state,actor)
     request = CastingTestRequest(action_id+':casting',actor,ELEMENTALISM_LORE_ID,
-        _pc_test(state,actor,action_id+':willpower',Skill.WILLPOWER),member.magic)
+        _pc_test(state,actor,action_id+':willpower',Skill.WILLPOWER,casting=True),member.magic)
     return CastingAttemptExecutionRequest(action_id+':casting:execute',state.round_state,actor,1,request)
 
 
-def spell_choice(state, actor, potency):
+def _spell_target_ids(state, actor):
+    """Original priorities precede actual opposing retained profile bodies."""
+    from towr.domain.pc_actor_models import pc_opponent_ids, pc_companion
+    opponents = pc_opponent_ids(state, actor)
+    priority = state.source.participant(actor).target_priority
+    return (*tuple(target for target in priority if target in opponents),
+        *tuple(target for target in opponents if pc_companion(state, target) is not None))
+
+
+def spell_choice(state, actor, potency, *, maximum_targets=None):
     """Choose spell and distinct current targets using printed direct Damage."""
     if potency < 1:
         return None, (), 0.0
-    priority = state.source.participant(actor).target_priority
-    live = [state.enemy(target) for target in priority
-        if not state.enemy(target).state.injury.defeated and target not in state.exited_npc_ids]
+    from towr.domain.pc_actor_models import pc_actor_npc_snapshot
+    live = [pc_actor_npc_snapshot(state, target) for target in _spell_target_ids(state, actor)]
     best = (None, (), 0.0)
     for spell in state.source.participant(actor).wizard.memorised_spells:
+        quota = potency if spell is PcSpellId.FIRE_BREATH else 1
+        if maximum_targets is not None:
+            quota = min(quota, maximum_targets)
         definition = pc_spell_definition(spell)
         values = []
         for enemy in live:
@@ -245,11 +268,11 @@ def spell_choice(state, actor, potency):
         if spell is PcSpellId.FIRE_BREATH and state.battlefield is not None:
             spatial=state.battlefield.spatial
             zones=tuple(dict.fromkeys(spatial.placement_for(target).zone_id for target,_ in values))
-            groups=tuple(tuple(item for item in values if spatial.placement_for(item[0]).zone_id == zone)[:potency]
+            groups=tuple(tuple(item for item in values if spatial.placement_for(item[0]).zone_id == zone)[:quota]
                 for zone in zones)
             selected=max(groups,key=lambda group:sum(value for _,value in group),default=())
         else:
-            selected = values[:potency if spell is PcSpellId.FIRE_BREATH else 1]
+            selected = values[:quota]
         utility = sum(value for _,value in selected)
         if utility > best[2]+1e-12:
             best = spell, tuple(target for target,_ in selected), utility
@@ -262,10 +285,11 @@ def generated_spell_potency_modifiers(enemy: NpcParticipantSnapshot) -> tuple[Sp
     This contributes to each actual target's K1 Potency request. It is not a
     blanket immunity to magic or a modifier for raw Miscast consequences.
     """
-    from towr.domain.generated_npc_models import GeneratedTalent
+    from towr.domain.generated_npc_models import TalentId
     from towr.rules.stone_troll import magic_resistance_spell_potency_modifier
     components = enemy.definition.generated_components
-    if components is not None and GeneratedTalent.MAGIC_RESISTANCE in components.talents:
+    from towr.domain.talent_models import has_talent
+    if components is not None and has_talent(components.talents,TalentId.MAGIC_RESISTANCE):
         return (magic_resistance_spell_potency_modifier(),)
     return ()
 
@@ -281,7 +305,8 @@ def complete_pc_casting(state, test, decline, glorious):
     casting = _complete_casting_test(request.casting_request,test)
     execution = _complete_casting_attempt_after_test(request,casting)
     post_pool = replace(casting.state,miscast_dice=casting.state.miscast_dice+casting.miscast_dice_added)
-    spell, targets, _ = spell_choice(state,request.actor_id,casting.latest_roll_successes)
+    spell, targets, _ = spell_choice(state,request.actor_id,casting.latest_roll_successes,
+        maximum_targets=1 if test.honour_bound is not None else None)
     if post_pool.casting_successes < 2:
         spell, targets = None, ()
     selection = (CastingSpellSelection(pc_spell_definition(spell).rule_id,ELEMENTALISM_LORE_ID,2)
@@ -301,8 +326,9 @@ def complete_pc_casting(state, test, decline, glorious):
     resolved = None
     if source is not None:
         definition = pc_spell_definition(spell)
+        from towr.domain.pc_actor_models import pc_actor_npc_snapshot
         affected = tuple(IdentifiedSpellTarget(target,
-            generated_spell_potency_modifiers(state.enemy(target))) for target in targets)
+            generated_spell_potency_modifiers(pc_actor_npc_snapshot(state, target))) for target in targets)
         subject = ((state.battlefield.spatial.placement_for(targets[0]).zone_id
             if state.battlefield is not None else state.source.facts.zone_id)
             if spell is PcSpellId.FIRE_BREATH else targets[0])
@@ -314,12 +340,14 @@ def complete_pc_casting(state, test, decline, glorious):
 
 
 def casting_pending(proof, state):
+    from towr.domain.pc_actor_models import pc_actor_npc_snapshot
     spell_source = (proof.preparation.preparation.follow_ups if proof.preparation is not None
         else proof.post_test.decision.follow_ups)
     tasks = ()
     if proof.targets is not None:
         tasks = tuple(PcMagicTask(effect.resolution_id,PcMagicTaskKind.DAMAGE,effect.target_id,
-            pc_spell_damage(proof.spell_id,effect.potency,state.enemy(effect.target_id).state.current_resilience.is_armoured))
+            pc_spell_damage(proof.spell_id,effect.potency,
+                pc_actor_npc_snapshot(state,effect.target_id).state.current_resilience.is_armoured))
             for effect in proof.targets.follow_ups)
     roll = next((value for value in spell_source if isinstance(value,MiscastRollRequest)),None)
     return PcMagicPending(proof.actor_id,proof.request.id,tasks,roll) if tasks or roll is not None else None
@@ -367,13 +395,46 @@ def expected_magic_interruption(state):
     return PcMagicInterruptionProof(turn.actor_id,source_id,result,prepared)
 
 
+def _miscast_tasks_for_state(state, entry, source_id, caster_id, *, support_check=False):
+    """Snapshot actual subjects by role and the printed PG159 range.
+
+    A retained allied animal is a profile NPC, not a PC injury/Fate owner.
+    Mounted pairs stay one target. Original roster order is kept, followed by
+    source-ordered retained bodies, at the moment of the actual Miscast roll.
+    """
+    from towr.domain.pc_actor_models import pc_active_actor_ids
+    from towr.domain.pc_battlefield_models import battlefield_range
+    from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+    live=frozenset(pc_active_actor_ids(state))
+    party=tuple(actor for actor in state.source.pc_activation_order
+        if actor in live or support_check and actor==caster_id)
+    npcs=(*tuple(actor for actor in state.source.enemy_activation_order if actor in live),
+        *tuple(row.snapshot.state.actor_id for row in state.companions
+            if row.snapshot.state.actor_id in live))
+    ranges={MiscastTableEntryId.SENSE_OF_LOSS:RangedWeaponRange.MEDIUM,
+        MiscastTableEntryId.NAUSEATING_WAVE:RangedWeaponRange.SHORT,
+        MiscastTableEntryId.FOOD_SPOILED:RangedWeaponRange.LONG,
+        MiscastTableEntryId.ARCANE_SPILL:RangedWeaponRange.SHORT,
+        MiscastTableEntryId.HIDEOUS_STENCH:RangedWeaponRange.SHORT,
+        MiscastTableEntryId.UNNATURAL_WIND:RangedWeaponRange.SHORT,
+        MiscastTableEntryId.EAR_DAMAGE:RangedWeaponRange.SHORT}
+    maximum=ranges.get(entry)
+    if maximum is not None and state.battlefield is not None:
+        bands=tuple(RangedWeaponRange)
+        def in_range(actor):
+            return actor==caster_id or bands.index(battlefield_range(state.battlefield,caster_id,actor))<=bands.index(maximum)
+        party=tuple(actor for actor in party if in_range(actor))
+        npcs=tuple(actor for actor in npcs if in_range(actor))
+    return pc_miscast_tasks(entry,source_id,caster_id,party,npcs)
+
+
 def pc_magic_unsupported(state):
     pending = state.magic_pending
     if pending is None or pending.miscast_roll is None or pending.tasks or state.pending or state.pending_wound is not None:
         return None
     roll = pending.miscast_roll
-    if pc_miscast_tasks(roll.entry.id,roll.request_id+':effect',pending.caster_id,
-            tuple(m.actor_id for m in state.party),tuple(e.state.actor_id for e in state.live_enemies)) is None:
+    if _miscast_tasks_for_state(state,roll.entry.id,roll.request_id+':effect',pending.caster_id,
+            support_check=True) is None:
         return PcMagicUnsupported(pending.caster_id,roll.request_id,roll.entry.id.value,roll.total)
     return None
 
@@ -397,7 +458,7 @@ class _ReplayD10:
 def build_magic_effect(state, rng):
     """Resolve exactly one committed task using existing typed rule owners."""
     from towr.domain.injury_models import (CharacterWoundRequest, FixedCharacterWoundRequest,
-        ProfileWoundRequest,ProfileNpcType,WoundEntryId)
+        ProfileWoundRequest,ProfileNpcType,WoundEntryId,FixedWoundSelection)
     from towr.domain.wound_lifecycle_models import (CharacterWoundLifecycleRollRequest,
         FixedCharacterWoundLifecycleRequest, FixedCharacterWoundLifecycleCompletionRequest)
     from towr.rules.wound_lifecycle_resolution import (roll_character_wound_lifecycle,
@@ -408,42 +469,81 @@ def build_magic_effect(state, rng):
     from towr.rules.stagger_impact_resolution import resolve_stagger_impact
     from towr.rules.injury_resolution import resolve_profile_wound
     from towr.domain.pc_warped_form_models import WarpedFormDecisions
+    from towr.domain.pc_actor_models import pc_actor_injury, pc_actor_npc_snapshot, pc_companion
+    from towr.domain.pc_oath_models import pc_oath_wound_options, LadyWoundDecisions
     task = state.magic_pending.tasks[0]
+    options = pc_oath_wound_options(state,task.target_id)
+    decisions = LadyWoundDecisions(WarpedFormDecisions())
     is_pc = task.target_id in state.source.pc_activation_order
-    injury = state.participant(task.target_id).injury if is_pc else state.enemy(task.target_id).state.injury
+    injury = pc_actor_injury(state, task.target_id)
+    companion = pc_companion(state, task.target_id)
+    previous = injury if companion is not None else None
     if (injury.dead if is_pc else injury.defeated) and task.kind is not PcMagicTaskKind.NOTE:
-        return PcMagicEffectProof(task)
+        return PcMagicEffectProof(task, previous_injury=previous)
     result = decision = None
     if task.kind in (PcMagicTaskKind.DAMAGE,PcMagicTaskKind.FIXED_EARS) and not is_pc:
-        if task.kind is PcMagicTaskKind.FIXED_EARS or task.value > state.enemy(task.target_id).state.current_resilience.total:
-            result = resolve_profile_wound(ProfileWoundRequest(task.id+':wound',ProfileNpcType.MINION,injury))
+        enemy = pc_actor_npc_snapshot(state, task.target_id)
+        if task.kind is PcMagicTaskKind.FIXED_EARS or task.value > enemy.state.current_resilience.total:
+            result = resolve_profile_wound(ProfileWoundRequest(task.id+':wound',
+                ProfileNpcType(enemy.definition.injury_policy.value),injury,negation_options=options),
+                decisions=decisions)
         else:
-            request = StaggerImpactRequest(task.id,task.target_id,TargetInjuryPolicy.MINION,injury,False,False)
-            result = resolve_stagger_impact(request,rng,decisions=WarpedFormDecisions())
-        if result.state.defeated:
+            from towr.domain.pc_undead_minion_models import pc_undead_minion_source
+            from towr.domain.undead_minion_models import undead_minion_stagger_defeat_spec
+            undead = undead_minion_stagger_defeat_spec(pc_undead_minion_source(state,task.target_id),task.target_id)
+            request = StaggerImpactRequest(task.id,task.target_id,enemy.definition.injury_policy,
+                injury,False,False,minion_stagger_defeat=undead,wound_negation_options=options)
+            result = resolve_stagger_impact(request,rng,decisions=decisions)
+        if result.state.defeated and companion is None:
             decision = next(d for d in state.source.participant(state.magic_pending.caster_id).defeat_decisions
                 if d.target_id == task.target_id)
     elif task.kind is PcMagicTaskKind.STAGGER:
-        result = resolve_stagger_impact(StaggerImpactRequest(task.id,task.target_id,TargetInjuryPolicy.PLAYER,
-            injury,False,False),rng,decisions=WarpedFormDecisions())
+        from towr.domain.talent_injury_models import hardy_wound_dice_modifiers
+        if is_pc:
+            request = StaggerImpactRequest(task.id,task.target_id,TargetInjuryPolicy.PLAYER,
+                injury,False,False,wound_dice_modifiers=hardy_wound_dice_modifiers(
+                    state.source.participant(task.target_id).talents),wound_negation_options=options)
+        else:
+            from towr.domain.pc_undead_minion_models import pc_undead_minion_source
+            from towr.domain.undead_minion_models import undead_minion_stagger_defeat_spec
+            enemy = pc_actor_npc_snapshot(state,task.target_id)
+            request = StaggerImpactRequest(task.id,task.target_id,enemy.definition.injury_policy,
+                injury,False,False,minion_stagger_defeat=undead_minion_stagger_defeat_spec(
+                    pc_undead_minion_source(state,task.target_id),task.target_id),wound_negation_options=options)
+        result = resolve_stagger_impact(request,rng,decisions=decisions)
     elif task.kind is PcMagicTaskKind.RANDOM_WOUND:
+        from towr.domain.talent_injury_models import prepare_hardy_wound
         result = roll_character_wound_lifecycle(CharacterWoundLifecycleRollRequest(task.id,task.target_id,
-            CharacterWoundRequest(task.id+':wound',injury)),rng)
+            prepare_hardy_wound(CharacterWoundRequest(task.id+':wound',injury,negation_options=options),
+                state.source.participant(task.target_id).talents)),rng,decisions=decisions)
     elif task.kind is PcMagicTaskKind.FIXED_EARS:
+        if options:
+            # Named-entry character lifecycle supplies the same actual fixed
+            # Wound without dice. Negation precedes Deafened/daily registration.
+            result = roll_character_wound_lifecycle(CharacterWoundLifecycleRollRequest(
+                task.id,task.target_id,CharacterWoundRequest(task.id+':wound',injury,
+                    negation_options=options,fixed_entry=FixedWoundSelection(
+                        WoundEntryId.EARS_RINGING,11,'RULE-MISCAST-TABLE:ear_damage'))),
+                rng,decisions=decisions)
+            return PcMagicEffectProof(task,result,decision,previous_injury=previous)
         pending = begin_fixed_character_wound_lifecycle(FixedCharacterWoundLifecycleRequest(task.id,task.target_id,
             FixedCharacterWoundRequest(task.id+':wound',injury,WoundEntryId.EARS_RINGING,11,
                 'RULE-MISCAST-TABLE:ear_damage')))
         consumed = tuple(p.result.source_request.pending.request_id for p in state.history
             if type(p) is PcMagicEffectProof and p.task.kind is PcMagicTaskKind.FIXED_EARS
-                and p.task.target_id in state.source.pc_activation_order and p.result is not None)
+                and p.task.target_id in state.source.pc_activation_order
+                and type(p.result) is FixedCharacterWoundLifecycleCompletionResult)
         result = complete_fixed_character_wound_lifecycle(FixedCharacterWoundLifecycleCompletionRequest(
             task.id+':complete',pending,pending.wound_result.state,state.participant(task.target_id).daily_wounds,
             task.id+':daily',consumed))
     elif task.kind in (PcMagicTaskKind.PRONE,PcMagicTaskKind.BLINDED):
+        from towr.domain.pc_undead_minion_models import pc_undead_minion_source
+        from towr.domain.undead_minion_models import undead_minion_effect_immunities
         condition = Condition.PRONE if task.kind is PcMagicTaskKind.PRONE else Condition.BLINDED
         result = resolve_condition_application(ConditionApplicationRequest(task.id,injury.conditions,condition,
-            'RULE-MISCAST-TABLE:'+task.note.value))
-    return PcMagicEffectProof(task,result,decision)
+            'RULE-MISCAST-TABLE:'+task.note.value, immunities=undead_minion_effect_immunities(
+                pc_undead_minion_source(state,task.target_id),task.target_id)))
+    return PcMagicEffectProof(task,result,decision,previous_injury=previous)
 
 
 def effect_replay_dice(proof):
@@ -462,6 +562,7 @@ def project_pc_magic_step(state, proof):
     from towr.domain.pc_heavy_wound_models import critical_for_action
     from towr.domain.pc_fate_test_models import validate_pc_test_fate
     from towr.rules.miscast_resolution import resolve_miscast_roll
+    from towr.domain.pc_actor_models import pc_actor_injury, pc_actor_npc_update, pc_companion
 
     def same(actual, expected):
         if actual != expected:
@@ -512,8 +613,7 @@ def project_pc_magic_step(state, proof):
         result = resolve_miscast_roll(pending.miscast_request,state.participant(pending.caster_id).magic,dice)
         dice.exhausted()
         same(proof.result,result)
-        tasks = pc_miscast_tasks(result.entry.id,result.request_id+':effect',pending.caster_id,
-            tuple(m.actor_id for m in state.live_party),tuple(e.state.actor_id for e in state.live_enemies))
+        tasks = _miscast_tasks_for_state(state,result.entry.id,result.request_id+':effect',pending.caster_id)
         return finish(magic_pending=replace(pending,tasks=tasks or (),miscast_request=None,miscast_roll=result))
     if type(proof) is PcMagicEffectProof:
         if not pending.tasks:
@@ -526,27 +626,50 @@ def project_pc_magic_step(state, proof):
         task, result = proof.task, proof.result
         updates = dict(magic_pending=replace(pending,tasks=pending.tasks[1:]))
         is_pc = task.target_id in state.source.pc_activation_order
-        injury = state.participant(task.target_id).injury if is_pc else state.enemy(task.target_id).state.injury
+        injury = pc_actor_injury(state, task.target_id)
         active = not (injury.dead if is_pc else injury.defeated)
         if task.kind in (PcMagicTaskKind.DAMAGE,PcMagicTaskKind.FIXED_EARS) and not is_pc and active:
-            updates['enemies'] = _enemy_update(state,task.target_id,result.state)
+            changed = result.state
+            if pc_companion(state, task.target_id) is not None:
+                from towr.domain.pc_companion_effect_models import companion_profile, companion_wound_band_injury
+                changed = companion_wound_band_injury(companion_profile(state, task.target_id), changed)
+            updates.update(pc_actor_npc_update(state, task.target_id, injury=changed))
             combat = state.round_state
-            if result.state.defeated and task.target_id not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
+            if (result.state.defeated and task.target_id in tuple(row.entity_id for row in combat.participants)
+                    and task.target_id not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids)):
                 updates['round_state'] = replace(combat,excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,task.target_id))
         elif task.kind is PcMagicTaskKind.STAGGER and active:
-            updates.update(party=_party_update(state,task.target_id,injury=result.state),pending=result.follow_ups,
-                pending_wound=result.pending_character_wound,
-                pending_actor_id=task.target_id if result.follow_ups or result.pending_character_wound is not None else None)
+            if is_pc:
+                updates.update(party=_party_update(state,task.target_id,injury=result.state),pending=result.follow_ups,
+                    pending_wound=result.pending_character_wound,
+                    pending_actor_id=task.target_id if result.follow_ups or result.pending_character_wound is not None else None)
+            else:
+                changed = result.state
+                if pc_companion(state,task.target_id) is not None:
+                    from towr.domain.pc_companion_effect_models import companion_profile, companion_wound_band_injury
+                    changed = companion_wound_band_injury(companion_profile(state,task.target_id),changed)
+                updates.update(pc_actor_npc_update(state,task.target_id,injury=changed))
+                combat=state.round_state
+                if (changed.defeated and task.target_id in tuple(row.entity_id for row in combat.participants)
+                        and task.target_id not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids)):
+                    updates['round_state']=replace(combat,
+                        active_turn=None if combat.active_turn is not None and combat.active_turn.actor_id==task.target_id
+                            else combat.active_turn,
+                        excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,task.target_id))
         elif task.kind is PcMagicTaskKind.RANDOM_WOUND and active:
             updates.update(party=_party_update(state,task.target_id,injury=result.wound_result.state),
                 pending_wound=result,pending_actor_id=task.target_id)
         elif task.kind is PcMagicTaskKind.FIXED_EARS and active:
-            updates.update(party=_party_update(state,task.target_id,injury=result.state,daily_wounds=result.daily_wounds),
-                pending=result.wound_effect.follow_ups,pending_actor_id=task.target_id if result.wound_effect.follow_ups else None)
+            if type(result) is CharacterWoundLifecycleRollResult:
+                updates.update(party=_party_update(state,task.target_id,injury=result.wound_result.state),
+                    pending_wound=result,pending_actor_id=task.target_id)
+            else:
+                updates.update(party=_party_update(state,task.target_id,injury=result.state,daily_wounds=result.daily_wounds),
+                    pending=result.wound_effect.follow_ups,pending_actor_id=task.target_id if result.wound_effect.follow_ups else None)
         elif task.kind in (PcMagicTaskKind.PRONE,PcMagicTaskKind.BLINDED) and active:
             changed = replace(injury,conditions=result.state)
-            updates['party' if is_pc else 'enemies'] = (_party_update(state,task.target_id,injury=changed)
-                if is_pc else _enemy_update(state,task.target_id,changed))
+            updates.update(dict(party=_party_update(state,task.target_id,injury=changed)) if is_pc
+                else pc_actor_npc_update(state,task.target_id,injury=changed))
             updates['magic_modifiers'] = (*state.magic_modifiers,PcMagicModifier(task.id,task.target_id,task.kind))
         elif task.kind is PcMagicTaskKind.DEATH and active:
             updates['party'] = _party_update(state,task.target_id,injury=replace(injury,dead=True))

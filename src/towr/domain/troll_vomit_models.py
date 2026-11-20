@@ -191,10 +191,10 @@ class TrollVomitActionExecutionResult:
         )
         if self.hazard_request != expected_hazard_request:
             raise ValueError("Troll Vomit Hazard request is inconsistent")
-        expected_shortfall = max(0, 3 - self.avoidance_test.successes)
+        expected_shortfall = max(0, 3 - self.avoidance_test.effective_successes)
         if (
             self.hazard.request_id != self.hazard_request.id
-            or self.hazard.successes != self.avoidance_test.successes
+            or self.hazard.successes != self.avoidance_test.effective_successes
             or self.hazard.rating != 3
             or self.hazard.shortfall != expected_shortfall
             or self.hazard.avoided is not (expected_shortfall == 0)

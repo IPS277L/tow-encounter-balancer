@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from towr.domain.talent_acrobatic_models import validate_acrobatic_source, acrobatic_rule_ids
+
 from dataclasses import replace
 
 from towr.domain.condition_models import (
@@ -51,7 +53,7 @@ def resolve_give_ground(
 
     for entity_id in request.path_entity_ids:
         crossed = state.placement_for(entity_id)
-        if request.is_enemy_entity(crossed.entity_id):
+        if request.is_enemy_entity(crossed.entity_id) and not validate_acrobatic_source(request.acrobatic,request.mover_id):
             raise ValueError("Give Ground cannot move through an enemy")
 
     if request.away_from_entity_id is not None:
@@ -111,6 +113,7 @@ def resolve_give_ground(
         conditions = condition_application.state
 
     return GiveGroundResolutionResult(
+        acrobatic=request.acrobatic,
         source_request=request,
         source=request.source,
         mover_id=request.mover_id,
@@ -127,6 +130,7 @@ def resolve_give_ground(
                     request.source.rule_id,
                     ZONE_GRAPH_RULE_ID,
                     GIVE_GROUND_MOVEMENT_RULE_ID,
+                    *acrobatic_rule_ids(request.acrobatic,request.mover_id),
                     *(
                         condition_application.applied_rule_ids
                         if condition_application is not None

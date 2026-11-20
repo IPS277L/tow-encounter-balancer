@@ -1,6 +1,8 @@
 """Explicit book profile-Wound effects and the Official's actual Broken-turn boundary."""
 from __future__ import annotations
 
+from towr.domain.pc_demigryph_models import pc_kernel_attack_types
+
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -172,7 +174,7 @@ def pc_npc_broken_turn_unsupported(state: PcMeleeState) -> PcNpcBrokenTurnUnsupp
                 raise ValueError('Official first-Wound Broken was acknowledged twice')
             cause=(proof.activation_id,proof.source)
             wave_cause = True
-        if type(proof) in (PcAttackProof,PcDemigryphStrikeProof):
+        if type(proof) in pc_kernel_attack_types():
             attack = proof
         elif (type(proof) is PcProfileWoundProof and attack is not None
                 and attack.request.target_id==actor and _first_wound(proof.source)):

@@ -5,6 +5,7 @@ literal d10 runs and replay the complete real source-bound journal.
 """
 from tests.support.generated_weapon_sources import initial_generated_weapons
 from tests.support.armour_fixtures import light_loadout
+from tests.support.talent_sources import paid_talent
 from copy import deepcopy
 from dataclasses import replace
 import unittest
@@ -12,7 +13,8 @@ import unittest
 from tests.support.pc_magic_scenarios import magic_scenario
 from tests.support.pc_melee_scripted import ScriptedD10
 from towr.domain.condition_models import Condition,ConditionState
-from towr.domain.generated_npc_models import GeneratedNpc,GeneratedWeapon,GeneratedTalent
+from towr.domain.generated_npc_models import GeneratedNpc,GeneratedWeapon
+from towr.domain.talent_catalog import TalentId
 from towr.domain.magic_models import (
     SpellCastRequest,SpellCastExecutionRequest,IdentifiedSpellTarget,
 )
@@ -33,7 +35,7 @@ from towr.rules.stone_troll import MAGIC_RESISTANCE_RULE_ID
 def npc(*,resistant=True,toughness=5,weapon_skill=1,shield=False):
     return GeneratedNpc(weapon_skill,1,toughness,1,2,2,initial_generated_weapons(GeneratedWeapon.STAFF),light_loadout(light=False, shield=shield),
         defence=6,
-        talents=(GeneratedTalent.MAGIC_RESISTANCE,) if resistant else ())
+        talents=(paid_talent(TalentId.MAGIC_RESISTANCE),) if resistant else ())
 
 
 def scenario(components, *,spell=PcSpellId.LIGHTNING_BLAST,reason=2,

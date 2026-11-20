@@ -78,10 +78,6 @@ def pc_pre_stagger_target(kernel: KernelAttackRequest,outcome: AttackOutcome):
     effect=next((effect for effect in effects if type(effect) is ProneBeforeGiveGroundSpec),None)
     if outcome is not AttackOutcome.HIT or effect is None:
         return before,()
-    if ((kernel.target_policy is not TargetInjuryPolicy.PLAYER
-            and effect.rule_id not in (HORSE_NOBLE_STEED_RULE_ID,PEGASUS_KNIGHTS_RULE_ID))
-            or kernel.target_effect_immunities):
-        raise ValueError('bounded early Prone requires its ordinary PLAYER target without immunities')
     if kernel.target_policy is TargetInjuryPolicy.MONSTROSITY and not effect.affects_monstrosities:
         return before,()
     return replace(before,conditions=before.conditions.with_condition(Condition.PRONE)),(effect.rule_id,)
@@ -115,8 +111,8 @@ def expected_pc_hit_target(kernel: KernelAttackRequest,outcome: AttackOutcome,ba
     post_effects=tuple(effect for effect in effects if type(effect) is ConditionOnHitSpec)
     if not post_effects:
         return base,(),early_rules
-    if kernel.target_effect_immunities:
-        raise ValueError('on-hit Condition requires its actual source without unmodelled immunities')
+    # The admitted post-hit sources above are UNCLASSIFIED. A psychological
+    # immunity does not block these effects or the physical early Prone.
     conditions,applications,rules=base.conditions,[],list(early_rules)
     for effect in post_effects:
         previous=conditions

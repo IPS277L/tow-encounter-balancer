@@ -69,7 +69,7 @@ from towr.domain.npc_roster_leg_spasm_models import NpcRosterLegSpasmStandReques
 from towr.domain.npc_roster_turn_models import NpcRosterTurnStartRequest, NpcRosterRoundAdvanceRequest
 from towr.domain.npc_wound_turn_end_models import NpcWoundTurnEndRequest
 from towr.domain.protection_models import ProtectionPreparationRequest
-from towr.domain.resolution_models import GiveGroundResolutionRequest, KernelAttackRequest
+from towr.domain.resolution_models import GiveGroundResolutionRequest, KernelAttackRequest,TargetInjuryPolicy
 from towr.domain.test_models import Skill
 from towr.domain.turn_models import CombatActionDeclaration, CombatActionKind, ImproviseKind, ManoeuvreKind
 from towr.engine.cowardly_flight_casting import execute_cowardly_flight_casting, complete_cowardly_flight_casting
@@ -357,9 +357,13 @@ def run_npc_magic_scenario(scenario: NpcMagicScenario, rng: RandomSource) -> Npc
             target.state.wields_weapon, target.state.holds_shield, Skill.ATHLETICS,
             target.protection_options(action_id + ':protection-test')))
         departure = next(d for d in frame.attack_departures if d.actor_id == target_id)
+        from towr.domain.talent_injury_models import hardy_wound_dice_modifiers
+        from towr.domain.talent_actor_models import npc_definition_acquired_talents
         execution = AttackActionExecutionRequest(action_id, current.round_state, actor_id, target_id, 1,
             KernelAttackRequest(action_id + ':kernel', target_id, protected.attack, target.definition.injury_policy,
-                target.state.injury, departure.can_leave_zone, target_id in current.spatial_state.gave_ground_entity_ids))
+                target.state.injury, departure.can_leave_zone, target_id in current.spatial_state.gave_ground_entity_ids,
+                wound_dice_modifiers=hardy_wound_dice_modifiers(npc_definition_acquired_talents(target.definition))
+                    if target.definition.injury_policy is TargetInjuryPolicy.CHAMPION else ()))
         if target_id == current.wizard.actor_id:
             source = NpcRosterChampionAttackRequest(current, NpcChampionAttackRequest(current.champion_attack, protected, execution))
             publish(NpcRosterChampionAttackResult(source, execute_npc_champion_attack(source.attack, rng, decisions=decisions)), source)

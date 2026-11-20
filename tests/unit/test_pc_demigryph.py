@@ -224,7 +224,8 @@ class PcDemigryphTests(unittest.TestCase):
         self.assertEqual(strike.target_id, 'pc1')
         self.assertEqual(strike.kernel_request.target_policy.value, 'player')
         self.assertEqual(strike.kernel_request.attack.attacker_test.profile, InlineProfile(4, 4, 8))
-        self.assertTrue(strike.kernel_request.attack.attacker_is_staggered)
+        # C13: the rider's failed weapon Test did not Stagger the animal.
+        self.assertFalse(strike.kernel_request.attack.attacker_is_staggered)
         self.assertEqual(protection.defender_id, 'pc1')
         self.assertEqual(protection.options[0].test.profile.characteristic, 6)
 

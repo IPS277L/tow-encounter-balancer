@@ -33,6 +33,12 @@
   "additionalProperties": false,
   "allOf": [
     {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/companionSummaryPresence"
+    },
+    {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/immediateAttackSummaryPresence"
+    },
+    {
       "$ref": "urn:towr:pc-melee:common:1#/$defs/potionSummaryPresence"
     },
     {
@@ -47,23 +53,30 @@
                 "properties": {
                   "party": {
                     "contains": {
+                      "required": [
+                        "pc"
+                      ],
                       "properties": {
-                        "combat_equipment": {
-                          "contains": {
-                            "properties": {
-                              "weapon": {
-                                "const": "hochland_long_rifle"
+                        "pc": {
+                          "required": [
+                            "ranged"
+                          ],
+                          "properties": {
+                            "ranged": {
+                              "type": "object",
+                              "required": [
+                                "awareness"
+                              ],
+                              "properties": {
+                                "awareness": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                }
                               }
-                            },
-                            "required": [
-                              "weapon"
-                            ]
+                            }
                           }
                         }
-                      },
-                      "required": [
-                        "combat_equipment"
-                      ]
+                      }
                     }
                   }
                 },
@@ -107,6 +120,12 @@
     },
     {
       "$ref": "urn:towr:pc-melee:common:1#/$defs/pcRangedSummaryPresence"
+    },
+    {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/musicSummaryPresence"
+    },
+    {
+      "$ref": "urn:towr:pc-melee:common:1#/$defs/oathSummaryPresence"
     }
   ]
 }

@@ -31,7 +31,8 @@ def generated_attack_modifiers(definition: NpcDefinition, conditions: ConditionS
     if weapon_use is not None:
         from towr.domain.weapon_effect_preparation import weapon_test_modifiers
         return weapon_test_modifiers(weapon_use,conditions,target_conditions=target_conditions,
-            target_mounted=target_mounted,actor_mounted=actor_mounted,charging=charging).modifiers
+            target_mounted=target_mounted,actor_mounted=actor_mounted,charging=charging,
+            talents=components.talents).modifiers
     weapon = PcMeleeWeapon(components.weapon.value)
     return (pc_weapon_test_modifiers(weapon,Skill.MELEE,conditions)
         + pc_weapon_attack_modifiers(weapon,target_conditions,target_mounted=target_mounted))
@@ -60,6 +61,23 @@ def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str,
     from towr.domain.pc_npc_grudge_models import pc_npc_grudge_melee_modifiers
     from towr.domain.pc_magic_models import magic_test_modifiers
 
+    if defender_id not in state.source.enemy_activation_order:
+        from towr.domain.pc_actor_models import pc_actor_npc_snapshot
+        from towr.domain.pc_companion_effect_models import companion_test_request
+        snapshot = pc_actor_npc_snapshot(state, defender_id)
+        options = ((Skill.ENDURANCE, Skill.ATHLETICS) if attack_skill is Skill.BRAWN else (Skill.ATHLETICS,))
+        candidates = []
+        for candidate in options:
+            test = companion_test_request(state, defender_id, test_id, candidate)
+            prepared = NpcProtectionProfile(snapshot.definition.source_rule_id, candidate, test.profile)
+            if profile is not None and profile != prepared:
+                continue
+            parameters = _expected_initial_roll_parameters(test)
+            candidates.append((parameters[5]*parameters[6], prepared, test))
+        if not candidates:
+            raise ValueError('companion Protection changed its actual natural Skill source')
+        _, selected, test = max(candidates, key=lambda row: row[0])
+        return selected, test
     enemy = state.enemy(defender_id)
     components = enemy.definition.generated_components
     profiles = ((profile,) if profile is not None else enemy.definition.protection
@@ -100,13 +118,17 @@ def npc_protection_test(state: PcMeleeState, defender_id: str, attacker_id: str,
         if actual_use is not None:
             from towr.domain.weapon_effect_preparation import weapon_test_modifiers
             modifiers.extend(weapon_test_modifiers(actual_use,enemy.state.injury.conditions,
-                against_charge=against_charge).modifiers)
+                against_charge=against_charge,talents=components.talents).modifiers)
         modifiers.extend(magic_test_modifiers(state,defender_id,option.skill)[0])
         from towr.domain.pc_armour_models import actor_armour_test_modifiers
         modifiers.extend(actor_armour_test_modifiers(state,defender_id,option.skill,oppose_attack=True))
         if enemy.state.injury.conditions.has(Condition.DRAINED):
             modifiers = [item for item in modifiers if item.amount <= 0]
-        tests.append((option,TestRequest(test_id,option.test_profile,tuple(modifiers))))
+        from towr.domain.pc_help_models import build_pc_test_help
+        test=TestRequest(test_id,option.test_profile,tuple(modifiers),
+            magic_test_modifiers(state,defender_id,option.skill)[1])
+        test,_=build_pc_test_help(state,defender_id,option.skill,test)
+        tests.append((option,test))
     if not tests:
         raise ValueError('the target has no actual eligible Protection profile for this Attack Skill')
     if len(tests) == 1 or enemy.state.injury.conditions.has(Condition.DEFENCELESS):

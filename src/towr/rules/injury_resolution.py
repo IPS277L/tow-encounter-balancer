@@ -20,6 +20,8 @@ from towr.domain.injury_models import (
     WoundRecordOrigin,
     WoundTableRoll,
     wound_adrenaline_conditions,
+    _expected_profile_wound_result,
+    _validate_profile_wound_source,
 )
 from towr.rules.dice import RandomSource
 from towr.rules.wound_table import lookup_wound
@@ -41,6 +43,9 @@ class WoundDecisionProvider(Protocol):
         table_roll: WoundTableRoll | FixedWoundTableSelection,
         options: tuple[WoundNegationOption, ...],
     ) -> str | None: ...
+
+    def choose_profile_wound_negation(self, *, request: ProfileWoundRequest,
+            options: tuple[WoundNegationOption, ...]) -> str | None: ...
 
 
 def resolve_character_wound(
@@ -165,40 +170,19 @@ def resolve_fixed_character_wound(
     )
 
 
-def resolve_profile_wound(request: ProfileWoundRequest) -> ProfileWoundResult:
-    if request.state.defeated:
-        raise ValueError("a defeated NPC cannot suffer another Wound")
-
-    additional = sum(item.count for item in request.additional_wounds)
-    wounds_requested = request.base_wounds + additional
-    current_wounds = min(
-        request.state.wound_limit,
-        request.state.wounds + wounds_requested,
-    )
-    wounds_inflicted = current_wounds - request.state.wounds
-    defeated = current_wounds >= request.state.wound_limit or request.decapitation_cause is not None
-    state = ProfileInjuryState(
-        wounds=current_wounds,
-        wound_limit=request.state.wound_limit,
-        conditions=request.state.conditions.without_condition(Condition.STAGGERED),
-        defeated=defeated,
-        defeat_cause=request.decapitation_cause,
-    )
-    state_change = ProfileStateChangeRequest(
-        npc_type=request.npc_type,
-        previous_wounds=request.state.wounds,
-        current_wounds=current_wounds,
-        defeated=defeated,
-    )
-    return ProfileWoundResult(
-        request_id=request.id,
-        state=state,
-        wounds_requested=wounds_requested,
-        wounds_inflicted=wounds_inflicted,
-        state_change=state_change,
-        applied_rule_ids=(*tuple(item.rule_id for item in request.additional_wounds),
-            *((request.decapitation_cause.rule_id,) if request.decapitation_cause is not None else ())),
-    )
+def resolve_profile_wound(request: ProfileWoundRequest, *,
+        decisions: WoundDecisionProvider | None = None) -> ProfileWoundResult:
+    _validate_profile_wound_source(request)
+    selected = None
+    if request.negation_options:
+        selector = getattr(decisions, 'choose_profile_wound_negation', None)
+        if not callable(selector):
+            raise MissingWoundDecisionError('profile Wound negation requires an explicit decision provider')
+        selected = selector(request=request, options=request.negation_options)
+        if selected is not None and (type(selected) is not str
+                or selected not in {option.rule_id for option in request.negation_options}):
+            raise InvalidWoundDecisionError('profile Wound negation selected an unavailable Rule ID')
+    return _expected_profile_wound_result(request, selected)
 
 
 def _choose_negation(

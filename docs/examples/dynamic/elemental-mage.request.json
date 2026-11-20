@@ -31,7 +31,35 @@
         "armour": []
       },
       "talents": [
-        "wizard"
+        {
+          "id": "wizard",
+          "acquisitions": [
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            },
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            },
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            },
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            }
+          ]
+        }
       ],
       "resources": {
         "fate": 0

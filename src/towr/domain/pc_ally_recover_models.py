@@ -93,9 +93,16 @@ def pc_after_standard_recover(state, request, result):
         and interaction.id == pc_melee_action_id(state, actor)+':drink' else None)
     drinking = selection is not None and interaction.object_id == selection.item_id
     scarab=interaction is not None and interaction.id==pc_melee_action_id(state,actor)+':scarab-heal'
+    tool_pickup=interaction is not None and interaction.id==pc_melee_action_id(state,actor)+':pickup-tool'
     shield_pickup = not drinking and not scarab and interaction is not None and interaction.object_id==actor+':shield'
     picked=None
-    if not drinking and not scarab and not shield_pickup and interaction is not None and member.weapon_inventory is not None:
+    if tool_pickup:
+        from towr.domain.pc_musician_equipment_models import plan_musician_equipment
+        plan=plan_musician_equipment(state,actor,interaction.object_id,pickup=True)
+        if plan is None:
+            raise ValueError('tool Recover must retrieve its actual dropped instrument here')
+        picked=plan.state
+    elif not drinking and not scarab and not shield_pickup and interaction is not None and member.weapon_inventory is not None:
         from towr.domain.pc_weapon_inventory import pc_weapon_pickup_member
         picked=pc_weapon_pickup_member(state,actor,interaction.object_id,
             injury=updated.get(actor,member.injury))
@@ -105,11 +112,17 @@ def pc_after_standard_recover(state, request, result):
     if shield_pickup and pc_shield_recover_hand(member, state=state) is None:
         raise ValueError('Recover cannot pick up a distant or unavailable Shield')
     from towr.domain.pc_weapon_inventory import pc_hand
-    used_hand = (pc_hand(member.weapon_inventory.item(interaction.object_id).grip) if scarab else
+    used_hand = (pc_hand(picked.tool_inventory.item(interaction.object_id).grip) if tool_pickup else
+        pc_hand(member.weapon_inventory.item(interaction.object_id).grip) if scarab else
         pc_potion_hand(member) if drinking else pc_shield_recover_hand(member, state=state) if shield_pickup else
         picked.weapon_hand if picked is not None else None)
-    shield = PcShieldState(PcShieldLocation.HELD,used_hand) if shield_pickup else member.shield
+    shield = PcShieldState(PcShieldLocation.HELD,used_hand) if shield_pickup else picked.shield if tool_pickup else member.shield
     injury = picked.injury if picked is not None else updated.get(actor,member.injury)
+    if tool_pickup:
+        injury=updated.get(actor,member.injury)
+        extra=tuple(effect for effect in picked.injury.active_wound_effects if effect not in member.injury.active_wound_effects)
+        injury=replace(injury,active_wound_effects=(*injury.active_wound_effects,*extra),
+            conditions=injury.conditions.with_condition(Condition.CRITICALLY_INJURED) if extra else injury.conditions)
     updated[actor] = critical_for_action(replace(picked if picked is not None else member,injury=injury),CombatActionKind.RECOVER,
         removes_prone=(request.choice.prone_target is not None
             and request.choice.prone_target.entity_id==actor),

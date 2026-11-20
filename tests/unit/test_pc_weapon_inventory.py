@@ -96,9 +96,11 @@ class PcWeaponItemSourceTests(unittest.TestCase):
         gun,sword=member.combat_equipment
         for changes in ({'combat_equipment':(replace(gun,weapon=PcMeleeWeapon.REPEATER_PISTOL),sword)},
                 {'combat_equipment':(replace(gun,hand=PcWeaponHand.RIGHT),sword)},
-                {'policy':PcMeleePolicy.ATTACK_OR_RECOVER_SELF},{'combat_equipment':None}):
+                {'combat_equipment':None}):
             with self.subTest(changes=changes),self.assertRaises((TypeError,ValueError)):
                 replace(member,**changes)
+        fixed=replace(member,policy=PcMeleePolicy.ATTACK_OR_RECOVER_SELF)
+        self.assertEqual(initial_pc_weapon_inventory(fixed),inventory)
         # Explicit items no longer require a second-item backup policy; their
         # physical source and first actual held primary still rederive exactly.
         explicit=replace(member,backup_weapon_policy=None)

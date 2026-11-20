@@ -66,7 +66,7 @@ def reserve_combat_action_slot(
 ) -> CombatActionSlotResult:
     """Validate and reserve an action slot without executing the action."""
     if (request.enduring_strength is not None or request.crown_of_antlers is not None
-            or request.duellist_blades is not None):
+            or request.duellist_blades is not None or request.rapid_reload is not None):
         replace(request)
     turn = request.state.active_turn
     if turn is None:
@@ -116,6 +116,7 @@ def reserve_combat_action_slot(
         enduring_strength=request.enduring_strength,
         crown_of_antlers=request.crown_of_antlers,
         duellist_blades=request.duellist_blades,
+        rapid_reload=request.rapid_reload,
     )
     updated_turn = replace(turn, action_slots=(*turn.action_slots, slot))
     updated_state = replace(request.state, active_turn=updated_turn)

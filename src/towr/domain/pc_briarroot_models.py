@@ -6,6 +6,8 @@ selected binding. Other Burdened causes remain. No helper rolls combat again.
 """
 from __future__ import annotations
 
+from towr.domain.pc_demigryph_models import pc_kernel_attack_types
+
 from dataclasses import dataclass,field,replace
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -79,16 +81,17 @@ def _bank(bank):
 def _successful_defence(proof):
     from towr.domain.pc_melee_result_models import PcAttackProof
     from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
-    if type(proof) not in (PcAttackProof,PcDemigryphStrikeProof):
+    if type(proof) not in pc_kernel_attack_types():
         return False
     protection=proof.protection.source_request
     attack=pc_kernel_resolution(proof).attack
+    from towr.domain.attack_models import defender_won_attack_opposition
     return (protection.attack_skill is Skill.MELEE
         and protection.selected_skill is Skill.DEFENCE
         and protection.defender_holds_shield is True
         and attack.outcome is AttackOutcome.MISS
         and attack.defender_test is not None
-        and attack.defender_test.successes > attack.attacker_test.successes)
+        and defender_won_attack_opposition(proof.request.kernel_request.attack,attack))
 
 
 @dataclass(frozen=True,slots=True)
@@ -172,23 +175,27 @@ class PcBriarrootReleaseProof:
 
 
 def _actors(state):
-    return (*state.source.pc_activation_order,*state.source.enemy_activation_order)
+    return (*state.source.pc_activation_order,*state.source.enemy_activation_order,
+        *(row.snapshot.state.actor_id for row in state.companions if row.retained_since_round is not None))
 
 
 def _known(state,actor):
     _id(actor,'Briarroot actor')
+    if actor in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
+        return
     if actor not in _actors(state):
         raise ValueError('Briarroot actor must belong to the complete encounter source')
 
 
 def _alive(state,actor):
-    return (not state.participant(actor).injury.dead if actor in state.source.pc_activation_order
-        else not state.enemy(actor).state.injury.defeated and actor not in state.exited_npc_ids)
+    injury = _injury(state, actor)
+    return (not injury.dead if actor in state.source.pc_activation_order else
+        not injury.defeated and actor not in state.exited_npc_ids)
 
 
 def _injury(state,actor):
-    return (state.participant(actor).injury if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury)
+    from towr.domain.pc_actor_models import pc_actor_injury
+    return pc_actor_injury(state, actor)
 
 
 def _close(state,first,second):
@@ -278,6 +285,9 @@ def _weapon_released(state,binding):
 
 
 def _attack_weapon(state,proof):
+    use=proof.weapon_intent.attack_use
+    if use is not None and use.primary_item_id is not None:
+        return use.primary_item_id,BriarrootWeaponKind.HELD
     from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof
     actor=proof.request.actor_id
     if type(proof) is PcDemigryphStrikeProof:
@@ -333,7 +343,7 @@ def _current_attack(state):
         if type(proof) is PcBriarrootProof and proof.attack is not None}
     for index in range(len(state.history)-1,-1,-1):
         proof=state.history[index]
-        if type(proof) not in (PcAttackProof,PcDemigryphStrikeProof):
+        if type(proof) not in pc_kernel_attack_types():
             continue
         if (index in consumed or proof.request.actor_id != turn.actor_id
                 or proof.request.slot_index != len(turn.action_slots)):

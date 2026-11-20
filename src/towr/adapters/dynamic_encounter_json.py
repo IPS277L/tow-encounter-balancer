@@ -2,6 +2,7 @@
 from dataclasses import asdict, dataclass, replace
 from fractions import Fraction
 from functools import lru_cache
+from towr.adapters._oath_json import parse_oath_context, oath_context_document, parse_generated_oath_sources, generated_oath_sources_document
 from importlib.resources import files
 import json
 
@@ -17,13 +18,18 @@ from towr.application.dynamic_encounter import (
     DynamicEncounterCancelled, automatic_npc_search_space,
     assess_dynamic_targets,assess_dynamic_candidate,WIN_RATE_TOLERANCE,STARTED_ROUNDS_TOLERANCE,
 )
-from towr.application.encounter_character import EncounterCharacter, EncounterTalent
+from towr.application.encounter_character import EncounterCharacter
 from towr.application.ranged_simulation_models import SimulationExecutionMode, SimulationExecutionOptions
 from towr.application.encounter_inventory import (
     EncounterEquipment, WeaponItem, ArmourItem, ArmourItemKind, ItemLocation,
     ConsumableItem, ConsumableKind,
 )
-from towr.domain.generated_npc_models import GeneratedAbility, GeneratedWeapon, GeneratedTalent
+from towr.domain.generated_npc_models import GeneratedAbility, GeneratedWeapon
+from towr.domain.talent_catalog import TalentId
+from towr.domain.talent_models import TalentOwnerFacts
+from towr.domain.talent_actor_models import PC_EXECUTABLE_TALENTS
+from towr.adapters._talent_json import parse_acquired_talents, parse_talent_owner_facts
+from towr.adapters._tool_json import parse_tool_item_sources
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
 from towr.domain.pc_melee_models import (PcMeleeFacts,PcMeleeWeapon,PcRangedProfile,PC_THROWING_WEAPONS,
     PcRangedReloadHandPolicy,PcRepeaterBonusPolicy)
@@ -31,10 +37,10 @@ from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec
 from towr.domain.pc_single_combat_models import PcSingleCombatPair
 from towr.adapters._pc_melee_scenario_json import parse_scene_features
+from towr.adapters._pc_melee_scenario_json import parse_music_acoustics
 from towr.domain.pc_mount_models import CombatMount, RiderKind
 from towr.domain.armour_models import BodyArmour, HelmetKind, ShieldKind, armour_is_worn
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
-from towr.domain.pc_combat_talent_models import PcCombatTalent,TalentAcquisition
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands
 from towr.domain.weapon_capability_models import weapon_ranged_requirements
 
@@ -53,7 +59,7 @@ class DynamicEncounterExecutionError(RuntimeError):
 def _validator(kind):
     if kind not in ('request', 'result', 'error'):
         raise ValueError('unknown dynamic schema kind')
-    names = ['dynamic-encounter-common.schema.json', 'pc-melee-common.schema.json',
+    names = ['talent-common.schema.json','dynamic-encounter-common.schema.json', 'pc-melee-common.schema.json',
         'pc-melee-simulation-request-v1.schema.json'] + [
         f'dynamic-encounter-{k}-v1.schema.json' for k in ('request', 'result', 'error')]
     docs = {name: json.loads(files('towr.adapters.schemas').joinpath(name).read_text(encoding='utf-8')) for name in names}
@@ -123,18 +129,22 @@ def _target(data, path, *, minimum=0, maximum=1):
     return float(value)
 
 
-def pc_combat_talent_facts(raw, *, path_prefix='', error_type=DynamicEncounterInputError):
-    """Validate acquisition facts even for an inventory draft; compile checks stats."""
-    supported={'defensive_stance','wild_attack'}
-    acquisition=raw.get('talent_acquisition',{})
-    if (type(acquisition) is not dict or any(key not in supported or key not in raw['talents']
-            or type(value) is not str or value not in ('earned','creation_free')
-            for key,value in acquisition.items())):
-        raise error_type(Code.INVALID_INPUT,'Talent acquisition must name a selected supported combat Talent.',
-            path=path_prefix+'/talent_acquisition')
-    return tuple(build_value(error_type,path_prefix+'/talent_acquisition/'+talent,PcCombatTalent,
-        GeneratedTalent(talent),TalentAcquisition(acquisition.get(talent,'earned')))
-        for talent in raw['talents'] if talent in supported)
+def _party_talent_facts(raw, path):
+    """Preserve additional initial characteristics, not temporary modifiers."""
+    supplied = (None if raw.get('talent_facts') is None else parse_talent_owner_facts(
+        raw['talent_facts'],path=path+'/talent_facts',error_type=DynamicEncounterInputError))
+    extra = {name: raw['characteristics'][name] for name in
+        ('ballistic_skill','initiative','reason','fellowship')
+        if raw['characteristics'].get(name) is not None}
+    if supplied is None and not extra:
+        return None
+    supplied = TalentOwnerFacts() if supplied is None else supplied
+    for name,value in extra.items():
+        previous = getattr(supplied,name)
+        if previous is not None and previous != value:
+            raise DynamicEncounterInputError(Code.INVALID_INPUT,
+                'Talent facts disagree with the actual initial characteristic.',path=path+'/talent_facts/'+name)
+    return build_value(DynamicEncounterInputError,path+'/talent_facts',replace,supplied,**extra)
 
 
 def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterCommand:
@@ -150,6 +160,8 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
         for index, raw in enumerate(document['party']):
             path = f'/party/{index}'
             gear = raw['equipment']
+            tools = parse_tool_item_sources(gear.get('tools', []),
+                path_prefix=path+'/equipment/tools', error_type=DynamicEncounterInputError)
             equipment = build_value(DynamicEncounterInputError, path + '/equipment', EncounterEquipment,
                 armour_benefit_id=gear.get('armour_benefit_id'),
                 weapons=tuple(build_value(DynamicEncounterInputError, f'{path}/equipment/weapons/{i}', WeaponItem,
@@ -163,7 +175,7 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
             consumables = tuple(build_value(DynamicEncounterInputError, f'{path}/consumables/{i}', ConsumableItem,
                 id=c['id'], kind=ConsumableKind(c['kind']), quantity=c['quantity'], characteristic=c['characteristic'])
                 for i, c in enumerate(raw['consumables']))
-            ids = [item.id for item in (*equipment.weapons, *equipment.armour, *consumables)]
+            ids = [item.id for item in (*equipment.weapons, *equipment.armour, *consumables, *tools)]
             if len(set(ids)) != len(ids):
                 raise DynamicEncounterInputError(Code.INVALID_INPUT, 'Inventory instance IDs must be unique.', path=path)
             if any(item.kind is ConsumableKind.ENHANCEMENT and item.characteristic not in
@@ -171,7 +183,9 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 raise DynamicEncounterInputError(Code.INVALID_INPUT,
                     'Усиление (Enhancement Potion) пока поддерживает WS, Strength, Toughness и Agility.',
                     path=path + '/consumables')
-            unsupported = [talent for talent in raw['talents'] if talent not in {t.value for t in EncounterTalent}]
+            talents = parse_acquired_talents(raw['talents'],path=path+'/talents',error_type=DynamicEncounterInputError)
+            talent_facts = _party_talent_facts(raw,path)
+            unsupported = [entry.id.value for entry in talents if entry.id not in PC_EXECUTABLE_TALENTS]
             if unsupported:
                 raise DynamicEncounterInputError(Code.INVALID_INPUT,
                     'Таланты пока не поддержаны симуляцией: ' + ', '.join(unsupported), path=path + '/talents')
@@ -233,14 +247,17 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                     **dict(magic, reason=characteristics.pop('reason'), willpower=skills.pop('willpower'),
                         lores=tuple(magic['lores']), memorised_spells=tuple(PcSpellId(value)
                             for value in magic['memorised_spells'])))
+            characteristics.pop('reason',None)
             character = build_value(DynamicEncounterInputError, f'/party/{index}', EncounterCharacter,
                 throwing=throwing if throwing_inventory else None,
                 ballistic_skill=supplied_bs if throwing_inventory else None,
                 brawn=skills.pop('brawn',None),
+                tools=tools,
                 actor_id=raw['actor_id'], **characteristics, **skills,
                 **loadout,
-                talents=tuple(EncounterTalent(t) for t in raw['talents']), fate=raw['resources']['fate'],
-                combat_talents=pc_combat_talent_facts(raw,path_prefix=path),
+                talents=talents, fate=raw['resources']['fate'],
+                talent_facts=talent_facts,
+                oath_context=parse_oath_context(raw.get('oath_context'),path=path+'/oath_context',error_type=DynamicEncounterInputError),
                 mount=None if raw.get('mount') is None else CombatMount(raw['mount']),
                 rider_kind=None if raw.get('rider_kind') is None else RiderKind(raw['rider_kind']),
                 agilulf_code_confirmed=raw.get('agilulf_code_confirmed'),
@@ -264,7 +281,8 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 tuple(None if v is None else ShieldKind(v) for v in values) if name == 'shield' else
                 tuple(RiderKind(v) for v in values) if name == 'rider_kind' else
                 tuple(tuple(GeneratedAbility(a) for a in group) for group in values) if name == 'abilities' else
-                tuple(GeneratedTalent(v) for v in values) if name == 'allowed_talents' else
+                tuple(TalentId(v) for v in values) if name == 'allowed_talents' else
+                parse_generated_oath_sources(values,path='/search_space/allowed_oath_sources',error_type=DynamicEncounterInputError) if name == 'allowed_oath_sources' else
                 values if name in ('agilulf_code_confirmed','ogre_fit_confirmed') else tuple(values))
                 for name, values in options.items()})
         search = dict(document['search'])
@@ -274,6 +292,8 @@ def parse_dynamic_encounter_request(text: str | bytes) -> DynamicEncounterComman
                 True, True, True, True, True, True,
                 daylight_confirmed=True if any(member.wizard is not None for member in party) else None),
             day_id=document['request_id'] + ':day', space=space,battlefield=battlefield,
+            music_acoustics=parse_music_acoustics(document['scene'].get('music_acoustics'),
+                path='/scene/music_acoustics', error_type=DynamicEncounterInputError),
             single_combat_pairs=tuple(build_value(DynamicEncounterInputError,
                 f'/scene/single_combat_pairs/{index}',PcSingleCombatPair,**pair)
                 for index,pair in enumerate(document['scene'].get('single_combat_pairs',()))),
@@ -317,6 +337,19 @@ def candidate_document(request,candidate):
         document['npc_ranged_counts'] = [asdict(item) for item in candidate.summary.npc_ranged_counts]
     if candidate.summary.pc_ranged_counts is not None:
         document['pc_ranged_counts'] = [asdict(item) for item in candidate.summary.pc_ranged_counts]
+    if candidate.summary.rapid_reload_counts is not None:
+        document['rapid_reload_counts'] = [asdict(item) for item in candidate.summary.rapid_reload_counts]
+    if candidate.summary.immediate_attack_counts is not None:
+        document['immediate_attack_counts'] = [asdict(item) for item in candidate.summary.immediate_attack_counts]
+        document['total_immediate_attack_count'] = candidate.summary.total_immediate_attack_count
+    if candidate.summary.companion_counts is not None:
+        document['companion_counts'] = [asdict(item) for item in candidate.summary.companion_counts]
+    if candidate.summary.music_counts is not None:
+        document['music_counts'] = [asdict(item) for item in candidate.summary.music_counts]
+    if candidate.summary.oath_counts is not None:
+        document['oath_counts'] = [asdict(item) for item in candidate.summary.oath_counts]
+    if candidate.summary.npc_aim_counts is not None:
+        document['npc_aim_counts'] = [asdict(item) for item in candidate.summary.npc_aim_counts]
     if candidate.summary.magic_counts is not None:
         document['magic_counts'] = [asdict(item) for item in candidate.summary.magic_counts]
     return document
@@ -334,7 +367,8 @@ def encode_dynamic_encounter_result(command, result):
         raise ValueError('wire source differs from executable request')
     validate_dynamic_encounter_result(result)
     document = dict(schema_version='1', kind='dynamic_encounter_search_result', request_id=command.request_id,
-        source_request=json.loads(command.source_json), resolved_search_space=asdict(command.request.space),
+        source_request=json.loads(command.source_json), resolved_search_space=dict(asdict(command.request.space),
+            allowed_oath_sources=generated_oath_sources_document(command.request.space.allowed_oath_sources)),
         target_criteria=dict(basis='point_estimates',win_rate_tolerance=WIN_RATE_TOLERANCE,
             started_rounds_tolerance=STARTED_ROUNDS_TOLERANCE),target_match_found=result.target_match_found,
         explored=[candidate_document(result.source,c) for c in result.explored],

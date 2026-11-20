@@ -14,6 +14,7 @@ from towr.domain.injury_models import (
     ProfileWoundRequest,
 )
 from towr.domain.resolution_models import (
+    ConsumeWoundNegationRequest,
     ConditionAfterGiveGroundRequest,
     GiveGroundDestinationPreference,
     GiveGroundRequest,
@@ -76,7 +77,7 @@ def resolve_monstrosity_reaction(
 
     assert isinstance(request.context, MonstrousFlightReactionContext)
     if request.context.has_given_ground_this_turn:
-        return _resolve_reaction_wound(request, reaction.rule_id)
+        return _resolve_reaction_wound(request, reaction.rule_id, decisions)
     if not request.context.can_give_ground:
         raise UnresolvedMonstrousFlightReactionError(
             "the books do not define a fallback when Monstrous Flight "
@@ -95,7 +96,7 @@ def _resolve_undead_monstrosity(
     decisions: UndeadMonstrosityDecisionProvider | None,
 ) -> MonstrosityReactionResolutionResult:
     if request.context is None:
-        return _resolve_reaction_wound(request, reaction.rule_id)
+        return _resolve_reaction_wound(request, reaction.rule_id, decisions)
 
     assert isinstance(request.context, UndeadMonstrosityReactionContext)
     choices = [UndeadMonstrosityReactionChoice.SUFFER_WOUND]
@@ -134,7 +135,7 @@ def _resolve_undead_monstrosity(
             follow_ups=(),
             applied_rule_ids=(reaction.rule_id,),
         )
-    return _resolve_reaction_wound(request, reaction.rule_id)
+    return _resolve_reaction_wound(request, reaction.rule_id, decisions)
 
 
 def _choose_undead_monstrosity_reaction(
@@ -264,6 +265,7 @@ def _resolve_reaction_give_ground(
 def _resolve_reaction_wound(
     request: MonstrosityReactionResolutionRequest,
     reaction_rule_id: str,
+    decisions=None,
 ) -> MonstrosityReactionResolutionResult:
     wound = resolve_profile_wound(
         ProfileWoundRequest(
@@ -271,7 +273,8 @@ def _resolve_reaction_wound(
             npc_type=ProfileNpcType.MONSTROSITY,
             state=request.state,
             additional_wounds=request.source.additional_profile_wounds,
-        )
+            negation_options=request.source.wound_negation_options,
+        ), decisions=decisions,
     )
     state = wound.state
     effects = request.source.give_ground_or_wound_effects
@@ -300,7 +303,9 @@ def _resolve_reaction_wound(
         state=state,
         outcome=MonstrosityReactionOutcome.SUFFER_WOUND,
         profile_wound=wound,
-        follow_ups=(wound.state_change,),
+        follow_ups=(*((ConsumeWoundNegationRequest(request.id, wound.negated_by_rule_id),)
+                if wound.negated_by_rule_id is not None else ()),
+            *((wound.state_change,) if wound.wounds_inflicted > 0 else ())),
         applied_rule_ids=tuple(
             dict.fromkeys(
                 (

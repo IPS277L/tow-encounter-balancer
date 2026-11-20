@@ -48,8 +48,10 @@ def eligible_pc_help_beneficiary(state, strategy, actor=None, *, planned_choice=
             or not body_help and usable_weapon_hand(member) is None):
         return None
     ally = state.participant(strategy.beneficiary_id)
+    from towr.domain.pc_allies_in_arms_models import allies_in_arms_choice
     if (ally.injury.dead or ally.injury.conditions.has(Condition.DEFENCELESS)
-            or ally.injury.conditions.has(Condition.DRAINED)):
+            or ally.injury.conditions.has(Condition.DRAINED)
+                and allies_in_arms_choice(state,actor,ally.actor_id)[0] is None):
         return None
     if strategy.target is PcHelpTarget.ATTACK:
         from towr.domain.pc_melee_result_models import pc_attack_skill
@@ -197,7 +199,9 @@ def build_pc_test_help(state, actor, skill, test):
             continue
         if proof.beneficiary_weapon_item_id is not None:
             from towr.domain.pc_backup_weapon_models import pc_active_weapon_item_id
-            if proof.beneficiary_weapon_item_id!=pc_active_weapon_item_id(state,actor):
+            actual=(pc_active_weapon_item_id(state,actor) if actor in state.source.pc_activation_order else
+                state.enemy(actor).state.weapon_inventory.active_item_id)
+            if proof.beneficiary_weapon_item_id!=actual:
                 continue
         request = HelpBonusApplicationRequest(test.id+':apply:'+execution.request_id,
             execution,actor,skill,test)
@@ -206,40 +210,38 @@ def build_pc_test_help(state, actor, skill, test):
             modifier,(request.rule_id,execution.rule_id))
         applications.append(application)
         test = updated
-    if state.participant(actor).injury.conditions.has(Condition.DRAINED):
+    from towr.domain.pc_generated_talents import actor_conditions
+    if actor_conditions(state,actor).has(Condition.DRAINED):
         test = replace(test,dice_modifiers=tuple(modifier for modifier in test.dice_modifiers
             if modifier.amount <= 0))
     return test,tuple(applications)
 
 
-def pc_attack_help_applications(state, attack, *, mount_attack=False):
-    """Recover the exact receipt chain for a prepared PC Attack, before Fate."""
-    actor = state.round_state.active_turn.actor_id
-    if actor in state.source.pc_activation_order:
-        if mount_attack:
-            return ()
-        from towr.domain.pc_melee_result_models import pc_attack_skill
-        skill,test = pc_attack_skill(state,actor),attack.attacker_test
-    else:
-        if attack.defender_test is None:
-            return ()
-        slots = state.round_state.active_turn.action_slots
-        grant = (slots[-1].enduring_strength or slots[-1].crown_of_antlers) if slots else None
-        actor = (grant.target_id if grant is not None
-            else next(pc for pc in state.source.enemy_target_priority if not state.participant(pc).injury.dead))
-        from towr.domain.pc_melee_result_models import pc_protection_skill,pc_selected_npc_attack_profile
-        actual_skill=Skill.MELEE if mount_attack else pc_selected_npc_attack_profile(state,state.round_state.active_turn.actor_id).skill
-        skill = pc_protection_skill(state.participant(actor),actual_skill,
-            state.source.participant(actor).close_shooting_protection_skill)
-        test = attack.defender_test
-        if (actual_skill in (Skill.SHOOTING,Skill.THROWING)
-                and state.source.participant(actor).policy is PcMeleePolicy.AUTOMATIC_COMBAT):
-            from towr.domain.pc_generated_ranged_advice import pc_close_shooting_protection
-            skill,_=pc_close_shooting_protection(state,actor,state.round_state.active_turn.actor_id,test.id)
-    base = replace(test,dice_modifiers=tuple(modifier
-        for modifier in test.dice_modifiers
-        if modifier.rule_id != HELP_BONUS_RULE_ID))
-    return build_pc_test_help(state,actor,skill,base)[1]
+def pc_attack_help_applications(state, attack, *, mount_attack=False,weapon_intent=None):
+    """Exact ordinary Help chains on both sides of this Attack, before Fate."""
+    if weapon_intent is None:
+        from towr.domain.pc_weapon_intent_models import build_pc_attack_weapon_intent
+        weapon_intent=build_pc_attack_weapon_intent(state)
+    active=state.round_state.active_turn.actor_id
+    pc_attacks=active in state.source.pc_activation_order
+    pc_actor=active if pc_attacks else weapon_intent.target_id
+    npc_actor=weapon_intent.target_id if pc_attacks else active
+    from towr.domain.pc_melee_result_models import pc_attack_skill,pc_selected_npc_attack_profile
+    pairs=[]
+    if pc_attacks and not mount_attack:
+        pairs.append((pc_actor,weapon_intent.attack_skill,attack.attacker_test))
+    elif not pc_attacks and attack.defender_test is not None:
+        pairs.append((pc_actor,weapon_intent.protection_skill,attack.defender_test))
+    if pc_attacks and attack.defender_test is not None:
+        pairs.append((npc_actor,weapon_intent.protection_skill,attack.defender_test))
+    elif not pc_attacks and not mount_attack:
+        pairs.append((npc_actor,weapon_intent.attack_skill,attack.attacker_test))
+    applications=[]
+    for actor,skill,test in pairs:
+        base=replace(test,dice_modifiers=tuple(modifier for modifier in test.dice_modifiers
+            if modifier.rule_id!=HELP_BONUS_RULE_ID))
+        applications.extend(build_pc_test_help(state,actor,skill,base)[1])
+    return tuple(applications)
 
 
 def pc_help_beneficiary_weapon(state,strategy):

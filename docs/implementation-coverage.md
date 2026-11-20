@@ -84,19 +84,91 @@
 
 ## Таланты (Talents)
 
-Существующий [реестр59талантов](rules/talents.md), PG III73–81, остаётся основным списком. Прочитанный каталог не равен59исполненным эффектам. Общей системы покупок/рангов/развития пока нет.
+Существующий [реестр59талантов](rules/talents.md), PG III73–81, остаётся основным списком. Прочитанный каталог не равен59исполненным эффектам. Общий типизированный источник приобретений/выборов/Requirements реализован; это не означает готовность всех runtime-эффектов и оптимизатора развития.
 
 | Возможность | Ядро / отдельный бой | Динамический PC | Генерируемый NPC | Оставшаяся граница |
 | --- | --- | --- | --- | --- |
 | Удачливый (Lucky), PG78; Волшебник (Wizard), PG81 | Lucky funding и gambling primitive; Wizard Casting owners | Lucky; Wizard1–4/Elementalism с двумя memorised spells | Ни Lucky/Fate, ни общего caster | Wizard profile не является полной progression/improvised magic; gambling не выбирается боевой тактикой |
 | Оборонительная стойка и Дикая атака (Defensive Stance, Wild Attack), PG74/81 | Общий source-bound lifecycle цены/реакции и однократность | Есть, Attack/Melee Help, автоматический выбор и acquisition facts | Есть, constrained generation и принятая тактика | Не расширять этот факт до общего автоматического использования всех Talents |
+| Могучий удар (Mighty Blow), PG79; Крепкий (Hardy), PG76 | Actual WeaponUse и Wounds Table с полным источником/однократностью | Attack/Help/Protection; входящие раны/опасности/ошибки магии | Mighty Blow в генерации; Hardy для authored Champion M8, без подмены profile Wounds | Generated Champions ещё отсутствуют; другие таланты подключаются далее |
 | Сопротивление магии (Magic Resistance), PG78/157 | Target-scoped Potency−1; не защита от Miscast | Текущий talent admission не допускает | Есть против двух PC spells | Подключение к PC должно сопровождать реального вражеского caster |
 | Боевой хирург (Combat Surgeon), PG74/110/122 | Подавление Wound effects/Exacting surgery/healing consumers | Нет выбора операции в общем battle owner | Нет | Action-bound primitive не равен готовому поведению участника боя |
+| Обет и Благословения Леди (Honour Bound, Blessings of the Lady), PG74/77 | Типизированные ресурсы, отдельный exceptional grant и Wound cancellation | Автоматические действия и finite Fate по явному GM scope | Явные допустимые источники обетов, Glorious без NPC Fate | Произвольное сюжетное содержание не выводится из имени обета; вся область59 ещё открыта |
 | Остальные группы | Нормализованные определения; местами общие modifiers/Tests | Нет общего допуска | Нет общего допуска | Подключать совместимыми группами: Attack/Protection/Help; лечение; Aim/Reload/реакции; психология; магические Talents |
 
 Внутри вехи всех талантов можно переиспользовать уже существующие Attack/Help/Wound owners: Armour Bane и Allies in Arms(PG73), Mighty Blow(PG79, после2H), Hardy(PG76, для PC/Champion Wounds Table). Эти четыре примера не ограничивают полный перечень59и не объявляются автоматически допустимыми у Minions. Для Recovery, пространственных реакций и магических Talents нужны соответствующие владельцы действий/событий.
 
 Evidence: [PC tags/admission](../src/towr/application/encounter_character.py), [generated talent facts](../src/towr/domain/generated_npc_models.py), [общий lifecycle](../src/towr/domain/pc_generated_talents.py), [PC advice](../src/towr/domain/pc_talent_advice.py), [Combat Surgeon](../src/towr/rules/combat_surgeon_resolution.py). Проверки: [talent generation](../tests/unit/test_generated_npc_talent_generation.py), [NPC reactions](../tests/unit/test_generated_npc_reactions.py), [PC execution](../tests/unit/test_pc_combat_talent_execution.py), [Magic Resistance](../tests/unit/test_generated_npc_magic_resistance.py).
+
+### Полная матрица талантов
+
+Подготовка всей области начата2026-11-19. [ADR-0141](decisions/ADR-0141-all-talents-and-shared-acquisition.md) принят пользователем целиком, включая C1/C2/C3. Общий источник приобретений/Requirements/выборов и current JSON/UI мигрированы; остаток ниже остаётся критерием всей области. [Общий каталог59](../src/towr/domain/talent_catalog.py) сверяет базовые acquisition facts и **не включает** новые эффекты в симулятор. Текущая исполняемая граница остаётся в таблице выше. Нормативные цены/Requirements не дублируются здесь: они находятся в [реестре правил](rules/talents.md).
+
+Все строки проверяются для PC/союзников/NPC, если книжный механизм к ним применим. Fate не выдаётся NPC; Hardy модифицирует именно Wounds Table, а не профильную рану Minion. GM-owned содержание требует явного факта/согласованного последствия; оно не считается исполненным от наличия имени или выдуманного бонуса. Колонка ниже — **оставшийся критерий**, не заявление о готовности.
+
+| Талант (Talent), PG | Зависимости и критерий реального завершения |
+| --- | --- |
+| Ускоренное восстановление (Accelerated Recovery),73 | Настоящее Catch Your Breath/healing, допустимая рана, один расход до Downtime; не лечение обычным Recover |
+| Акробат (Acrobatic),73 | Подключён PC/generated NPC: K1/native actual path witnesses, C10 GM узкие проходы, C9 Pegasus/Fly, fall //2 до0 с настоящим Test; остальные препятствия/budgets сохраняются |
+| Братья по оружию (Allies in Arms),73 | Подключены PC/generated NPC ordinary Help и post-Test removal поC7:0success, один removable target, ongoing сохраняется; Fel generation/source, exact upcoming-Test бонус и JSON. Расширение caster/GM-контекстов остаётся частью общей области |
+| Пробой брони (Armour Bane),73 | Подключено PC/generated NPC: фактические11weapon Traits, атомарное снижение после Damage comparison, минимумT; actor-owned loss при Shield/mount transitions и fresh trial reset. Приняты C5/C6; проверки/ограничения — в статусе |
+| Оглушающий удар (Bash Attack),73 | Подключён PC/generated NPC: actual first-Stagger grant, held/carried Melee/Shield readiness, полный K1/Fate/Wound/Traits/replay и отдельная статистика; C8 без Charge inheritance, Wild Attack для free Test |
+| Снова в седле (Back in the Saddle),73 | Подключён PC/generated NPC: шесть настоящих mount profiles, физическое сохранение/возвращение, отдельные HP/Conditions/Tests/turns, собственные повреждения/периодика/landing/departure; source-bound counters и текущий JSON. C11–C16 приняты; prerequisites, публичный ввод и малый spawn подтверждены |
+| Боевой музыкант (Battlefield Musician),73 | Подключён PC/generated NPC: физический инструмент и хват1/2, Music Lore, настоящие Fel/Leadership/Fate, сигналы и paid action, Medium/hearing при grant, точный следующий свой TurnStart, defensive tie/advice и текущий JSON/UI/генерация; C17 принято |
+| Благословения Леди (Blessings of the Lady),74 | Подключены PC/generated NPC: настоящее действие молитвы, отмена одной Wound character/profile до последствий, Broken/oath loss, once/battle; текущий JSON/UI/генерация и полный replay; C18–C20 приняты |
+| Тщательное прицеливание (Careful Aim),74 | Фактически успешный Aim снимает допустимый собственный Staggered, PC/NPC |
+| Рассекающий удар (Cleaving Blow),74 | Actual Wound от2Hweapon, включая не-Melee; ordered живые Close-враги, repeated Staggered и все последствия |
+| Боевой хирург (Combat Surgeon),74 | Существующие treatment/Recall/suppression и surgery8соединены с настоящими действиями/инструментами/целями и автоматикой |
+| Глубокое построение (Deep Formation),74 | Действительно held Spear/Short-Melee у союзника в Zone, Charge Melee context, +1d к конкретной защите |
+| Оборонительная стойка (Defensive Stance),74 | Сохранить принятую замену доступного miss-Staggered, ongoing causes, общий source и новый порядок реакций |
+| Рассеиватель (Dispeller),74 | Общие PC/NPC Casting interrupts раз/round, Willpower/9/Miscast; Exacting dispel ongoing spell и bound object |
+| Исключительный слух (Exceptional Hearing),75 | Hearing/Awareness context; Blinded не штрафует нужные атаки/защиты только при отсутствии Deafened |
+| Вера (Faith),75 | Один бог, полные10Favour/30Prayers и GM Miracle effects, devotion/Strictures, finite lifetime uses, запрет caster |
+| Фамильяр (Familiar),75 | Все9выборов, действительное присутствие/гримуар/Outnumbering/смерть вместо раны/Miscast reroll и сенсорные возможности |
+| Притворное бегство (Feigned Flight),76 | Успешная opposition, добровольный Give Ground, действительная geometry и согласованный turn/round limit |
+| Сражаться как один (Fight As One),76 | Rider/mount Attack owners, другая цель и оружие маунта; явный особый третий action только при книжном условии |
+| Устрашающий (Frightening),76 | Melee/Brawn actual Give Ground, новый Broken и иммунитет Fearsome; не ложный общий Fearsome самого владельца |
+| Золотой голос (Golden Voice),76 | Явные известные звуки/языки и Music Lore без gear; не отменять отдельный Gear prerequisite другого Talent |
+| Обет Грааля (The Grail Vow),76 | Завершённый Quest, Broken immunity, magical attacks, Lady/Fate/oath и maxima; не выдумывать NPC Fate |
+| Крепкий (Hardy),76 | Подключён к PC/Champion таблице ран: Attack, Hazard/fall/fire, repeated Staggered и PC Miscast; минимум1, фиксированные результаты/профильные раны не меняются. Общий generated Champion зависит от ещё не реализованного типа NPC |
+| Ненависть (Hatred),76 | Семантическая выбранная группа/видимость, Melee+1d и отдельный Distracted source, без actor-ID whitelist |
+| Держать строй (Hold the Line),76 | Standard Recover+Leadership, один допустимый Medium-союзник/успех, запрет одновременного treatment/condition Test |
+| Связанный честью (Honour Bound),77 | Подключён PC/generated NPC: общий канонический once/session, GM-контекст, Glorious; PC имеет настоящий Fate spend и отдельный C20 exceptional outcome без подмены кубов. Текущие JSON/UI/генерация, статистика и spawn проверены |
+| Пристальное изучение (Intense Scrutiny),77 | Настоящий Scrutinise/Improvise и шесть вопросов с достоверным GM-ответом; не случайно придуманная мотивация |
+| Перехватчик (Interceptor),77 | Actual Give Ground в/из Zone, отсутствие Close-врага/Staggered, move+Melee, один перехват/round |
+| Железный желудок (Iron Gut),77 | Origin и ingested poison/alcohol контекст; иммунитет болезни от пищи/воды не означает всеядный иммунитет к любому Hazard |
+| Зоркий (Keen Eyed),78 | Sight/Awareness, отсутствие Blinded, lip-reading только известного языка; явные факты обнаружения |
+| Молниеносные рефлексы (Lightning Reflexes),78 | Athletics opposition кроме Defenceless, настоящая начальная очередность при ambush; последующие обычные ходы |
+| Длиннобородый (Longbeard),78 | Creation/Origin отдельно от waiver; +1d на конкретный condition-removal Test, social expectations по явному контексту |
+| Удачливый (Lucky),78 | Связать существующий funding/gambling с общим владением; session resource/Drained и отсутствие NPC Fate |
+| Сопротивление магии (Magic Resistance),78 | Target-scoped Potency−1 у обеих сторон, ноль запрещает эффект, не применяется к Miscast; реальный NPC caster |
+| Могучий удар (Mighty Blow),79 | PC и generated NPC исполняют только снятие собственных отрицательных2H Melee модификаторов: Attack, Melee Help, Close Shooting Protection и советы тактики. Генератор выбирает из допустимого пула; полные source/replay проверены |
+| Житель ночи (Night Dweller),79 | Long sight в darkness, направленная видимость, +1d и Broken только при настоящих Wound/Give Ground |
+| Полимат (Polymath),79 | Несколько действительно применимых Lores на Test, обмен всех Lore dice на Glorious, взаимодействие с Drained |
+| Обет поиска (The Questing Vow),79 | Distracted immunity, реальный Broken/Fate-or-Honour cancellation и сохранение blessing; oath context |
+| Быстрая смена облика (Quick Change),79 | Grooming Kit, реальная минута/GM time и Dexterity, контекст личности/Status; без мгновенного боевого бонуса |
+| Быстрый бросок (Quick Throw),79 | WS/BS, настоящее Throwing в Charge/Optimum и второй Melee action, реальные руки/запас и цель |
+| Быстрая перезарядка (Rapid Reload),79 | PC/generated NPC: успешный отдельный Dexterity Test, partial Aim/loaded Shoot, same item/target/mode, movement/Staggered и максимум2actions; forecast/counters/JSON/spawn проверены |
+| Сопротивление порче (Resistance to Corruption),79 | Настоящий Chaos exposure/Willpower контекст GM1.1, source Glorious, без общего иммунитета |
+| Стойкий (Resolute),79 | Give Ground на Short и Broken только при фактическом Close к врагу; route/once ledger сохраняются |
+| Ответный выпад (Riposte),79 | Реальная успешная Defence, once/round и порядок окна, выбор атакующим Give Ground/Prone/Wound с полноценным продолжением |
+| Тайная родословная (Secret Bloodline),80 | Creation-only, подтверждённая GM история/раскрытие/ожидания в social context; не менять Damage за тег |
+| Малый рост (Short Size),80 | Реальные Ag/Strength opposed ties,0v0/конфликты, Stealth context и Burdened именно от переносимого2HMelee |
+| Заклинатель змей (Snake Charmer),80 | Provenance собственного Distracted и Skill, этот Skill в opposition; Glorious только beast/monster |
+| Видящий духов (Spiteseer),80 | Origin, реальные spites/Medium/illusion/Awareness; Persuade и конкретная GM-плата, без выдуманной автоматической услуги |
+| Стоять и стрелять (Stand and Shoot),80 | Сохранённая цель Aim прошлого хода, Charge route/range point, настоящий Shooting до входящей атаки и расход заряда |
+| Осторожное управление (Steer Clear),80 | Успешный контроль настоящего маунта/vehicle, Manoeuvre и выбранный пассажир, снимаемый Staggered |
+| Провокатор (Taunter),80 | Владелец/Skill Distracted, чужая цель атаки и Grim по реальному focus; смерть/снятие независимой причины |
+| Жажда знаний (Thirst for Knowledge),81 | Lore dice при Drained, Insight-specific исключения, настоящее открытие Clue и снятие допустимых причин |
+| Прикосновение Ветров (Touched by the Winds),81 | Origin, выбранная даже ещё не изученная Magic Lore, Petty Improvised Casting, perception/item context и Study modifiers |
+| Несокрушимый (Unbreakable),81 | Resolute prerequisite и общий Broken immunity независимо от канала наложения; не только psychological effect filter |
+| Доблесть веков (Valour of Ages),81 | High Elf, actual ally/Zone при Give Ground и Broken Recover, не источник выдуманного союзника |
+| Авангард (Vanguard),81 | Настоящие Move Quietly/Carefully tests и дополнительный переход в соседнюю Zone в том же Manoeuvre |
+| Поручиться за них (Vouch For Them),81 | Silver/Gold/Fellowship, знакомство/Status expectations и GM disgrace context; не бесплатный боевой success |
+| Дикая атака (Wild Attack),81 | Сохранить existing price/committed Attack-or-Help, однократность Glorious и автоматическую оценку пользы/риска |
+| Волшебник (Wizard),81 | Владение/уровень1–4/Origin/Lore, общие PC/NPC memorised/formalised/improvised Casting и обязательные зависимости |
+
+Область остаётся **незавершённой**. Добавление каталога не меняет статусы прежней таблицы и не разрешает59тегов в текущем API. Начальная общая модель и реальные consumers подключаются после согласования ADR-0141, небольшими адресно проверяемыми изменениями.
 
 ## Магия и вера (Magic & Faith)
 

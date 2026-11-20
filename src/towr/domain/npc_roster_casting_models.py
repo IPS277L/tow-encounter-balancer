@@ -99,6 +99,7 @@ class NpcRosterCastingState:
         actor = self.roster.participant(self.wizard.actor_id)
         if actor.definition.injury_policy is not TargetInjuryPolicy.CHAMPION:
             raise ValueError("caster must be a Champion")
+        _validate_casting_talent_sources(self)
         for participant in self.roster.participants:
             if participant is actor:
                 continue
@@ -299,6 +300,7 @@ class NpcRosterCastingRequest:
     def __post_init__(self) -> None:
         _typed(self.state, NpcRosterCastingState)
         _typed(self.casting, CowardlyFlightCastingRequest)
+        _validate_casting_talent_sources(self.state)
         state, casting = self.state, self.casting
         context = self.crushed_rib_context
         if context is not None:
@@ -453,6 +455,25 @@ def _validate_crushed_rib_pending(state: NpcRosterCastingState, pending: Cowardl
     replace(pending.crushed_rib, state=injury)
     if injury != pending.crushed_rib.state:
         raise ValueError('pending Casting differs from its consumed Crushed Rib injury')
+
+
+def _validate_casting_talent_sources(state: NpcRosterCastingState) -> None:
+    """Current Casting-owner admission, not a ban in the common NPC source."""
+    from towr.domain.talent_actor_models import (
+        npc_definition_acquired_talents, validate_npc_definition_talent_scope,
+    )
+    from towr.domain.talent_catalog import TalentId
+    from towr.domain.talent_models import has_talent, talent_purchases
+    actor = state.roster.participant(state.wizard.actor_id)
+    talents = npc_definition_acquired_talents(actor.definition)
+    if has_talent(talents, TalentId.FAITH):
+        raise ValueError('Faith cannot coexist with the actual NPC spellcaster')
+    if (has_talent(talents, TalentId.WIZARD)
+            and talent_purchases(talents, TalentId.WIZARD) != state.wizard.caster.wizard_level):
+        raise ValueError('NPC Wizard acquisitions differ from its actual Casting level')
+    for participant in state.roster.participants:
+        allowed = (TalentId.HARDY, TalentId.WIZARD) if participant is actor else (TalentId.HARDY,)
+        validate_npc_definition_talent_scope(participant.definition, frozenset(allowed))
 
 
 def _identifier(value: str) -> None:

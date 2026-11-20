@@ -1,13 +1,16 @@
 """Literal Wild Attack/Defensive Stance receipts and source-bound reactions."""
+from tests.support.talent_sources import paid_talent
 from tests.support.generated_weapon_sources import initial_generated_weapons
 from tests.support.armour_fixtures import light_loadout
 from dataclasses import replace
+from copy import deepcopy
 import unittest
 
 from tests.support.pc_melee_scripted import ScriptedD10
 from tests.support.pc_tactics_fixtures import automatic_source
 from towr.domain.condition_models import Condition,ConditionState
-from towr.domain.generated_npc_models import GeneratedNpc,GeneratedWeapon,GeneratedTalent
+from towr.domain.generated_npc_models import GeneratedNpc,GeneratedWeapon
+from towr.domain.talent_catalog import TalentId
 from towr.domain.pc_generated_talents import (
     PcWildAttackProof,PcDefensiveStanceProof,expected_wild_attack,pending_wild_attack,
     expected_defensive_stance,WILD_ATTACK_RULE_ID,
@@ -21,7 +24,7 @@ from towr.domain.test_models import TestQuality,Skill
 from towr.engine.pc_melee_runner import run_pc_melee_scenario,apply_pc_melee_step
 
 
-def scenario(*,weapon=GeneratedWeapon.STAFF,talents=(GeneratedTalent.WILD_ATTACK,),
+def scenario(*,weapon=GeneratedWeapon.STAFF,talents=(paid_talent(TalentId.WILD_ATTACK),),
         rounds=1,defence=6,agility=1,athletics=2):
     source=automatic_source(pc_count=1,enemy_count=1,rounds=rounds)
     member=source.party[0]
@@ -58,7 +61,7 @@ def changed_enemy_conditions(state,*conditions):
 
 
 def stance_result(*,second_pc=(10,1,1,1)):
-    source=scenario(talents=(GeneratedTalent.DEFENSIVE_STANCE,),rounds=2)
+    source=scenario(talents=(paid_talent(TalentId.DEFENSIVE_STANCE),),rounds=2)
     result=execute(source,[1,10,10,10]+[10]*4+list(second_pc)+[10]*4)
     return source,result
 
@@ -104,10 +107,13 @@ class GeneratedNpcReactionTests(unittest.TestCase):
     def test_wild_rejects_wrong_actor_repeated_price_and_skipping_paid_attack(self):
         result=execute(scenario(),[10]*11)
         price,=steps(result,PcWildAttackProof)
-        with self.assertRaises(ValueError):
-            PcMeleeStep(price.source,replace(price.proof,actor_id='pc1'))
-        with self.assertRaises(ValueError):
-            PcMeleeStep(price.source,replace(price.proof,action_id='another-action'))
+        for key,value in (('actor_id','pc1'),('action_id','another-action')):
+            with self.subTest(key=key),self.assertRaises((TypeError,ValueError)):
+                replace(price.proof,**{key:value})
+            forged=deepcopy(price.proof)
+            object.__setattr__(forged,key,value)
+            with self.subTest(cached=key),self.assertRaises((TypeError,ValueError)):
+                PcMeleeStep(price.source,forged)
         with self.assertRaises(ValueError):
             PcMeleeStep(price.state,price.proof)
         with self.assertRaisesRegex(ValueError,'paid Wild Attack'):
@@ -148,19 +154,19 @@ class GeneratedNpcReactionTests(unittest.TestCase):
         self.assertTrue(result.state.participant('pc1').injury.conditions.has(Condition.STAGGERED))
 
     def test_defensive_stance_preserves_normal_counter_stagger_when_self_is_fresh(self):
-        result=execute(scenario(talents=(GeneratedTalent.DEFENSIVE_STANCE,)),[10,1,1,1]+[10]*4)
+        result=execute(scenario(talents=(paid_talent(TalentId.DEFENSIVE_STANCE),)),[10,1,1,1]+[10]*4)
         self.assertFalse(steps(result,PcDefensiveStanceProof))
         self.assertTrue(result.state.participant('pc1').injury.conditions.has(Condition.STAGGERED))
 
     def test_defensive_stance_cannot_heal_by_foregoing_nothing_against_already_staggered_attacker(self):
-        source=scenario(talents=(GeneratedTalent.DEFENSIVE_STANCE,),rounds=2)
+        source=scenario(talents=(paid_talent(TalentId.DEFENSIVE_STANCE),),rounds=2)
         result=execute(source,[10]*8+[10,1,1,1]+[10]*4)
         self.assertFalse(steps(result,PcDefensiveStanceProof))
         self.assertTrue(result.state.enemy('minion1').state.injury.conditions.has(Condition.STAGGERED))
         self.assertTrue(attacks(result,'pc1')[1].request.kernel_request.attack.attacker_is_staggered)
 
     def test_athletics_opposition_cannot_activate_defensive_stance(self):
-        source=scenario(talents=(GeneratedTalent.DEFENSIVE_STANCE,),rounds=2,
+        source=scenario(talents=(paid_talent(TalentId.DEFENSIVE_STANCE),),rounds=2,
             defence=2,agility=6,athletics=6)
         result=execute(source,[1]+[10]*6+[10]*4+[10]+[1]*6+[10]*4)
         self.assertFalse(steps(result,PcDefensiveStanceProof))
@@ -174,7 +180,7 @@ class GeneratedNpcReactionTests(unittest.TestCase):
         self.assertEqual(expected_defensive_stance(snapshot),stance.proof)
 
     def test_stance_removal_makes_the_following_own_wild_attack_available(self):
-        source=scenario(talents=(GeneratedTalent.DEFENSIVE_STANCE,GeneratedTalent.WILD_ATTACK),rounds=2)
+        source=scenario(talents=(paid_talent(TalentId.DEFENSIVE_STANCE),paid_talent(TalentId.WILD_ATTACK)),rounds=2)
         result=execute(source,[1,10,10,10]+[10]*4+[10,1,1,1]+[10]*7)
         stance,=steps(result,PcDefensiveStanceProof)
         price,=steps(result,PcWildAttackProof)

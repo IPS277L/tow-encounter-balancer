@@ -5,14 +5,16 @@ exercise local reducer/query boundaries, not fabricated complete battles.
 """
 from tests.support.generated_weapon_sources import initial_generated_weapons
 from tests.support.armour_fixtures import light_loadout
+from tests.support.talent_sources import paid_talent, free_talent
 from dataclasses import replace
 import unittest
 
 from tests.support.pc_melee_scripted import ScriptedD10
 from tests.support.pc_tactics_fixtures import automatic_source, weak_helper_source
 from towr.domain.condition_models import Condition, ConditionState
-from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedTalent
-from towr.domain.pc_combat_talent_models import PcCombatTalent, TalentAcquisition
+from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon
+from towr.domain.talent_catalog import TalentId
+from towr.domain.talent_models import AcquiredTalent, TalentAcquisitionPhase, TalentFunding
 from towr.domain.pc_generated_talents import (
     PcWildAttackProof, PcDefensiveStanceProof, expected_wild_attack,
     pending_wild_attack, expected_defensive_stance, actor_stagger_removable,
@@ -29,7 +31,7 @@ from towr.domain.turn_models import CombatActionKind
 from towr.engine.pc_melee_runner import run_pc_melee_scenario, apply_pc_melee_step
 
 
-def scenario(*, talents=(GeneratedTalent.WILD_ATTACK,), rounds=1, defensive=False,
+def scenario(*, talents=(paid_talent(TalentId.WILD_ATTACK),), rounds=1, defensive=False,
         npc_talents=()):
     source = automatic_source(pc_count=1, enemy_count=1, rounds=rounds)
     member = source.party[0]
@@ -39,7 +41,7 @@ def scenario(*, talents=(GeneratedTalent.WILD_ATTACK,), rounds=1, defensive=Fals
             weapon=PcMeleeWeapon.STAFF),
         fate_policy=PcFatePolicy.DECLINE_OPTIONAL_FATE,
         near_miss_policy=None, glorious_policy=None,
-        combat_talents=tuple(PcCombatTalent(talent) for talent in talents))
+        talents=talents)
     npc = GeneratedNpc(3 if npc_talents else 1, 4 if npc_talents else 1,
         20, 1, 2, 2, initial_generated_weapons(GeneratedWeapon.STAFF), light_loadout(light=False, shield=False),
         defence=2,  talents=npc_talents)
@@ -63,7 +65,7 @@ def attacks(result, actor):
 
 
 def stance_result(*, defender_rolls=(1, 1, 1)):
-    source = scenario(talents=(GeneratedTalent.DEFENSIVE_STANCE,), defensive=True)
+    source = scenario(talents=(paid_talent(TalentId.DEFENSIVE_STANCE),), defensive=True)
     return source, execute(source, [10, 10, 10, 1, 10, *defender_rolls])
 
 
@@ -71,8 +73,7 @@ def help_source():
     source = weak_helper_source()
     helper = replace(source.party[0], fate_policy=PcFatePolicy.DECLINE_OPTIONAL_FATE,
         near_miss_policy=None, glorious_policy=None,
-        combat_talents=(PcCombatTalent(GeneratedTalent.WILD_ATTACK,
-            TalentAcquisition.CREATION_FREE),))
+        talents=(free_talent(TalentId.WILD_ATTACK),))
     # The helper is not the enemy's intended victim. Its real free-creation
     # Talent makes the one-die Melee Help worth the voluntary Staggered risk.
     return replace(source, party=(helper, source.party[1]), enemy_target_priority=('pc2', 'pc1'))
@@ -81,35 +82,44 @@ def help_source():
 class PcCombatTalentSourceTests(unittest.TestCase):
     def test_earned_requirements_and_explicit_free_creation_are_distinct_facts(self):
         member = scenario().party[0]
-        for talent, lowered in ((GeneratedTalent.WILD_ATTACK, {'strength': 3}),
-                (GeneratedTalent.DEFENSIVE_STANCE, {'weapon_skill': 2})):
+        for talent, lowered in ((TalentId.WILD_ATTACK, {'strength': 3}),
+                (TalentId.DEFENSIVE_STANCE, {'weapon_skill': 2})):
             pc = replace(member.pc, **lowered)
             with self.subTest(talent=talent):
                 with self.assertRaises(ValueError):
-                    replace(member, pc=pc, combat_talents=(PcCombatTalent(talent),))
-                free = PcCombatTalent(talent, TalentAcquisition.CREATION_FREE)
-                admitted = replace(member, pc=pc, combat_talents=(free,))
-                self.assertIs(admitted.combat_talents[0].acquisition, TalentAcquisition.CREATION_FREE)
+                    replace(member, pc=pc, talents=(paid_talent(talent),))
+                free = free_talent(talent)
+                admitted = replace(member, pc=pc, talents=(free,))
+                acquisition, = admitted.talents[0].acquisitions
+                self.assertIs(acquisition.phase, TalentAcquisitionPhase.CREATION)
+                self.assertIs(acquisition.funding, TalentFunding.FREE)
                 self.assertEqual(admitted.pc, pc)
 
     def test_single_acquisitions_reject_duplicate_provenance_and_untyped_ranks(self):
         member = scenario().party[0]
-        earned = PcCombatTalent(GeneratedTalent.WILD_ATTACK)
-        free = PcCombatTalent(GeneratedTalent.WILD_ATTACK, TalentAcquisition.CREATION_FREE)
+        earned = paid_talent(TalentId.WILD_ATTACK)
+        free = free_talent(TalentId.WILD_ATTACK)
         for values in ((earned, earned), (earned, free)):
             with self.subTest(values=values), self.assertRaises(ValueError):
-                replace(member, combat_talents=values)
-        for values in ([earned], (GeneratedTalent.WILD_ATTACK,), (1,), (True,)):
+                replace(member, talents=values)
+        for values in ([earned], (TalentId.WILD_ATTACK,), (1,), (True,)):
             with self.subTest(values=values), self.assertRaises(TypeError):
-                replace(member, combat_talents=values)
-        for acquisition in ('earned', 1, True):
-            with self.subTest(acquisition=acquisition), self.assertRaises(TypeError):
-                PcCombatTalent(GeneratedTalent.WILD_ATTACK, acquisition)
+                replace(member, talents=values)
+        for acquisitions in ('xp', 1, True):
+            with self.subTest(acquisitions=acquisitions), self.assertRaises(TypeError):
+                AcquiredTalent(TalentId.WILD_ATTACK, acquisitions)
+        with self.assertRaises(ValueError):
+            replace(earned, acquisitions=earned.acquisitions * 2)
 
     def test_unsupported_pc_talent_and_nonautomatic_policy_are_rejected(self):
-        for talent in (GeneratedTalent.MAGIC_RESISTANCE, 'wild_attack', 1):
-            with self.subTest(talent=talent), self.assertRaises(ValueError):
-                PcCombatTalent(talent)
+        member = scenario().party[0]
+        # The common ownership model accepts59 IDs. An unimplemented battle
+        # effect must still be rejected by the actor's actual admission.
+        with self.assertRaises(ValueError):
+            replace(member, talents=(free_talent(TalentId.FEIGNED_FLIGHT),))
+        for talent in ('wild_attack', 1):
+            with self.subTest(talent=talent), self.assertRaises(TypeError):
+                replace(member, talents=(talent,))
         with self.assertRaises(ValueError):
             replace(scenario().party[0], policy=PcMeleePolicy.ATTACK_OR_RECOVER_SELF)
 
@@ -191,7 +201,8 @@ class PcCombatTalentExecutionTests(unittest.TestCase):
         member=source.party[0]
         member=replace(member,fate_policy=PcFatePolicy.CONFIGURED,
             glorious_policy=PcGloriousPolicy((Skill.MELEE,),0,0),
-            fate=replace(member.fate,has_lucky=True))
+            fate=replace(member.fate,has_lucky=True),
+            talents=(*member.talents,free_talent(TalentId.LUCKY)))
         npc=replace(source.enemies[0].definition.generated_components,toughness=5)
         source=replace(source,party=(member,),enemies=(npc.participant('minion1'),))
         result=execute(source,[10]*11)
@@ -296,7 +307,7 @@ class PcCombatTalentExecutionTests(unittest.TestCase):
             WoundRecord, WoundEntryId, WoundConditionEffect, WoundEffectDuration,
             WoundRestrictionEffect, WoundRestriction,
         )
-        result = execute(scenario(talents=(GeneratedTalent.DEFENSIVE_STANCE,)), [10] * 8)
+        result = execute(scenario(talents=(paid_talent(TalentId.DEFENSIVE_STANCE),)), [10] * 8)
         attack = steps(result, PcAttackProof)[0]
         member = attack.source.party[0]
         injury = replace(member.injury,
@@ -307,8 +318,8 @@ class PcCombatTalentExecutionTests(unittest.TestCase):
                     WoundEffectDuration.UNTIL_TREATED)))
         # A local Wound14 preparation, with both earned Talents; no full
         # native Wound history is claimed for this reducer boundary check.
-        source_member = replace(attack.source.source.party[0], combat_talents=(
-            PcCombatTalent(GeneratedTalent.DEFENSIVE_STANCE), PcCombatTalent(GeneratedTalent.WILD_ATTACK)))
+        source_member = replace(attack.source.source.party[0], talents=(
+            paid_talent(TalentId.DEFENSIVE_STANCE), paid_talent(TalentId.WILD_ATTACK)))
         prepared = replace(attack.source,
             source=replace(attack.source.source, party=(source_member,)),
             party=(replace(member, injury=injury),))
@@ -343,8 +354,8 @@ class PcCombatTalentExecutionTests(unittest.TestCase):
         self.assertTrue(result.state.enemy('minion1').state.injury.conditions.has(Condition.STAGGERED))
 
     def test_already_staggered_npc_attacker_cannot_fund_pc_stance(self):
-        source = scenario(talents=(GeneratedTalent.DEFENSIVE_STANCE,), defensive=True,
-            npc_talents=(GeneratedTalent.WILD_ATTACK,))
+        source = scenario(talents=(paid_talent(TalentId.DEFENSIVE_STANCE),), defensive=True,
+            npc_talents=(paid_talent(TalentId.WILD_ATTACK),))
         # The PC misses into three Protection dice, then the NPC pays Wild.
         # Its failed Glorious attack cannot supply a new missed-attack Staggered.
         result = execute(source, [10, 10, 10, 1, 1, 1] + [10] * 6 + [1] * 3)

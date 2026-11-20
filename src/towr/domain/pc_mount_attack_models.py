@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from towr.domain.pc_musician_effect_models import musician_defends_ties
 from enum import Enum
 
 from towr.domain.attack_models import AttackRequest, DamageImpactSpec, DamageProfile
@@ -38,14 +39,34 @@ def available_pc_attack_mount(state, actor):
     """A composite live rider can use only their current actual ridden mount."""
     if actor not in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
         raise ValueError('mount Attack actor must belong to the complete encounter')
+    from towr.domain.pc_oath_models import oath_allows_attack
+    if not oath_allows_attack(state,actor,Skill.MELEE):
+        return None
     mount = next((item for item in state.mounts if item.actor_id == actor and item.mounted), None)
     if mount is None:
         return None
-    injury = (state.participant(actor).injury if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury)
+    from towr.domain.pc_actor_models import pc_actor_injury
+    injury = pc_actor_injury(state,actor)
     unavailable = injury.dead if actor in state.source.pc_activation_order else injury.defeated
-    return None if unavailable or any(injury.conditions.has(condition)
-        for condition in (Condition.PRONE, Condition.DEFENCELESS)) else mount
+    if unavailable or any(injury.conditions.has(condition) for condition in (Condition.PRONE, Condition.DEFENCELESS)):
+        return None
+    body,_ = _mounted_body(state,actor)
+    return None if body.snapshot.state.injury.defeated or any(body.snapshot.state.injury.conditions.has(condition)
+        for condition in (Condition.PRONE,Condition.DEFENCELESS)) else mount
+
+
+def _mounted_body(state, actor):
+    """Readmit the current animal's complete source; never manufacture a fresh body."""
+    from towr.domain.pc_actor_models import pc_companion
+    from towr.domain.pc_companion_models import mount_companion_actor_id
+    from towr.domain.pc_companion_effect_models import companion_profile
+    body=pc_companion(state,mount_companion_actor_id(actor))
+    if body is None:
+        raise ValueError('mounted natural Attack lost its actual independent animal body')
+    profile=companion_profile(state,body.snapshot.state.actor_id)
+    if body.retained_since_round is not None:
+        raise ValueError('a separately retained animal cannot simultaneously make its rider\'s mount Attack')
+    return body,profile
 
 
 def pc_mount_primary_needed(state, actor):
@@ -113,8 +134,8 @@ def build_pc_mounted_attack_intent(state, actor, target, *, mode=PcMountedAttack
         raise ValueError('no current ridden mount can make this primary Attack')
     from towr.domain.pc_short_opening_models import pc_enemy_range
     from towr.domain.ranged_weapon_profiles import RangedWeaponRange
-    targets = ({enemy.state.actor_id for enemy in state.live_enemies}
-        if actor in state.source.pc_activation_order else {member.actor_id for member in state.live_party})
+    from towr.domain.pc_actor_models import pc_opponent_ids
+    targets = pc_opponent_ids(state,actor)
     if (target not in targets or pc_enemy_range(state, actor, target) is not RangedWeaponRange.CLOSE
             or state.pending or state.pending_wound is not None or state.magic_pending is not None):
         raise ValueError('mount Attack requires its actual live Close enemy after all pending work')
@@ -131,47 +152,43 @@ def pc_mounted_attack_test(state, actor, target, identifier, *, extra_qualities=
         raise TypeError('mount Test requires its actual Charge context')
     from towr.domain.pc_battlefield_movement_models import pc_battlefield_allows_outnumbering
     from towr.domain.pc_npc_ability_models import pc_npc_allows_enemy_higher_ground
-    from towr.domain.pc_npc_distraction_models import pc_npc_distraction_test_modifiers
-    from towr.domain.pc_magic_models import magic_test_modifiers
     from towr.domain.pc_battlefield_manoeuvre_models import pc_charge_attack_modifiers
-    is_pc = actor in state.source.pc_activation_order
-    injury = state.participant(actor).injury if is_pc else state.enemy(actor).state.injury
-    target_injury = state.enemy(target).state.injury if is_pc else state.participant(target).injury
-    modifiers = list(pc_charge_attack_modifiers(state, actor, target)) if is_charge else []
+    from towr.domain.pc_actor_models import pc_actor_injury,pc_actor_npc_snapshot
+    from towr.domain.pc_companion_effect_models import companion_test_request
+    body,_ = _mounted_body(state,actor)
+    injury=body.snapshot.state.injury
+    actual=companion_test_request(state,body.snapshot.state.actor_id,identifier,Skill.MELEE)
+    target_injury=pc_actor_injury(state,target)
+    modifiers = [*actual.dice_modifiers,*(pc_charge_attack_modifiers(state,actor,target) if is_charge else ())]
     if state.source.facts.outnumbering_bonus_approved and pc_battlefield_allows_outnumbering(state, actor):
         modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering', 1))
-    if target_injury.conditions.has(Condition.PRONE) and (not is_pc
-            or pc_npc_allows_enemy_higher_ground(state.enemy(target).definition)):
+    if target_injury.conditions.has(Condition.PRONE) and (target in state.source.pc_activation_order
+            or pc_npc_allows_enemy_higher_ground(pc_actor_npc_snapshot(state,target).definition)):
         modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
-    modifiers.extend(pc_npc_distraction_test_modifiers(state, actor, target))
-    magic_dice, magic_qualities = magic_test_modifiers(state, actor, Skill.MELEE)
-    modifiers.extend(magic_dice)
     if injury.conditions.has(Condition.DRAINED):
         modifiers = [item for item in modifiers if item.amount <= 0]
-    qualities = [*magic_qualities, *extra_qualities]
-    from towr.domain.pc_generated_talents import generated_attack_quality
-    from towr.domain.pc_armour_models import actor_armour_quality_modifiers
-    qualities.extend(generated_attack_quality(state, actor))
-    qualities.extend(actor_armour_quality_modifiers(state, actor, charge_attack=is_charge))
-    if injury.conditions.has(Condition.BLINDED):
-        qualities.append(QualityModifier('RULE-HEALTH-008:blinded', TestQuality.GRIM))
-    if is_pc:
-        from towr.domain.injury_models import WoundRestrictionEffect, WoundRestriction
-        from towr.domain.crushed_rib_test_models import CRUSHED_RIB_TEST_RULE_ID
-        qualities.extend(QualityModifier(CRUSHED_RIB_TEST_RULE_ID, TestQuality.GRIM)
-            for effect in injury.active_wound_effects if type(effect) is WoundRestrictionEffect
-            and effect.restriction is WoundRestriction.NEXT_TEST_IS_GRIM)
+    qualities = (*actual.quality_modifiers,*extra_qualities)
+    from towr.domain.pc_oath_models import honour_quality_modifiers, filter_honour_test, prepare_pc_honour_test
+    if not injury.conditions.has(Condition.DRAINED):
+        qualities = (*qualities, *honour_quality_modifiers(state, actor))
     # No rider ratings, weapon Traits, Agilulf overrides, hand Critical or
     # already-consumed rider Attack Help are a mount's printed Abilities.
-    return TestRequest(identifier, pc_mount_attack_profile(mount.mount)[1], tuple(modifiers), tuple(qualities))
+    test = filter_honour_test(TestRequest(identifier, actual.profile, tuple(modifiers), qualities))
+    return prepare_pc_honour_test(state, actor, test) if actor in state.source.pc_activation_order else test
 
 
 def prepare_pc_mounted_attack(state, actor, target, identifier, *, extra_qualities=(), is_charge=False,
         weapon_intent=None):
     """Shared real K1 source for a primary mount Attack or Demigryph follow-up."""
+    from towr.domain.pc_oath_models import oath_allows_attack
+    if not oath_allows_attack(state,actor,Skill.MELEE):
+        raise ValueError('mounted Melee Attack violates the actual GM-confirmed oath')
     mount = available_pc_attack_mount(state, actor)
     if mount is None:
         raise ValueError('mount Attack requires its current actual available source')
+    from towr.domain.pc_actor_models import pc_opponent_ids
+    if target not in pc_opponent_ids(state,actor):
+        raise ValueError('mount Attack requires its actual live opposing target')
     if weapon_intent is not None:
         from towr.domain.pc_weapon_intent_models import PcAttackWeaponIntent
         if type(weapon_intent) is not PcAttackWeaponIntent:
@@ -183,12 +200,14 @@ def prepare_pc_mounted_attack(state, actor, target, identifier, *, extra_qualiti
             raise ValueError('mount Attack changed its actual committed natural source')
     attacker = pc_mounted_attack_test(state, actor, target, identifier+':attack',
         extra_qualities=extra_qualities, is_charge=is_charge)
-    is_pc = actor in state.source.pc_activation_order
-    if is_pc:
+    from towr.domain.pc_actor_models import pc_actor_npc_snapshot,pc_companion
+    target_is_pc = target in state.source.pc_activation_order
+    immunities=()
+    if not target_is_pc:
         from towr.domain.pc_generated_equipment import npc_protection_test
         from towr.domain.pc_npc_ability_models import pc_npc_stagger_defeat_spec
         from towr.domain.pc_flagellant_models import pc_flagellant_first_stagger_spec
-        enemy = state.enemy(target)
+        enemy = pc_actor_npc_snapshot(state,target)
         if weapon_intent is None:
             profile, defender = npc_protection_test(state, target, actor, identifier+':protection', attack_skill=Skill.MELEE)
             skill = profile.skill
@@ -206,7 +225,15 @@ def prepare_pc_mounted_attack(state, actor, target, identifier, *, extra_qualiti
         target_injury, resilience = enemy.state.injury, enemy.state.current_resilience
         armed, shield = enemy.state.wields_weapon, enemy.state.holds_shield
         policy = enemy.definition.injury_policy
-        minion_defeat, first_stagger = pc_npc_stagger_defeat_spec(enemy.definition), pc_flagellant_first_stagger_spec(state, target)
+        if pc_companion(state,target) is not None:
+            from towr.domain.pc_undead_minion_models import pc_undead_minion_source
+            from towr.domain.undead_minion_models import undead_minion_stagger_defeat_spec,undead_minion_effect_immunities
+            undead=pc_undead_minion_source(state,target)
+            minion_defeat=undead_minion_stagger_defeat_spec(undead,target)
+            immunities=undead_minion_effect_immunities(undead,target)
+            first_stagger=None
+        else:
+            minion_defeat, first_stagger = pc_npc_stagger_defeat_spec(enemy.definition), pc_flagellant_first_stagger_spec(state, target)
         permission = HalflingStealthProtectionPermission(target, enemy.definition) if skill is Skill.STEALTH else None
     else:
         from towr.domain.pc_melee_result_models import _pc_test, pc_protection_skill, pc_after_test
@@ -236,10 +263,13 @@ def prepare_pc_mounted_attack(state, actor, target, identifier, *, extra_qualiti
         defence_use=pc_protection_weapon_use(member,Skill.DEFENCE,Skill.MELEE)
         armed, shield = defence_use is not None and bool(defence_use.item_ids), pc_has_working_shield(member)
         policy, minion_defeat, first_stagger, permission = TargetInjuryPolicy.PLAYER, None, None, None
-    actor_injury = state.participant(actor).injury if is_pc else state.enemy(actor).state.injury
+    body,_ = _mounted_body(state,actor)
+    actor_injury = body.snapshot.state.injury
+    from towr.domain.pc_musician_effect_models import pc_attack_tie_break
     attack = AttackRequest(identifier+':attack-request', attacker, None,
         DamageImpactSpec(pc_mount_attack_profile(mount.mount)[2], resilience), True,
         actor_injury.conditions.has(Condition.STAGGERED),
+        tie_break=pc_attack_tie_break(state,actor,target),
         secondary_effects=pc_mounted_attack_effects(state, actor, target, is_charge=is_charge, attack_skill=Skill.MELEE))
     defenceless = target_injury.conditions.has(Condition.DEFENCELESS)
     protection = ProtectionPreparationRequest(identifier+':prepare-protection', target, attack,
@@ -248,10 +278,12 @@ def prepare_pc_mounted_attack(state, actor, target, identifier, *, extra_qualiti
     from towr.domain.pc_briarroot_models import briarroot_allows_give_ground
     from towr.domain.pc_give_ground_models import pc_give_ground_context
     ground=pc_give_ground_context(state,target,actor)
+    from towr.domain.pc_oath_models import pc_oath_wound_options
     kernel = KernelAttackRequest(identifier+':kernel', target, _expected_protection(protection)[0],
         policy, target_injury, ground.can_leave and briarroot_allows_give_ground(state,target),
         ground.given_this_round, physical_attack=True,
-        minion_stagger_defeat=minion_defeat, first_stagger_wound=first_stagger)
+        minion_stagger_defeat=minion_defeat, first_stagger_wound=first_stagger,
+        target_effect_immunities=immunities, wound_negation_options=pc_oath_wound_options(state,target))
     return kernel, protection
 
 
@@ -267,8 +299,9 @@ def pc_best_mount_attack(state, actor, *, grim=False):
     from towr.domain.pc_talent_advice import pc_test_distribution
     is_pc = actor in state.source.pc_activation_order
     priority = state.source.participant(actor).target_priority if is_pc else state.source.enemy_target_priority
-    targets = ({enemy.state.actor_id for enemy in state.live_enemies} if is_pc
-        else {member.actor_id for member in state.live_party})
+    from towr.domain.pc_actor_models import pc_opponent_ids
+    targets=pc_opponent_ids(state,actor)
+    priority=tuple(target for target in priority if target in targets)+tuple(target for target in targets if target not in priority)
     best = 0.0, None
     for target in priority:
         if target not in targets or pc_enemy_range(state, actor, target) is not RangedWeaponRange.CLOSE:
@@ -282,7 +315,8 @@ def pc_best_mount_attack(state, actor, *, grim=False):
             if is_pc else _distribution(attack.attacker_test))
         utility = _impact_value(distribution, (1.0,) if defenceless else _distribution(attack.defender_test),
             attack.impact_spec.damage.base, attack.impact_spec.resilience.total,
-            attack.impact_spec.damage.success_multiplier, kernel.target_state.conditions.has(Condition.STAGGERED), defenceless)
+            attack.impact_spec.damage.success_multiplier, kernel.target_state.conditions.has(Condition.STAGGERED), defenceless,
+            defender_wins_ties=musician_defends_ties(state,target))
         if best[1] is None or utility > best[0] + 1e-12:
             best = utility, target
     return best
@@ -319,7 +353,8 @@ def pc_npc_mount_primary_selected(state, actor):
     from towr.domain.pc_magic_models import magic_test_modifiers
     from towr.domain.attack_models import effective_damage_modifiers, effective_ignores_armour
     kernel, _ = prepare_pc_mounted_attack(state, actor, target, 'tactics:mount-compare:'+actor)
-    target_injury = state.participant(target).injury
+    from towr.domain.pc_actor_models import pc_actor_injury
+    target_injury = pc_actor_injury(state,target)
     from towr.domain.pc_npc_weapon_inventory import npc_attack_weapon_use
     npc_use=(npc_attack_weapon_use(state,actor,target) if enemy.definition.generated_components is not None else None)
     modifiers = (*pc_npc_attack_modifiers(enemy.definition, enemy.state.injury.conditions,
@@ -338,7 +373,8 @@ def pc_npc_mount_primary_selected(state, actor):
         profile.damage.base + sum(item.amount for item in effective_damage_modifiers(impact)),
         impact.resilience.toughness if effective_ignores_armour(impact) else impact.resilience.total,
         profile.damage.success_multiplier, target_injury.conditions.has(Condition.STAGGERED),
-        target_injury.conditions.has(Condition.DEFENCELESS))
+        target_injury.conditions.has(Condition.DEFENCELESS),
+        defender_wins_ties=musician_defends_ties(state,target))
     if available_pc_attack_mount(state, actor).mount is CombatMount.DEMIGRYPH:
         rider_value += pc_best_mount_attack(state, actor, grim=True)[0]
     return mount_value > rider_value + 1e-12

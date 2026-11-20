@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from towr.domain.condition_models import (
     Condition,
     ConditionApplicationRequest,
@@ -67,7 +69,8 @@ def resolve_hazard(
     *,
     decisions: WoundDecisionProvider | None = None,
 ) -> HazardResolutionResult:
-    successes = request.avoidance_test.successes
+    replace(request)
+    successes = request.avoidance_test.effective_successes
     rating = request.exposure.rating
     shortfall = max(0, rating - successes)
     if shortfall == 0:
@@ -143,10 +146,14 @@ def resolve_hazard(
                     state=state,
                     base_wounds=shortfall,
                     additional_wounds=request.additional_profile_wounds,
-                )
+                    negation_options=request.wound_negation_options,
+                ), decisions=decisions,
             )
             state = profile_wound.state
-            follow_ups.append(profile_wound.state_change)
+            if profile_wound.negated_by_rule_id is not None:
+                follow_ups.append(ConsumeWoundNegationRequest(request.id, profile_wound.negated_by_rule_id))
+            if profile_wound.wounds_inflicted > 0:
+                follow_ups.append(profile_wound.state_change)
 
     deferred_failure_exposure = None
     if pending_character_wound is not None:

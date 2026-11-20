@@ -8,7 +8,8 @@ from towr.domain.condition_models import (
     EffectClassification,
     RepeatedConditionReplacement,
 )
-from towr.domain.test_models import Skill, TestRequest, TestResult
+from towr.domain.test_models import Skill, TestRequest, TestResult, TieBreak, OpposedSide
+from towr.domain.talent_tie_models import compose_talent_tie_break
 from towr.domain.brawn_impact_models import BrawnDisplacementImpactSpec
 
 
@@ -356,6 +357,9 @@ class AttackRequest:
     secondary_effects: tuple[SecondaryEffectSpec, ...] = field(
         default_factory=tuple
     )
+    # The encounter owner derives this source from actual participants/effects.
+    # None preserves the ordinary positive Attack tie won by the attacker.
+    tie_break: TieBreak | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str):
@@ -364,6 +368,8 @@ class AttackRequest:
             raise ValueError("attack request id must not be empty")
         if not isinstance(self.attacker_test, TestRequest):
             raise TypeError("attacker_test must be a TestRequest")
+        if self.tie_break is not None:
+            compose_talent_tie_break(self.tie_break, ())
         if self.defender_test is not None and not isinstance(
             self.defender_test, TestRequest
         ):
@@ -429,6 +435,36 @@ class AttackResult:
     miss_consequence: MissConsequence
     tie_break_applied: bool
     applied_rule_ids: tuple[str, ...]
+
+
+def defender_won_attack_opposition(request: AttackRequest, result: AttackResult) -> bool:
+    """Query an admitted Attack receipt, including a source-bound defensive tie.
+
+    Receipt admission/replay remains with the owner. Immunity alone and the
+    double-zero case are not a successful opposing Defence for a reaction.
+    """
+    if type(request) is not AttackRequest or type(result) is not AttackResult:
+        raise TypeError('defensive victory requires exact Attack source and result')
+    if result.request_id != request.id:
+        raise ValueError('defensive victory belongs to another Attack')
+    if request.defender_test is None or result.defender_test is None or result.outcome is not AttackOutcome.MISS:
+        return False
+    if (result.attacker_test.trace.request_id != request.attacker_test.id
+            or result.defender_test.trace.request_id != request.defender_test.id):
+        raise ValueError('defensive victory lost its actual opposed Test sources')
+    if result.defender_test.honour_bound is not None:
+        if result.attacker_test.honour_bound is not None:
+            raise ValueError('opposed Unmitigated outcomes require a resolved GM conflict')
+        return True
+    a,d=result.attacker_test.effective_successes,result.defender_test.effective_successes
+    if d <= 0:
+        return False
+    if d > a:
+        return True
+    if d != a or not result.tie_break_applied or request.tie_break is None:
+        return False
+    source=compose_talent_tie_break(request.tie_break,())
+    return source.winner is OpposedSide.OPPONENT and source.rule_id in result.applied_rule_ids
 
 
 def _validate_rule_id(rule_id: str) -> None:

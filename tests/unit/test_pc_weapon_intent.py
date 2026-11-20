@@ -1,11 +1,12 @@
 """Pre-price choices and source-forgery boundaries, using literal native runs."""
 from dataclasses import replace
+from tests.support.talent_sources import paid_talent
 import unittest
 
 from tests.unit.test_pc_combat_talent_execution import scenario, help_source
 from tests.integration.test_shared_pc_inventory import two_sword_source
 from towr.domain.condition_models import Condition
-from towr.domain.generated_npc_models import GeneratedTalent
+from towr.domain.generated_npc_models import TalentId
 from towr.domain.pc_generated_talents import PcWildAttackProof
 from towr.domain.pc_melee_result_models import PcAttackProof, PcHelpProof, PcMeleeStep, build_pc_melee_attack
 from towr.domain.pc_weapon_intent_models import build_pc_attack_weapon_intent, weapon_use_hand
@@ -24,7 +25,7 @@ class Tens:
 class PcWeaponIntentTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.wild = run_pc_melee_scenario(scenario(npc_talents=(GeneratedTalent.WILD_ATTACK,)), Tens())
+        cls.wild = run_pc_melee_scenario(scenario(npc_talents=(paid_talent(TalentId.WILD_ATTACK),)), Tens())
         cls.pc_wild = run_pc_melee_scenario(scenario(), Tens())
         cls.dual = run_pc_melee_scenario(two_sword_source(), Tens())
 

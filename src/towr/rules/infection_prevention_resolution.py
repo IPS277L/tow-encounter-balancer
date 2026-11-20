@@ -35,7 +35,7 @@ def resolve_anatomy_infection_recall(
         rule_id=request.rule_id,
         source_request=request,
         test_result=test_result,
-        available_successes=test_result.successes,
+        available_successes=test_result.effective_successes,
         applied_rule_ids=tuple(
             dict.fromkeys(
                 (request.rule_id, *test_result.trace.applied_rule_ids)

@@ -4,6 +4,7 @@ This is an explicit supported component set, not a rule language. Drained is
 an authored encounter permission, not an automatically acquired book talent.
 """
 from dataclasses import dataclass, field, replace
+from towr.domain.oath_context_models import OathBattleContext, validate_oath_context
 from enum import Enum
 
 from towr.domain.attack_models import ConditionImpactSpec, ConditionOnHitSpec, DamageProfile, HazardImpactSpec, ResilienceProfile
@@ -23,8 +24,14 @@ from towr.domain.ranged_weapon_profiles import (
     RangedWeaponHands, RangedWeaponRange, RangedWeaponId, ranged_weapon_combat_profile,
 )
 from towr.domain.resolution_models import TargetInjuryPolicy
-from towr.domain.test_models import InlineProfile, Skill
+from towr.domain.test_models import InlineProfile, Skill, TestProfile
+from towr.domain.talent_catalog import TalentId
+from towr.domain.talent_models import (
+    AcquiredTalent, TalentAcquisition, TalentAcquisitionPhase, TalentFunding,
+    TalentOwnerFacts, validate_acquired_talents,
+)
 from towr.domain.turn_models import CombatSide
+from towr.domain.tool_inventory_models import ToolItemSource, initial_tool_inventory, validate_tool_equipment_hands
 from towr.domain.weapon_catalog import WeaponGroup, WeaponKind, weapon_profile, weapon_printed_damage
 from towr.domain.weapon_capability_models import weapon_ranged_requirements
 from towr.domain.weapon_inventory_models import (
@@ -189,20 +196,23 @@ class GeneratedAbility(str, Enum):
     DRAINED_ON_HIT = 'drained_on_hit'
 
 
-class GeneratedTalent(str, Enum):
-    MAGIC_RESISTANCE = 'magic_resistance'
-    DEFENSIVE_STANCE = 'defensive_stance'
-    WILD_ATTACK = 'wild_attack'
+def generated_talent_acquisition(talent: TalentId) -> AcquiredTalent:
+    """The generator declares a paid acquisition; it never invents a waiver."""
+    return AcquiredTalent(talent,(TalentAcquisition(TalentAcquisitionPhase.ADVANCEMENT,
+        TalentFunding.XP),))
 
 
-def generated_talent_requirements_met(talent: GeneratedTalent, *, weapon_skill: int,
-        strength: int) -> bool:
-    if type(talent) is not GeneratedTalent:
+def generated_talent_requirements_met(talent: TalentId, *, weapon_skill: int,
+        strength: int,ballistic_skill: int | None = None,fellowship: int | None = None,
+        agility: int | None = None) -> bool:
+    if type(talent) is not TalentId:
         raise TypeError('generated Talent requires its typed supported identifier')
-    if talent is GeneratedTalent.DEFENSIVE_STANCE:
-        return weapon_skill >= 3
-    if talent is GeneratedTalent.WILD_ATTACK:
-        return strength >= 4
+    try:
+        validate_acquired_talents((generated_talent_acquisition(talent),),
+            TalentOwnerFacts(weapon_skill=weapon_skill,strength=strength,
+                ballistic_skill=ballistic_skill,fellowship=fellowship,agility=agility))
+    except (TypeError,ValueError):
+        return False
     return True
 
 
@@ -218,7 +228,8 @@ class GeneratedNpc:
     armour: ArmourLoadout
     abilities: tuple[GeneratedAbility, ...] = ()
     defence: int = field(kw_only=True)
-    talents: tuple[GeneratedTalent, ...] = field(default=(),kw_only=True)
+    talents: tuple[AcquiredTalent, ...] = field(default=(),kw_only=True)
+    talent_facts: TalentOwnerFacts | None = field(default=None,kw_only=True)
     ranged: GeneratedRangedFacts | None = field(default=None,kw_only=True)
     mount: CombatMount | None = field(default=None,kw_only=True)
     rider_kind: RiderKind | None = field(default=None,kw_only=True)
@@ -227,8 +238,13 @@ class GeneratedNpc:
     brawn: int | None = field(default=None,kw_only=True)
     endurance: int | None = field(default=None,kw_only=True)
     ballistic_skill: int | None = field(default=None,kw_only=True)
+    fellowship: int | None = field(default=None,kw_only=True)
+    leadership: int | None = field(default=None,kw_only=True)
+    tools: tuple[ToolItemSource, ...] = field(default=(),kw_only=True)
+    oath_context: OathBattleContext | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
+        tools = initial_tool_inventory('generated:source-validation', self.tools)
         for name in ('weapon_skill', 'strength', 'toughness', 'agility'):
             value = getattr(self, name)
             if type(value) is not int or value < 1:
@@ -237,10 +253,14 @@ class GeneratedNpc:
             value = getattr(self, name)
             if type(value) is not int or not 2 <= value <= 6:
                 raise ValueError(f'{name} must be an integer in 2..6')
-        for name in ('throwing','brawn','endurance'):
+        for name in ('throwing','brawn','endurance','leadership'):
             value = getattr(self,name)
             if value is not None and (type(value) is not int or not 2 <= value <= 6):
                 raise ValueError(f'{name} must be an exact Skill rating in 2..6 or None')
+        if self.fellowship is not None and (type(self.fellowship) is not int or self.fellowship < 1):
+            raise ValueError('Fellowship must be an exact positive integer or None')
+        if self.leadership is not None:
+            self.leadership_profile
         if (type(self.weapons) is not tuple
                 or any(type(item) is not WeaponItemSource for item in self.weapons)):
             raise TypeError('generated equipment needs its complete ordered physical sources')
@@ -250,6 +270,8 @@ class GeneratedNpc:
                 raise ValueError('generated weapon item has no implemented encounter owner')
         if len({item.id for item in self.weapons}) != len(self.weapons):
             raise ValueError('generated initial weapon item IDs must be unique')
+        if {item.id for item in self.tools} & {item.id for item in self.weapons}:
+            raise ValueError('generated tools and weapons require distinct source item IDs')
         if (not any(item.initial_location is WeaponItemLocation.HELD for item in self.weapons)
                 or any(item.kind in (WeaponKind.KNUCKLEDUSTERS,WeaponKind.GROTARGGS_HAMMER)
                     for item in self.weapons)) and self.brawn is None:
@@ -301,32 +323,39 @@ class GeneratedNpc:
             if (self.ranged is not None and self.ballistic_skill is not None
                     and self.ballistic_skill != self.ranged.ballistic_skill):
                 raise ValueError('Shooting and Throwing share the same Ballistic Skill')
-        _initial_generated_inventory(self,'generated:source-validation')
+        validate_tool_equipment_hands(tools,
+            _initial_generated_inventory(self,'generated:source-validation'))
         if (type(self.abilities) is not tuple or len(set(self.abilities)) != len(self.abilities)
                 or any(type(a) is not GeneratedAbility for a in self.abilities)):
             raise TypeError('abilities must be unique supported typed components')
         if self.abilities and all(weapon_printed_damage(item.kind,strength=self.strength) is None
                 for item in self.weapons):
             raise ValueError('on-hit abilities require an actual numeric-Damage weapon source')
-        if (type(self.talents) is not tuple
-                or any(type(talent) is not GeneratedTalent for talent in self.talents)
-                or len(set(self.talents)) != len(self.talents)):
-            raise TypeError('Talents require unique supported typed single acquisitions')
-        if any(not generated_talent_requirements_met(talent,weapon_skill=self.weapon_skill,
-                strength=self.strength) for talent in self.talents):
-            raise ValueError('generated Talent Requirements are not met')
+        from towr.domain.talent_actor_models import validate_generated_talent_source
+        validate_generated_talent_source(self)
+        validate_oath_context(self.talents, self.oath_context)
+
+    @property
+    def leadership_profile(self) -> TestProfile:
+        if self.fellowship is None or self.leadership is None:
+            raise ValueError('Leadership requires explicit Fellowship and Leadership ratings')
+        if type(self.leadership) is not int or not 2 <= self.leadership <= 6:
+            raise ValueError('Leadership must be an exact Skill rating in 2..6')
+        return TestProfile(self.fellowship, self.leadership)
 
     def participant(self, actor_id: str) -> NpcParticipantSnapshot:
         """Build fresh state; identity never selects a mechanic."""
         definition_id = 'generated:' + actor_id
         resilience, attacks, protection = generated_npc_profiles(self)
         definition = NpcDefinition(definition_id, 'authored:generated-minion', TargetInjuryPolicy.MINION,
-            1, resilience, attacks, protection, generated_components=self)
+            1, resilience, attacks, protection, generated_components=self,
+            talents=self.talents, talent_facts=self.talent_facts)
         conditions=ConditionState(frozenset((Condition.BURDENED,))
             if armour_burden_sources(self.armour,self.strength) else frozenset())
         armed = any(item.initial_location is WeaponItemLocation.HELD for item in self.weapons)
         state = NpcParticipantState(actor_id, definition_id, CombatSide.OPPOSITION,
-            ProfileInjuryState(0, 1,conditions), tuple(attack.id for attack in attacks), resilience, armed, self.shield)
+            ProfileInjuryState(0, 1,conditions), tuple(attack.id for attack in attacks), resilience, armed, self.shield,
+            tool_inventory=initial_tool_inventory(actor_id,self.tools))
         return NpcParticipantSnapshot(definition, state)
 
     @property
@@ -366,6 +395,10 @@ def _initial_generated_inventory(npc: GeneratedNpc, actor_id: str) -> WeaponInve
         if item.initial_location is WeaponItemLocation.HELD),None)
     occupied = set()
     for item in npc.weapons:
+        if item.initial_location is WeaponItemLocation.HELD:
+            occupied.update((WeaponGrip.LEFT,WeaponGrip.RIGHT) if item.initial_grip is WeaponGrip.BOTH
+                else (item.initial_grip,))
+    for item in npc.tools:
         if item.initial_location is WeaponItemLocation.HELD:
             occupied.update((WeaponGrip.LEFT,WeaponGrip.RIGHT) if item.initial_grip is WeaponGrip.BOTH
                 else (item.initial_grip,))
@@ -523,5 +556,8 @@ def validate_generated_definition(definition: NpcDefinition) -> None:
             or definition.injury_policy is not TargetInjuryPolicy.MINION
             or type(definition.wound_limit) is not int or definition.wound_limit != 1
             or definition.resilience != resilience or definition.attacks != attacks
-            or definition.protection != protection):
+            or definition.protection != protection
+            or type(definition.talents) is not tuple or definition.talents != npc.talents
+            or type(definition.talent_facts) is not type(npc.talent_facts)
+            or definition.talent_facts != npc.talent_facts):
         raise ValueError('NPC combat source differs from its complete generated components')

@@ -5,13 +5,14 @@ Landing spends no voluntary movement; avoidance, Wounds and Fate remain real.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass,replace
+from dataclasses import dataclass,field,replace
 from typing import TYPE_CHECKING
 
 from towr.domain.condition_models import Condition,ConditionApplicationResult
 from towr.domain.injury_models import (
     CharacterInjuryState,CharacterWoundRequest,ProfileInjuryState,ProfileNpcType,
-    ProfileStateChangeRequest,ProfileWoundResult,
+    ProfileStateChangeRequest,ProfileWoundResult,WoundDiceModifier,WoundNegationOption,
+    ProfileWoundRequest,_expected_profile_wound_result,
 )
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
 from towr.domain.pc_battlefield_models import (
@@ -20,6 +21,7 @@ from towr.domain.pc_battlefield_models import (
 from towr.domain.pc_mount_models import PcDismountProof,CombatMount
 from towr.domain.resolution_models import (
     HazardExposureRequest,HazardResolutionRequest,HazardResolutionResult,TargetInjuryPolicy,
+    ConsumeWoundNegationRequest,
 )
 from towr.domain.test_models import Skill,TestRequest,TestResult
 from towr.domain.wound_lifecycle_models import (
@@ -47,8 +49,12 @@ def _same(actual,expected,message):
 
 
 def _injury(state,actor):
-    return (state.participant(actor).injury if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury)
+    if actor in state.source.pc_activation_order:
+        return state.participant(actor).injury
+    if actor in state.source.enemy_activation_order:
+        return state.enemy(actor).state.injury
+    from towr.domain.pc_actor_models import pc_actor_injury
+    return pc_actor_injury(state,actor)
 
 
 def falling_npc_disposition(source,actor):
@@ -86,6 +92,9 @@ def prepare_hazard_avoidance(state,actor,exposure,*,environmental=False):
         if state.participant(actor).injury.conditions.has(Condition.DRAINED):
             environmental_bonus=()
         return replace(request,dice_modifiers=(*request.dice_modifiers,*environmental_bonus))
+    if actor not in state.source.enemy_activation_order:
+        from towr.domain.pc_companion_effect_models import companion_test_request
+        return companion_test_request(state,actor,exposure.test_id,exposure.avoidance_skill)
     enemy=state.enemy(actor)
     profile=next((option.test_profile for option in enemy.definition.protection
         if option.skill is exposure.avoidance_skill),None)
@@ -113,6 +122,8 @@ class PcFallingRequest:
     previous_injury: CharacterInjuryState | ProfileInjuryState
     target_injury: CharacterInjuryState | ProfileInjuryState
     target_policy: TargetInjuryPolicy
+    wound_dice_modifiers: tuple[WoundDiceModifier,...] = field(default=(),kw_only=True)
+    wound_negation_options: tuple[WoundNegationOption,...] = field(default=(),kw_only=True)
 
     def __post_init__(self):
         _identifier(self.id);_identifier(self.actor_id)
@@ -125,6 +136,9 @@ class PcFallingRequest:
             if type(item) is not kind:
                 raise TypeError('falling requires exact battlefield and exposure sources')
             replace(item)
+        if (self.exposure.acrobatic_fall is not None
+                and self.exposure.acrobatic_fall.source.actor_id!=self.actor_id):
+            raise ValueError('falling Acrobatic source belongs to another actor')
         if self.avoidance_test is not None:
             if type(self.avoidance_test) is not TestRequest or self.avoidance_test.id!=self.exposure.test_id:
                 raise ValueError('falling avoidance must preserve the exposure Test')
@@ -135,6 +149,18 @@ class PcFallingRequest:
         replace(self.previous_injury);replace(self.target_injury)
         if self.target_policy not in (TargetInjuryPolicy.PLAYER,TargetInjuryPolicy.MINION):
             raise ValueError('this falling owner requires an admitted PC or generated Minion')
+        if type(self.wound_dice_modifiers) is not tuple or any(
+                type(modifier) is not WoundDiceModifier for modifier in self.wound_dice_modifiers):
+            raise TypeError('falling requires exact typed Wounds Table modifiers')
+        for modifier in self.wound_dice_modifiers:
+            replace(modifier)
+        if self.wound_dice_modifiers and self.target_policy is not TargetInjuryPolicy.PLAYER:
+            raise ValueError('profile falling does not roll the character Wounds Table')
+        if type(self.wound_negation_options) is not tuple or any(
+                type(option) is not WoundNegationOption for option in self.wound_negation_options):
+            raise TypeError('falling retains exact current-owner Wound negation options')
+        for option in self.wound_negation_options:
+            replace(option)
 
 
 @dataclass(frozen=True,slots=True)
@@ -174,9 +200,14 @@ def expected_pc_falling_request(state):
         landing=battlefield_ground_below(state.battlefield,origin)
         battlefield=with_actor_placement(state.battlefield,actor,landing)
         identifier=state.source.id+':fall:'+str(index)+':'+actor
+        from towr.domain.pc_acrobatic_models import actor_acrobatic_source
+        from towr.domain.talent_acrobatic_models import AcrobaticFallReduction
+        acrobatic=actor_acrobatic_source(state,actor)
+        base_rating=state.source.battlefield.airspace.fall_hazard_rating
+        reduction=AcrobaticFallReduction(acrobatic,base_rating) if acrobatic is not None else None
         exposure=HazardExposureRequest(identifier,identifier+':athletics',
-            state.source.battlefield.airspace.fall_hazard_rating,Skill.ATHLETICS,FALLING_RULE_ID,
-            True,(Condition.PRONE,))
+            base_rating if reduction is None else reduction.rating,Skill.ATHLETICS,FALLING_RULE_ID,
+            True,(Condition.PRONE,),acrobatic_fall=reduction)
         injury=_injury(state,actor)
         is_pc=actor in state.source.pc_activation_order
         alive=not (injury.dead if is_pc else injury.defeated)
@@ -186,14 +217,19 @@ def expected_pc_falling_request(state):
             target=pc_after_test(state,actor)
         else:
             target=injury
+        from towr.domain.talent_injury_models import hardy_wound_dice_modifiers
+        from towr.domain.pc_oath_models import pc_oath_wound_options
         return PcFallingRequest(identifier,actor,index,proof,state.battlefield,battlefield,
-            exposure,test,injury,target,TargetInjuryPolicy.PLAYER if is_pc else TargetInjuryPolicy.MINION)
+            exposure,test,injury,target,TargetInjuryPolicy.PLAYER if is_pc else TargetInjuryPolicy.MINION,
+            wound_dice_modifiers=hardy_wound_dice_modifiers(state.source.participant(actor).talents) if is_pc else (),
+            wound_negation_options=pc_oath_wound_options(state,actor))
     return None
 
 
 def falling_hazard_request(request,test):
     return HazardResolutionRequest(request.id,request.actor_id,request.exposure,test,
-        request.target_policy,request.target_injury)
+        request.target_policy,request.target_injury,wound_dice_modifiers=request.wound_dice_modifiers,
+        wound_negation_options=request.wound_negation_options)
 
 
 def _prone_application(identifier,injury):
@@ -207,10 +243,12 @@ def _canonical_hazard(request,test,result):
     if type(result) is not HazardResolutionResult:
         raise TypeError('falling must retain its actual Hazard result')
     rating=request.exposure.rating
-    shortfall=max(0,rating-test.successes)
+    shortfall=max(0,rating-test.effective_successes)
     injury=request.target_injury
+    selected=request.wound_negation_options[0].rule_id if request.wound_negation_options else None
+    consumed=(ConsumeWoundNegationRequest(request.id,selected),) if selected is not None else ()
     if not shortfall:
-        expected=HazardResolutionResult(request.id,injury,True,test.successes,rating,0,
+        expected=HazardResolutionResult(request.id,injury,True,test.effective_successes,rating,0,
             None,None,None,(),(),(FALLING_RULE_ID,))
     elif request.target_policy is TargetInjuryPolicy.PLAYER:
         pending=result.pending_character_wound
@@ -218,21 +256,24 @@ def _canonical_hazard(request,test,result):
             raise ValueError('failed falling Hazard must retain its real PC Wound lifecycle')
         replace(pending)
         source=CharacterWoundLifecycleRollRequest(request.id+':wound-lifecycle',request.actor_id,
-            CharacterWoundRequest(request.id+':wound',injury,base_dice=shortfall))
+            CharacterWoundRequest(request.id+':wound',injury,base_dice=shortfall,
+                dice_modifiers=request.wound_dice_modifiers,negation_options=request.wound_negation_options))
         _same(pending.source_request,source,'falling Wound changed its actual shortfall/body source')
-        expected=HazardResolutionResult(request.id,pending.wound_result.state,False,test.successes,
-            rating,shortfall,pending.wound_result,None,None,(),(),(FALLING_RULE_ID,),
+        if pending.wound_result.negated_by_rule_id!=selected:
+            raise ValueError('falling Wound changed its actual automatic negation choice')
+        expected=HazardResolutionResult(request.id,pending.wound_result.state,False,test.effective_successes,
+            rating,shortfall,pending.wound_result,None,None,(),consumed,(FALLING_RULE_ID,),
             pending_character_wound=pending,deferred_failure_exposure=request.exposure)
     else:
-        wounds=min(injury.wound_limit,injury.wounds+shortfall)
-        wounded=ProfileInjuryState(wounds,injury.wound_limit,
-            injury.conditions.without_condition(Condition.STAGGERED),wounds>=injury.wound_limit)
-        change=ProfileStateChangeRequest(ProfileNpcType.MINION,injury.wounds,wounds,wounded.defeated)
-        profile=ProfileWoundResult(request.id+':wound',wounded,shortfall,wounds-injury.wounds,change,())
+        source=ProfileWoundRequest(request.id+':wound',ProfileNpcType.MINION,injury,
+            base_wounds=shortfall,negation_options=request.wound_negation_options)
+        profile=_expected_profile_wound_result(source,selected)
+        wounded=profile.state
+        changes=(profile.state_change,) if profile.wounds_inflicted else ()
         application=_prone_application(request.id,wounded)
         after=replace(wounded,conditions=application.state)
-        expected=HazardResolutionResult(request.id,after,False,test.successes,rating,shortfall,
-            None,None,profile,(Condition.PRONE,),(change,),(FALLING_RULE_ID,),
+        expected=HazardResolutionResult(request.id,after,False,test.effective_successes,rating,shortfall,
+            None,None,profile,(Condition.PRONE,),(*consumed,*changes),(FALLING_RULE_ID,),
             condition_applications=(application,))
     _same(result,expected,'falling Hazard changed its canonical Test/Wound/Condition outcome')
 

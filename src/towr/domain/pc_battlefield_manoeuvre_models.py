@@ -4,6 +4,8 @@ Only positioning and Athletics live here. A successful Charge keeps its real
 Manoeuvre slot unused for the ordinary native Attack/Fate/Help/kernel owner.
 """
 from __future__ import annotations
+from towr.domain.pc_acrobatic_models import actor_acrobatic_source
+from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
 
 from dataclasses import dataclass, field, replace
 from collections import deque
@@ -55,7 +57,8 @@ def pc_battlefield_actor_speed(state: PcMeleeState, actor: str) -> MovementSpeed
         if restriction_sources(state.participant(actor).injury,WoundRestriction.SPEED_IS_SLOW):
             return MovementSpeed.SLOW
     elif actor not in state.source.enemy_activation_order:
-        raise ValueError('Speed requires an actual battlefield actor')
+        from towr.domain.pc_companion_effect_models import companion_profile
+        return companion_profile(state,actor).speed
     from towr.domain.pc_mount_models import pc_mount_speed
     return pc_mount_speed(state,actor,MovementSpeed.NORMAL)
 
@@ -214,6 +217,9 @@ def _ready(state,target,kind,speed):
 
 
 def _athletics(state,actor,test_id):
+    if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+        from towr.domain.pc_companion_effect_models import companion_test_request
+        return companion_test_request(state,actor,test_id,Skill.ATHLETICS)
     from towr.domain.pc_mount_models import pc_is_mounted
     mounted = pc_is_mounted(state, actor)
     if actor in state.source.pc_activation_order:
@@ -262,7 +268,7 @@ def build_pc_battlefield_careful(state: PcMeleeState,target_id: str, *, speed=No
     from towr.domain.pc_melee_result_models import pc_melee_action_id
     identifier=pc_melee_action_id(state,actor)+':battlefield:careful'
     movement=FreeMovementRequest(identifier+':movement',state.round_state,state.battlefield.spatial,
-        actor,speed,_conditions(state,actor),route,crosses_difficult_terrain=True)
+        actor,speed,_conditions(state,actor),route,crosses_difficult_terrain=True,acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,route))
     return MoveCarefullyActionExecutionRequest(identifier,movement,len(state.round_state.active_turn.action_slots),
         MoveCarefullySearchChoice.DECLINE,None,None,state.round_state,state.battlefield.spatial)
 
@@ -286,7 +292,7 @@ def build_pc_battlefield_charge(state: PcMeleeState,target_id: str, *, speed=Non
     return ChargeMovementRequest(action,state.round_state,spatial,actor,target_id,
         len(state.round_state.active_turn.action_slots),speed,_conditions(state,actor),distance,
         _began_close(state,actor),test,intermediate,crosses_difficult_terrain=terrain,
-        terrain_resolution_deferred=terrain)
+        terrain_resolution_deferred=terrain,acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,route))
 
 
 def current_pc_charge(state: PcMeleeState,actor: str) -> ChargeMovementResult | None:
@@ -338,7 +344,7 @@ def build_pc_battlefield_run(state: PcMeleeState,target_id: str, *, speed=None) 
     return RunActionExecutionRequest(pc_melee_action_id(state,actor)+':battlefield:run',
         state.round_state,state.battlefield.spatial,actor,len(state.round_state.active_turn.action_slots),
         speed,_conditions(state,actor),destination,crosses_difficult_terrain=terrain,
-        terrain_resolution_deferred=terrain)
+        terrain_resolution_deferred=terrain,acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,(destination,)))
 
 
 def _run_athletics(state, base_run, destination, target_id):
@@ -368,12 +374,15 @@ def build_pc_battlefield_run_extension(state: PcMeleeState,base_run: RunActionEx
     destination = _run_destination(state,base_run.actor_id,target_id,base_run.spatial_state)
     if destination is None:
         return None
-    current=replace(state.battlefield,spatial=base_run.spatial_state)
+    current=replace(with_actor_placement(state.battlefield,actor,base_run.destination_zone_id),
+        spatial=base_run.spatial_state)
     if terrain_test_required_for_route(state,base_run.actor_id,(destination,),battlefield=current):
         return None
     test = _run_athletics(state,base_run,destination,target_id)
     return RunAthleticsExtensionRequest(base_run.request_id+':extension',base_run,test,
-        _conditions(state,base_run.actor_id),destination)
+        _conditions(state,base_run.actor_id),destination,
+        acrobatic=actor_acrobatic_source(state,actor),
+        path_entity_ids=pc_enemy_path_blockers(state,actor,(destination,),battlefield=current))
 
 
 def _after(state,spatial,actor,target,*,charge=False):

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from towr.domain.talent_acrobatic_models import (
+    AcrobaticSource, validate_acrobatic_source, validate_acrobatic_trace,
+)
+
 from dataclasses import dataclass, field, replace
 from enum import Enum
 
@@ -67,8 +71,10 @@ class DifficultTerrainTraversalRequest:
     skill: Skill = Skill.ATHLETICS
     rule_id: str = "RULE-COMBAT-013:difficult-terrain-traversal"
     completed_crossing: SpatialBattleState | None = field(default=None,kw_only=True)
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_source(self.acrobatic,self.actor_id)
         _validate_non_empty_string(self.id, "Difficult Terrain request id")
         if not isinstance(self.round_state, CombatRoundState):
             raise TypeError("round_state must be a CombatRoundState")
@@ -151,8 +157,10 @@ class DifficultTerrainTraversalResult:
     previous_state: SpatialBattleState
     state: SpatialBattleState
     applied_rule_ids: tuple[str, ...]
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_trace(self.acrobatic,self.actor_id,self.applied_rule_ids)
         _validate_non_empty_string(
             self.request_id,
             "Difficult Terrain request_id",
@@ -211,6 +219,8 @@ class DifficultTerrainTraversalResult:
             raise TypeError("state must be a SpatialBattleState")
 
         source = self.source_request
+        replace(source)
+        _validate_movement_path_source(self.previous_state,self.actor_id,self.path_entity_ids,self.acrobatic)
         if (
             self.request_id != source.id
             or self.rule_id != source.rule_id
@@ -221,6 +231,7 @@ class DifficultTerrainTraversalResult:
             or self.destination_zone_id != source.destination_zone_id
             or self.path_entity_ids != source.path_entity_ids
             or self.crosses_obstacle is not source.crosses_obstacle
+            or self.acrobatic != source.acrobatic
             or self.previous_conditions != source.actor_conditions
             or self.previous_state != source.state
         ):
@@ -332,8 +343,10 @@ class FreeMovementRequest:
     crosses_difficult_terrain: bool = False
     terrain_resolution_deferred: bool = field(default=False,kw_only=True)
     rule_id: str = "RULE-COMBAT-014:free-movement"
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_source(self.acrobatic,self.actor_id)
         _validate_non_empty_string(self.id, "free movement request id")
         if not isinstance(self.round_state, CombatRoundState):
             raise TypeError("round_state must be a CombatRoundState")
@@ -402,8 +415,12 @@ class FreeMovementResult:
     previous_state: SpatialBattleState
     state: SpatialBattleState
     applied_rule_ids: tuple[str, ...]
+    path_entity_ids: tuple[str,...] = field(default=(),kw_only=True)
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_trace(self.acrobatic,self.actor_id,self.applied_rule_ids)
+        _validate_movement_path_source(self.previous_state,self.actor_id,self.path_entity_ids,self.acrobatic)
         _validate_non_empty_string(self.request_id, "free movement request_id")
         _validate_non_empty_string(self.rule_id, "rule_id")
         if not isinstance(self.round_state, CombatRoundState):
@@ -507,6 +524,7 @@ class DifficultTerrainFreeMovementRequest:
         )
         if not isinstance(self.free_movement, FreeMovementRequest):
             raise TypeError("free_movement must be a FreeMovementRequest")
+        replace(self.free_movement)
         if not isinstance(
             self.terrain_traversal,
             DifficultTerrainTraversalResult,
@@ -639,6 +657,7 @@ class MoveCarefullyActionExecutionRequest:
         _validate_non_empty_string(self.id, "Move Carefully request id")
         if not isinstance(self.free_movement, FreeMovementRequest):
             raise TypeError("free_movement must be a FreeMovementRequest")
+        replace(self.free_movement)
         _validate_slot_index(self.slot_index)
         if not isinstance(self.search_choice, MoveCarefullySearchChoice):
             raise TypeError(
@@ -743,6 +762,8 @@ class MoveCarefullyActionExecutionResult:
 
         source = self.source_request
         movement = source.free_movement
+        replace(source)
+        validate_acrobatic_trace(movement.acrobatic,self.actor_id,self.applied_rule_ids)
         traversed_zone_ids = tuple(self.traversed_zone_ids)
         if (
             self.request_id != source.id
@@ -1056,9 +1077,11 @@ class RunActionExecutionRequest:
     path_entity_ids: tuple[str, ...] = ()
     crosses_obstacle: bool = False
     crosses_difficult_terrain: bool = False
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
     terrain_resolution_deferred: bool = field(default=False,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_source(self.acrobatic,self.actor_id)
         _validate_non_empty_string(self.id, "Run execution request id")
         if not isinstance(self.round_state, CombatRoundState):
             raise TypeError("round_state must be a CombatRoundState")
@@ -1116,8 +1139,12 @@ class RunActionExecutionResult:
     spatial_state: SpatialBattleState
     slot: CombatActionSlot
     applied_rule_ids: tuple[str, ...]
+    path_entity_ids: tuple[str,...] = field(default=(),kw_only=True)
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_trace(self.acrobatic,self.actor_id,self.applied_rule_ids)
+        _validate_movement_path_source(self.previous_spatial_state,self.actor_id,self.path_entity_ids,self.acrobatic)
         _validate_non_empty_string(self.request_id, "Run execution request_id")
         _validate_non_empty_string(self.actor_id, "actor_id")
         _validate_slot_index(self.slot_index)
@@ -1440,6 +1467,7 @@ class RunAthleticsExtensionRequest:
     path_entity_ids: tuple[str, ...] = ()
     crosses_obstacle: bool = False
     crosses_difficult_terrain: bool = False
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
     skill: Skill = Skill.ATHLETICS
     rule_id: str = "RULE-COMBAT-014:run-athletics-extension"
 
@@ -1447,6 +1475,8 @@ class RunAthleticsExtensionRequest:
         _validate_non_empty_string(self.id, "Run Athletics request id")
         if not isinstance(self.base_run, RunActionExecutionResult):
             raise TypeError("base_run must be a RunActionExecutionResult")
+        replace(self.base_run)
+        validate_acrobatic_source(self.acrobatic,self.base_run.actor_id)
         if not isinstance(self.athletics_test, TestRequest):
             raise TypeError("athletics_test must be a TestRequest")
         if not isinstance(self.actor_conditions, ConditionState):
@@ -1496,8 +1526,12 @@ class RunAthleticsExtensionResult:
     previous_spatial_state: SpatialBattleState
     spatial_state: SpatialBattleState
     applied_rule_ids: tuple[str, ...]
+    path_entity_ids: tuple[str,...] = field(default=(),kw_only=True)
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_trace(self.acrobatic,self.actor_id,self.applied_rule_ids)
+        _validate_movement_path_source(self.previous_spatial_state,self.actor_id,self.path_entity_ids,self.acrobatic)
         _validate_non_empty_string(
             self.request_id,
             "Run Athletics request_id",
@@ -1655,7 +1689,7 @@ def _validate_move_carefully_success_context(
         previous_zone_id = zone_id
     for entity_id in movement.path_entity_ids:
         crossed = state.placement_for(entity_id)
-        if crossed.side_id != actor.side_id:
+        if crossed.side_id != actor.side_id and not validate_acrobatic_source(movement.acrobatic,movement.actor_id):
             raise ValueError("Move Carefully cannot pass through an enemy")
 
 
@@ -1663,6 +1697,8 @@ def _validate_difficult_terrain_free_movement_pair(
     movement: FreeMovementRequest,
     traversal: DifficultTerrainTraversalResult,
 ) -> None:
+    replace(movement)
+    replace(traversal)
     terrain_request = traversal.source_request
     if movement.rule_id != "RULE-COMBAT-014:free-movement":
         raise ValueError("free movement uses an unknown source rule")
@@ -1679,6 +1715,7 @@ def _validate_difficult_terrain_free_movement_pair(
         or movement.actor_conditions != terrain_request.actor_conditions
         or movement.destination_zone_id != terrain_request.destination_zone_id
         or movement.path_entity_ids != terrain_request.path_entity_ids
+        or movement.acrobatic != terrain_request.acrobatic
         or movement.crosses_obstacle is not terrain_request.crosses_obstacle
     ):
         raise ValueError(
@@ -1690,6 +1727,8 @@ def _validate_difficult_terrain_run_pair(
     run: RunActionExecutionRequest,
     traversal: DifficultTerrainTraversalResult,
 ) -> None:
+    replace(run)
+    replace(traversal)
     terrain_request = traversal.source_request
     if not run.crosses_difficult_terrain:
         raise ValueError("Run must declare Difficult Terrain")
@@ -1700,9 +1739,24 @@ def _validate_difficult_terrain_run_pair(
         or run.actor_conditions != terrain_request.actor_conditions
         or run.destination_zone_id != terrain_request.destination_zone_id
         or run.path_entity_ids != terrain_request.path_entity_ids
+        or run.acrobatic != terrain_request.acrobatic
         or run.crosses_obstacle is not terrain_request.crosses_obstacle
     ):
         raise ValueError("Run and terrain traversal have different provenance")
+
+
+def _validate_movement_path_source(state,actor,path,acrobatic):
+    if type(state) is not SpatialBattleState:
+        raise TypeError('movement path requires its exact previous spatial state')
+    permitted=validate_acrobatic_source(acrobatic,actor)
+    if type(path) is not tuple or any(type(identifier) is not str or not identifier.strip() for identifier in path):
+        raise TypeError('movement path retains an exact tuple of actual entity identifiers')
+    if len(set(path))!=len(path) or actor in path:
+        raise ValueError('movement path cannot repeat an entity or cross the acting creature')
+    placement=state.placement_for(actor)
+    for identifier in path:
+        if state.placement_for(identifier).side_id!=placement.side_id and not permitted:
+            raise ValueError('crossed enemy path requires this actor\'s actual Acrobatic source')
 
 
 def _validate_rule_ids(values: tuple[str, ...]) -> tuple[str, ...]:

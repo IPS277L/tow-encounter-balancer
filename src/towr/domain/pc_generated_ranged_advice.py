@@ -47,8 +47,15 @@ def pc_shooting_protection(state, target_id, attacker_id, test_id, *,
             incoming_attack_skill=incoming_skill)
         if conditions != actual_conditions and usable_weapon_hand(member) is not None:
             weapon = pc_active_weapon(state, target_id)
-            old_ids = {modifier.rule_id for modifier in pc_weapon_test_modifiers(weapon, skill, actual_conditions)}
-            new = pc_weapon_test_modifiers(weapon, skill, conditions)
+            from towr.domain.pc_weapon_inventory import pc_protection_weapon_use
+            from towr.domain.weapon_effect_preparation import weapon_test_modifiers
+            talents=state.source.participant(target_id).talents
+            use=pc_protection_weapon_use(member,skill,incoming_skill,talents=talents)
+            old=(pc_weapon_test_modifiers(weapon,skill,actual_conditions) if use is None else
+                weapon_test_modifiers(use,actual_conditions,talents=talents).modifiers)
+            new=(pc_weapon_test_modifiers(weapon,skill,conditions) if use is None else
+                weapon_test_modifiers(use,conditions,talents=talents).modifiers)
+            old_ids = {modifier.rule_id for modifier in old}
             request = replace(request, dice_modifiers=tuple(m for m in request.dice_modifiers
                 if m.rule_id not in old_ids) + new)
         if conditions.has(Condition.DRAINED):
@@ -95,21 +102,36 @@ def pc_brawn_protection(state,target_id,test_id):
 
 @lru_cache(maxsize=4096)
 def _repeater_choice(ordinary_value, bonus_value, reload_distribution, horizon,
-        required_successes=3):
-    """Exact finite action forecast with the actual required reload successes.
+        required_successes=3, rapid_reload=False, future_ordinary_value=None, future_bonus_value=None,
+        aim_required=False, can_aim=True):
+    """Finite action-cost forecast with the actual required reload successes.
 
     loaded=0; positive values are remaining Exacting successes. On a loaded turn
-    the actor may choose anew. A reload action has no immediate hit utility.
+    the actor may choose anew. Rapid Reload can add one shot after a successful
+    completed reload in that same turn; partial/zero work grants no shot.
+    Mandatory Aim consumes its real action; future Awareness bonus dice are
+    not predicted as guaranteed utility.
     """
+    future_ordinary_value=ordinary_value if future_ordinary_value is None else future_ordinary_value
+    future_bonus_value=bonus_value if future_bonus_value is None else future_bonus_value
     @lru_cache(maxsize=None)
-    def value(turns, remaining):
+    def value(turns, remaining, aimed=False):
         if turns <= 0:
             return 0.0
         if remaining:
-            return sum(chance*value(turns-1,max(0,remaining-successes))
+            def after_reload(successes):
+                if not rapid_reload or successes<=0 or successes<remaining:
+                    return value(turns-1,max(0,remaining-successes))
+                if aim_required:
+                    return value(turns-1,0,True) if can_aim else value(turns-1,0)
+                return max(future_ordinary_value+value(turns-1,0),
+                    future_bonus_value+value(turns-1,required_successes))
+            return sum(chance*after_reload(successes)
                 for successes,chance in enumerate(reload_distribution))
-        return max(ordinary_value+value(turns-1,0),
-            bonus_value+value(turns-1,required_successes))
+        if aim_required and not aimed:
+            return value(turns-1,0,True) if can_aim else 0.0
+        return max(future_ordinary_value+value(turns-1,0),
+            future_bonus_value+value(turns-1,required_successes))
     ordinary = ordinary_value+value(horizon-1,0)
     bonus = bonus_value+value(horizon-1,required_successes)
     return bonus > ordinary+1e-12
@@ -127,6 +149,11 @@ def npc_repeater_bonus(state, actor_id, attacker: TestRequest,
     from towr.domain.pc_shield_models import pc_shield_resilience
     from towr.domain.pc_talent_advice import pc_test_distribution
     from towr.domain.pc_tactical_models import _distribution, _impact_value
+    from towr.domain.pc_rapid_reload_models import pending_rapid_reload
+    from towr.domain.pc_musician_effect_models import musician_defends_ties
+    rapid = pending_rapid_reload(state)
+    if rapid is not None and rapid.actor_id == actor_id:
+        return rapid.ranged_bonus
 
     enemy = state.enemy(actor_id)
     components = enemy.definition.generated_components
@@ -144,26 +171,45 @@ def npc_repeater_bonus(state, actor_id, attacker: TestRequest,
     bonus_dice = reload_profile.optional_shooting_bonus_dice
     boosted = replace(attacker,dice_modifiers=(*attacker.dice_modifiers,
         DiceModifier(REPEATER_SHOOTING_BONUS_RULE_ID,bonus_dice)))
-    target = state.participant(target_id)
-    conditions = target.injury.conditions if target_conditions is None else target_conditions
-    resilience = pc_shield_resilience(state,target_id) if resilience is None else resilience
+    is_pc=target_id in state.source.pc_activation_order
+    from towr.domain.pc_actor_models import pc_actor_injury
+    conditions = pc_actor_injury(state,target_id).conditions if target_conditions is None else target_conditions
+    if resilience is None:
+        if is_pc:
+            resilience=pc_shield_resilience(state,target_id)
+        else:
+            from towr.domain.pc_npc_resilience_models import npc_current_resilience
+            resilience=npc_current_resilience(state,target_id)
     profile = ranged_weapon_combat_profile(weapon_id)
     resistance = resilience.toughness if profile.ignores_armour and not resilience.mundane_armour_ward else resilience.total
     from towr.domain.pc_melee_result_models import pc_selected_npc_attack_profile
     attack_profile = pc_selected_npc_attack_profile(state,actor_id)
-    protection = ((1.0,) if defender is None else _distribution(defender) if defender_skill is None
+    protection = ((1.0,) if defender is None else _distribution(defender) if defender_skill is None or not is_pc
         else pc_test_distribution(state,target_id,defender_skill,defender,include_policy=True))
     def utility(request):
         damage = attack_profile.damage.base + (profile.armoured_target_damage_bonus
             if resilience.is_armoured and not resilience.mundane_armour_ward else 0)
         return _impact_value(_distribution(request),protection,damage,
             resistance,attack_profile.damage.success_multiplier,
-            conditions.has(Condition.STAGGERED),conditions.has(Condition.DEFENCELESS))
+            conditions.has(Condition.STAGGERED),conditions.has(Condition.DEFENCELESS),
+            defender_wins_ties=musician_defends_ties(state,target_id))
     reload = npc_ranged_reload_test(state,actor_id,'tactics:reload')
     unavailable = (*state.round_state.completed_turn_entity_ids,*state.round_state.excluded_turn_entity_ids)
     horizon = min(3,max(0,state.source.max_rounds-state.round_state.round_number+1
         - int(actor_id in unavailable)))
     if not horizon:
         return False
+    from towr.domain.pc_rapid_reload_models import rapid_reload_forecast_eligible
+    rapid=rapid_reload_forecast_eligible(state,actor_id,future_turn=True)
+    # The future Reload consumes an older Aim; guns which require another Aim
+    # cannot use a third action to shoot in that same turn.
+    from towr.domain.pc_short_opening_models import pc_enemy_range
+    aim_required=profile.requires_aim_before_attack or pc_enemy_range(state,actor_id,target_id) is RangedWeaponRange.EXTREME
+    from towr.domain.aim_models import AIM_FOLLOW_UP_RULE_ID
+    future_attacker=replace(attacker,dice_modifiers=tuple(modifier for modifier in attacker.dice_modifiers
+        if modifier.rule_id!=AIM_FOLLOW_UP_RULE_ID))
+    future_boosted=replace(boosted,dice_modifiers=tuple(modifier for modifier in boosted.dice_modifiers
+        if modifier.rule_id!=AIM_FOLLOW_UP_RULE_ID))
     return _repeater_choice(utility(attacker),utility(boosted),_distribution(reload),horizon,
-        reload_profile.required_successes)
+        reload_profile.required_successes,rapid,utility(future_attacker),utility(future_boosted),
+        aim_required,components.ranged.awareness is not None)

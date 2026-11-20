@@ -210,6 +210,9 @@ def expected_pc_demigryph_intent(state: PcMeleeState) -> PcDemigryphIntentProof 
             or turn.action_slots[-1].declaration.kind is not CombatActionKind.ATTACK):
         return None
     actor = turn.actor_id
+    from towr.domain.pc_oath_models import oath_allows_attack
+    if not oath_allows_attack(state,actor,Skill.MELEE):
+        return None
     from towr.domain.pc_mount_attack_models import pc_uses_mount_attack
     if pc_uses_mount_attack(state,actor):
         return None
@@ -241,20 +244,28 @@ def demigryph_primary_qualities(intent: PcDemigryphIntentProof) -> tuple[Quality
         if intent.grim_leg is DemigryphGrimLeg.RIDER else ())
 
 
+def pc_kernel_attack_types():
+    """The explicit ordinary, paired mount and immediate strike families."""
+    from towr.domain.pc_melee_result_models import PcAttackProof
+    from towr.domain.pc_immediate_attack_models import PcImmediateStrikeProof
+    return (PcAttackProof,PcDemigryphStrikeProof,PcImmediateStrikeProof)
+
+
 def pc_kernel_resolution(proof):
     from towr.domain.pc_melee_result_models import PcAttackProof
     if type(proof) is PcAttackProof:
         return proof.execution.resolution
-    if type(proof) is PcDemigryphStrikeProof:
+    from towr.domain.pc_immediate_attack_models import PcImmediateStrikeProof
+    if type(proof) in (PcDemigryphStrikeProof,PcImmediateStrikeProof):
         return proof.resolution
-    raise TypeError('expected an actual primary or Demigryph K1 strike proof')
+    raise TypeError('expected an actual ordinary, paired mount or immediate K1 strike proof')
 
 
 def latest_pc_kernel_attack(state, *, kernel_request_id=None):
-    """An explicit two-variant lookup for Wound/ACK consumers, without fake receipts."""
+    """An explicit strike-family lookup for Wound/ACK consumers, without fake receipts."""
     from towr.domain.pc_melee_result_models import PcAttackProof
     for proof in reversed(state.history):
-        if type(proof) in (PcAttackProof, PcDemigryphStrikeProof) and (
+        if type(proof) in pc_kernel_attack_types() and (
                 kernel_request_id is None or proof.request.kernel_request.id == kernel_request_id):
             return proof
     raise ValueError('no actual journaled K1 strike matches this follow-up source')

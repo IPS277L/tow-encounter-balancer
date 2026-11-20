@@ -213,6 +213,19 @@
               "hand": null,
               "initially_loaded": null
             }
+          ],
+          "talents": [
+            {
+              "id": "lucky",
+              "acquisitions": [
+                {
+                  "phase": "advancement",
+                  "funding": "xp",
+                  "choice": null,
+                  "devotion_confirmed": null
+                }
+              ]
+            }
           ]
         },
         {

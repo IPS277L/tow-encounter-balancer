@@ -122,6 +122,10 @@ class NpcChampionAttackRequest:
             raise ValueError('Champion bridge requires one unexecuted standard Attack slot')
         actor = state.roster.participant(execution.actor_id)
         target = state.roster.participant(execution.target_id)
+        from towr.domain.talent_actor_models import validate_npc_definition_talent_scope
+        from towr.domain.talent_catalog import TalentId
+        validate_npc_definition_talent_scope(actor.definition,frozenset((TalentId.HARDY,)))
+        validate_npc_definition_talent_scope(target.definition,frozenset((TalentId.HARDY,TalentId.WIZARD)))
         if (actor.definition.injury_policy is not TargetInjuryPolicy.MINION
                 or target.definition.injury_policy is not TargetInjuryPolicy.CHAMPION
                 or actor.state.side is target.state.side):
@@ -170,9 +174,12 @@ class NpcChampionAttackRequest:
                     execution.target_id in context.state.spatial_state.gave_ground_entity_ids):
                 raise ValueError('stationary Champion attack has stale Give Ground usage')
         _validate_prone_shooting(actor, target, prepared, kernel)
+        from towr.domain.talent_injury_models import hardy_wound_dice_modifiers
+        from towr.domain.talent_actor_models import npc_definition_acquired_talents
         if kernel != KernelAttackRequest(
             kernel.id, execution.target_id, prepared.attack, TargetInjuryPolicy.CHAMPION,
             injury, kernel.can_target_leave_zone, kernel.target_has_given_ground_this_round,
+            wound_dice_modifiers=hardy_wound_dice_modifiers(npc_definition_acquired_talents(target.definition)),
         ):
             raise ValueError('kernel differs from prepared attack/current Champion injury')
         # K1 derives this roll ID. Detect a reused kernel ID before consuming RNG.
@@ -503,13 +510,26 @@ def _actual_attack(request, actual: AttackResult) -> None:
             _integer(value)
     _tuple(actual.applied_rule_ids)
     _damage_spec(actual.impact_spec)
-    a, b = actual.attacker_test.successes, actual.defender_test.successes
-    hit = a > 0 and a >= b
-    margin, tie = (a - b, a == b) if hit else (0, False)
+    if (actual.attacker_test.honour_bound is not None
+            or actual.defender_test is not None and actual.defender_test.honour_bound is not None):
+        from towr.rules.attack_resolution import _resolve_attack_after_tests
+        expected = _resolve_attack_after_tests(request,actual.attacker_test,actual.defender_test)
+        if actual != expected:
+            raise ValueError('Champion Attack changed its actual exceptional Test outcome')
+        return
+    a, b = actual.attacker_test.effective_successes, actual.defender_test.effective_successes
+    from towr.rules.attack_resolution import _attack_tie_break, _resolve_miss_consequence
+    from towr.domain.test_models import OpposedSide
+    tie_source=_attack_tie_break(request)
+    tie=a>0 and a==b
+    hit = a > 0 and (a>b or tie and tie_source.winner is OpposedSide.INITIATOR)
+    margin=a-b if hit else 0
     if not hit:
-        miss = MissConsequence.STAGGER_ATTACKER if request.is_close_range and not request.attacker_is_staggered else MissConsequence.NONE
+        miss,rules=_resolve_miss_consequence(request)
+        if tie:
+            rules=(*rules,tie_source.rule_id)
         expected = AttackResult(request.id, actual.attacker_test, actual.defender_test,
-            AttackOutcome.MISS, 0, request.impact_spec, None, None, None, miss, False, ())
+            AttackOutcome.MISS, 0, request.impact_spec, None, None, None, miss, tie, rules)
     else:
         spec = request.impact_spec
         _typed(spec, DamageImpactSpec)
@@ -522,7 +542,7 @@ def _actual_attack(request, actual: AttackResult) -> None:
         if armour_ward_cancels_effects(spec):
             rules=(*rules,METEORIC_PROTECTION_RULE_ID)
         if tie:
-            rules=(*rules,'RULE-COMBAT-006:attack-tie')
+            rules=(*rules,tie_source.rule_id)
         expected = AttackResult(request.id, actual.attacker_test, actual.defender_test,
             AttackOutcome.HIT, margin, spec, damage, resilience,
             ImpactOutcome.WOUND if damage > resilience else ImpactOutcome.STAGGERED,

@@ -13,6 +13,7 @@ from dataclasses import dataclass, field, replace
 from itertools import combinations
 
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+from towr.domain.pc_companion_policy_models import DismountedMountPolicy
 from towr.domain.pc_scene_feature_models import (PcZoneFeatures,PcVisibilityFact,validate_scene_feature_source)
 from towr.domain.spatial_models import (
     SpatialBattleState,
@@ -92,8 +93,17 @@ class PcBattlefieldSpec:
     zone_features: tuple[PcZoneFeatures,...] = field(default=(),kw_only=True)
     visibility: tuple[PcVisibilityFact,...] = field(default=(),kw_only=True)
     darkness: bool = field(default=False,kw_only=True)
+    enemy_zone_blocking: bool = field(default=False,kw_only=True)
+    dismounted_mount_policy: DismountedMountPolicy = field(default=DismountedMountPolicy.WAIT_AND_RECOVER,kw_only=True)
+    dismounted_mounts_are_combatants: bool = field(default=False,kw_only=True)
 
     def __post_init__(self) -> None:
+        if type(self.enemy_zone_blocking) is not bool:
+            raise TypeError('enemy_zone_blocking requires an exact GM boolean')
+        if type(self.dismounted_mount_policy) is not DismountedMountPolicy:
+            raise TypeError('dismounted mount policy requires its exact supported GM policy')
+        if type(self.dismounted_mounts_are_combatants) is not bool:
+            raise TypeError('dismounted mount combatant status requires an exact GM boolean')
         for name in ('initial_range', 'two_handed_max_range'):
             if type(getattr(self, name)) is not RangedWeaponRange:
                 raise TypeError(f'{name} requires a typed Range')

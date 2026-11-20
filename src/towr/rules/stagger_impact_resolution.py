@@ -83,7 +83,8 @@ def resolve_stagger_impact(
             and request.target_state.conditions.has(Condition.STAGGERED)
             and not request.target_state.defeated):
         cause = MinionStaggerDefeatCause(request.id + ':minion-stagger-defeat',
-            request.target_id, request.minion_stagger_defeat.rule_id)
+            request.target_id, request.minion_stagger_defeat.rule_id,
+            outcome=request.minion_stagger_defeat.outcome)
         state = replace(request.target_state, defeated=True, defeat_cause=cause)
         defeat = MinionStaggerDefeatResult(cause.source_id,state,cause,(cause.rule_id,))
         return StaggerImpactResult(request.id,state,None,None,None,None,(cause,),(cause.rule_id,),
@@ -225,9 +226,10 @@ def _resolve_stagger_wound(
             npc_type=npc_type,
             state=state,
             additional_wounds=request.additional_profile_wounds,
+            negation_options=request.wound_negation_options,
             decapitation_cause=(ProfileDecapitationCause(f'{request.id}:wound', request.target_id)
                 if request.fixed_character_wound is not None else None),
-        )
+        ), decisions=decisions,
     )
     return StaggerImpactResult(
         request_id=request.id,
@@ -236,7 +238,9 @@ def _resolve_stagger_wound(
         character_wound=None,
         wound_effect=None,
         profile_wound=wound,
-        follow_ups=(wound.state_change,),
+        follow_ups=(*((ConsumeWoundNegationRequest(request.id, wound.negated_by_rule_id),)
+                if wound.negated_by_rule_id is not None else ()),
+            *((wound.state_change,) if wound.wounds_inflicted > 0 else ())),
         applied_rule_ids=(),
     )
 

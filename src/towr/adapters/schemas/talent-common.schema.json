@@ -1,0 +1,797 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:towr:talent:common:1",
+  "$comment": "Acquisition facts only, not actor combat admission. Domain validators additionally verify unique Talent/Lore identities, distinct Familiar effects and acquisition chronology.",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "deity_choice": {
+      "type": "object",
+      "properties": {
+        "deity": {
+          "enum": [
+            "ulric",
+            "taal",
+            "rhya",
+            "sigmar",
+            "manann",
+            "morr",
+            "ranald",
+            "verena",
+            "myrmidia",
+            "shallya"
+          ]
+        }
+      },
+      "required": [
+        "deity"
+      ],
+      "additionalProperties": false
+    },
+    "familiar_choice": {
+      "type": "object",
+      "properties": {
+        "effect": {
+          "enum": [
+            "armoured",
+            "babbler",
+            "bookrest",
+            "chaos_sink",
+            "combatant",
+            "flight",
+            "linked",
+            "poison_tongue",
+            "skulker"
+          ]
+        }
+      },
+      "required": [
+        "effect"
+      ],
+      "additionalProperties": false
+    },
+    "hatred_choice": {
+      "type": "object",
+      "properties": {
+        "group_id": {
+          "$ref": "#/$defs/identifier"
+        }
+      },
+      "required": [
+        "group_id"
+      ],
+      "additionalProperties": false
+    },
+    "oath_choice": {
+      "type": "object",
+      "properties": {
+        "oath_id": {
+          "$ref": "#/$defs/identifier"
+        }
+      },
+      "required": [
+        "oath_id"
+      ],
+      "additionalProperties": false
+    },
+    "bloodline_choice": {
+      "type": "object",
+      "properties": {
+        "bloodline_id": {
+          "$ref": "#/$defs/identifier"
+        }
+      },
+      "required": [
+        "bloodline_id"
+      ],
+      "additionalProperties": false
+    },
+    "magic_lore_choice": {
+      "type": "object",
+      "properties": {
+        "lore_id": {
+          "$ref": "#/$defs/identifier"
+        }
+      },
+      "required": [
+        "lore_id"
+      ],
+      "additionalProperties": false
+    },
+    "acquisition": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "enum": [
+            "creation",
+            "advancement"
+          ]
+        },
+        "funding": {
+          "enum": [
+            "free",
+            "xp"
+          ]
+        },
+        "choice": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/deity_choice"
+            },
+            {
+              "$ref": "#/$defs/familiar_choice"
+            },
+            {
+              "$ref": "#/$defs/hatred_choice"
+            },
+            {
+              "$ref": "#/$defs/oath_choice"
+            },
+            {
+              "$ref": "#/$defs/bloodline_choice"
+            },
+            {
+              "$ref": "#/$defs/magic_lore_choice"
+            }
+          ]
+        },
+        "devotion_confirmed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "phase",
+        "funding"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "funding": {
+                "const": "free"
+              }
+            },
+            "required": [
+              "funding"
+            ]
+          },
+          "then": {
+            "properties": {
+              "phase": {
+                "const": "creation"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "acquired_talent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "enum": [
+            "accelerated_recovery",
+            "acrobatic",
+            "allies_in_arms",
+            "armour_bane",
+            "bash_attack",
+            "back_in_the_saddle",
+            "battlefield_musician",
+            "blessings_of_the_lady",
+            "careful_aim",
+            "cleaving_blow",
+            "combat_surgeon",
+            "deep_formation",
+            "defensive_stance",
+            "dispeller",
+            "exceptional_hearing",
+            "faith",
+            "familiar",
+            "feigned_flight",
+            "fight_as_one",
+            "frightening",
+            "golden_voice",
+            "grail_vow",
+            "hardy",
+            "hatred",
+            "hold_the_line",
+            "honour_bound",
+            "intense_scrutiny",
+            "interceptor",
+            "iron_gut",
+            "keen_eyed",
+            "lightning_reflexes",
+            "longbeard",
+            "lucky",
+            "magic_resistance",
+            "mighty_blow",
+            "night_dweller",
+            "polymath",
+            "questing_vow",
+            "quick_change",
+            "quick_throw",
+            "rapid_reload",
+            "resistance_to_corruption",
+            "resolute",
+            "riposte",
+            "secret_bloodline",
+            "short_size",
+            "snake_charmer",
+            "spiteseer",
+            "stand_and_shoot",
+            "steer_clear",
+            "taunter",
+            "thirst_for_knowledge",
+            "touched_by_the_winds",
+            "unbreakable",
+            "valour_of_ages",
+            "vanguard",
+            "vouch_for_them",
+            "wild_attack",
+            "wizard"
+          ]
+        },
+        "acquisitions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/acquisition"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "acquisitions"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "not": {
+                  "enum": [
+                    "faith",
+                    "familiar",
+                    "wizard"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "maxItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "enum": [
+                  "wizard"
+                ]
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "maxItems": 4
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "enum": [
+                  "longbeard",
+                  "secret_bloodline",
+                  "short_size"
+                ]
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "items": {
+                  "properties": {
+                    "phase": {
+                      "const": "creation"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "not": {
+                  "enum": [
+                    "faith",
+                    "familiar",
+                    "hatred",
+                    "honour_bound",
+                    "secret_bloodline",
+                    "touched_by_the_winds"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "items": {
+                  "properties": {
+                    "choice": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "not": {
+                  "enum": [
+                    "faith"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "items": {
+                  "properties": {
+                    "devotion_confirmed": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "enum": [
+                  "faith"
+                ]
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "prefixItems": [
+                  {
+                    "properties": {
+                      "choice": {
+                        "$ref": "#/$defs/deity_choice"
+                      }
+                    },
+                    "required": [
+                      "choice"
+                    ]
+                  }
+                ],
+                "items": {
+                  "properties": {
+                    "choice": {
+                      "type": "null"
+                    }
+                  }
+                },
+                "allOf": [
+                  {
+                    "items": {
+                      "if": {
+                        "properties": {
+                          "phase": {
+                            "const": "advancement"
+                          }
+                        },
+                        "required": [
+                          "phase"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "devotion_confirmed": {
+                            "const": true
+                          }
+                        },
+                        "required": [
+                          "devotion_confirmed"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "enum": [
+                  "familiar"
+                ]
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "items": {
+                  "properties": {
+                    "choice": {
+                      "$ref": "#/$defs/familiar_choice"
+                    }
+                  },
+                  "required": [
+                    "choice"
+                  ]
+                },
+                "maxItems": 9
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "enum": [
+                  "hatred"
+                ]
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "items": {
+                  "properties": {
+                    "choice": {
+                      "$ref": "#/$defs/hatred_choice"
+                    }
+                  },
+                  "required": [
+                    "choice"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "enum": [
+                  "honour_bound"
+                ]
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "items": {
+                  "properties": {
+                    "choice": {
+                      "$ref": "#/$defs/oath_choice"
+                    }
+                  },
+                  "required": [
+                    "choice"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "enum": [
+                  "secret_bloodline"
+                ]
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "items": {
+                  "properties": {
+                    "choice": {
+                      "$ref": "#/$defs/bloodline_choice"
+                    }
+                  },
+                  "required": [
+                    "choice"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "id": {
+                "enum": [
+                  "touched_by_the_winds"
+                ]
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "acquisitions": {
+                "items": {
+                  "properties": {
+                    "choice": {
+                      "$ref": "#/$defs/magic_lore_choice"
+                    }
+                  },
+                  "required": [
+                    "choice"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "acquired_talents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/acquired_talent"
+      },
+      "uniqueItems": true
+    },
+    "lore_fact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "magic": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "owner_facts": {
+      "type": "object",
+      "properties": {
+        "weapon_skill": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "ballistic_skill": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "strength": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "toughness": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "initiative": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "agility": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "reason": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "fellowship": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "origin": {
+          "enum": [
+            null,
+            "human",
+            "ogre",
+            "empire_human",
+            "bretonnian_human",
+            "dwarf",
+            "high_elf",
+            "wood_elf",
+            "halfling"
+          ]
+        },
+        "lores": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/lore_fact"
+          },
+          "uniqueItems": true
+        },
+        "status": {
+          "enum": [
+            null,
+            "brass",
+            "silver",
+            "gold"
+          ]
+        },
+        "equipment": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "musicians_gear",
+              "grooming_kit"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "grail_quest_completed": {
+          "type": "boolean"
+        },
+        "can_cast_spells": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "oath_context": {
+      "type": "object",
+      "properties": {
+        "gm_confirmation_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "in_good_standing_confirmed": {
+          "type": "boolean"
+        },
+        "oath_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "combat_tests_fulfil_oath_confirmed": {
+          "type": "boolean"
+        },
+        "forbidden_attack_skills": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "melee",
+              "brawn",
+              "shooting",
+              "throwing"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "fleeing_breaks_oath": {
+          "type": "boolean"
+        },
+        "lady_prayer_before_battle_confirmed": {
+          "type": "boolean"
+        },
+        "honour_bound_used_this_session": {
+          "type": "boolean"
+        },
+        "unmitigated_success_scope_confirmed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gm_confirmation_id",
+        "in_good_standing_confirmed"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

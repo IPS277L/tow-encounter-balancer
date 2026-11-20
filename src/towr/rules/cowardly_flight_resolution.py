@@ -208,7 +208,7 @@ def resolve_cowardly_flight_willpower(
     decisions: TestDecisionProvider | None = None,
 ) -> CowardlyFlightWillpowerResult:
     test = resolve_test(request.test, rng, decisions=decisions)
-    resisted = test.successes >= request.potency
+    resisted = test.effective_successes >= request.potency
     if resisted:
         return CowardlyFlightWillpowerResult(
             request_id=request.id,

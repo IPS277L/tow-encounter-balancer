@@ -46,12 +46,16 @@ def source_for(*components):
     enemies = tuple(npc.participant('npc'+str(index)) for index,npc in enumerate(components,1))
     policies = tuple(pc_npc_ranged_policy_for_generated(npc,enemy.state.actor_id)
         for npc,enemy in zip(components,enemies) if npc.ranged is not None)
-    return SimpleNamespace(enemies=enemies,npc_ranged_policies=policies)
+    source=SimpleNamespace(enemies=enemies,npc_ranged_policies=policies,
+        pc_activation_order=(),enemy_activation_order=tuple(row.state.actor_id for row in enemies))
+    source.enemy=lambda actor: next(row for row in source.enemies if row.state.actor_id==actor)
+    return source
 
 
 def view(source, *, enemies=None):
     state = SimpleNamespace(source=source,history=(),
-        enemies=initial_pc_npc_weapon_inventories(source) if enemies is None else enemies)
+        enemies=initial_pc_npc_weapon_inventories(source) if enemies is None else enemies,
+        mounts=(),companions=())
     state.enemy = lambda actor: next(enemy for enemy in state.enemies if enemy.state.actor_id == actor)
     return state
 

@@ -71,7 +71,7 @@ def snapshot(source=None, *, prone=(), mounts=None, history=(), pending=(),
         for enemy in source.enemies}
     return SimpleNamespace(source=source, party=tuple(party.values()),
         enemies=tuple(enemies.values()), participant=party.__getitem__, enemy=enemies.__getitem__,
-        mounts=initial_pc_mounts(source) if mounts is None else mounts, history=history,
+        mounts=initial_pc_mounts(source) if mounts is None else mounts, companions=(), history=history,
         pending=pending, pending_wound=pending_wound, magic_pending=magic_pending)
 
 

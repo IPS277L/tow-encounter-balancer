@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from towr.domain.weapon_use_models import WeaponUse
+    from towr.domain.talent_action_grant_models import RapidReloadGrant
 
 
 ACTION_BUDGET_RULE_ID = "RULE-COMBAT-002:action-budget"
@@ -291,6 +292,7 @@ class CombatActionSlot:
     enduring_strength: EnduringStrengthGrant | None = None
     crown_of_antlers: CrownOfAntlersGrant | None = field(default=None, kw_only=True)
     duellist_blades: DuellistBladesGrant | None = field(default=None, kw_only=True)
+    rapid_reload: RapidReloadGrant | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.index, int) or isinstance(self.index, bool):
@@ -307,6 +309,20 @@ class CombatActionSlot:
             _validate_non_empty_string(self.grant_rule_id, "grant_rule_id")
         elif self.grant_rule_id is not None:
             raise ValueError("only an Ability action grant may name a Rule ID")
+        from towr.domain.talent_action_grant_models import RAPID_RELOAD_RULE_ID, RapidReloadGrant
+        if self.rapid_reload is not None:
+            if type(self.rapid_reload) is not RapidReloadGrant:
+                raise TypeError('Rapid Reload requires its exact typed grant')
+            grant = replace(self.rapid_reload)
+            if any(value is not None for value in (
+                    self.enduring_strength, self.crown_of_antlers, self.duellist_blades)):
+                raise ValueError('Rapid Reload cannot combine with another action grant')
+            if (self.index != 2 or self.grant is not ActionSlotGrant.ABILITY
+                    or self.grant_rule_id != RAPID_RELOAD_RULE_ID
+                    or self.declaration != CombatActionDeclaration(grant.action_kind)):
+                raise ValueError('Rapid Reload grants exactly its selected Ability action2')
+        elif self.grant_rule_id == RAPID_RELOAD_RULE_ID:
+            raise ValueError('Rapid Reload Rule ID alone cannot authorize an action')
         if self.duellist_blades is not None:
             if self.enduring_strength is not None or self.crown_of_antlers is not None:
                 raise ValueError('Duellist cannot combine with another second-Attack grant')
@@ -394,6 +410,11 @@ class CombatTurnState:
         repeated_attack = False
         for slot in slots:
             replace(slot)
+            if slot.rapid_reload is not None:
+                grant = slot.rapid_reload
+                if (slot.index != 2 or grant.actor_id != self.actor_id
+                        or slots[0].execution != grant.first_execution):
+                    raise ValueError('Rapid Reload belongs to another executed first action')
             if slot.duellist_blades is not None:
                 grant = slot.duellist_blades
                 _validate_crown_receipt(slots[0].execution)
@@ -595,6 +616,7 @@ class CombatActionSlotRequest:
     enduring_strength: EnduringStrengthGrant | None = None
     crown_of_antlers: CrownOfAntlersGrant | None = field(default=None, kw_only=True)
     duellist_blades: DuellistBladesGrant | None = field(default=None, kw_only=True)
+    rapid_reload: RapidReloadGrant | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.id, "action slot request id")
@@ -613,6 +635,24 @@ class CombatActionSlotRequest:
             raise ValueError("only an Ability action grant may name a Rule ID")
         if not isinstance(self.allows_second_improvise, bool):
             raise TypeError("allows_second_improvise must be a boolean")
+        from towr.domain.talent_action_grant_models import RAPID_RELOAD_RULE_ID, RapidReloadGrant
+        if self.rapid_reload is not None:
+            if type(self.rapid_reload) is not RapidReloadGrant:
+                raise TypeError('Rapid Reload reservation requires its exact typed grant')
+            grant = replace(self.rapid_reload)
+            turn = self.state.active_turn
+            if (grant.actor_id != self.actor_id or grant.round_number != self.state.round_number
+                    or grant.slot_request_id != self.id or self.state != grant.source_reload.round_state
+                    or turn is None or turn.actor_id != self.actor_id or len(turn.action_slots) != 1
+                    or turn.action_slots[0].execution != grant.first_execution):
+                raise ValueError('Rapid Reload reservation changed its actual first Reload source')
+            if self.state.participant_for(grant.target_id).side is turn.side:
+                raise ValueError('Rapid Reload target must belong to the opposing side')
+            CombatActionSlot(2, self.declaration, self.grant, self.grant_rule_id,
+                enduring_strength=self.enduring_strength, crown_of_antlers=self.crown_of_antlers,
+                duellist_blades=self.duellist_blades, rapid_reload=grant)
+        elif self.grant_rule_id == RAPID_RELOAD_RULE_ID:
+            raise ValueError('Rapid Reload Rule ID alone cannot reserve an action')
         if self.duellist_blades is not None:
             if self.enduring_strength is not None or self.crown_of_antlers is not None:
                 raise ValueError('Duellist cannot combine with another action grant')

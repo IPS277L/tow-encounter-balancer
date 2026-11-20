@@ -228,6 +228,9 @@ class ExactingTestContributionResult:
             )
         if not isinstance(self.test_result, TestResult):
             raise TypeError("test_result must be a TestResult")
+        from towr.domain.honour_bound_models import validate_honour_bound_test_source
+        validate_honour_bound_test_source(self.source_request.test,self.test_result,
+            actor_id=self.source_request.contributor_id)
         if not isinstance(self.contribution, ExactingTestContribution):
             raise TypeError("contribution must be an Exacting contribution")
         if not isinstance(self.previous_progress, ExactingTestProgress):
@@ -345,7 +348,7 @@ def _expected_contribution(
         request_id=request.id,
         test_id=request.test.id,
         contributor_id=request.contributor_id,
-        successes=result.successes,
+        successes=result.effective_successes,
         rule_id=request.rule_id,
     )
 
@@ -392,8 +395,13 @@ def _validate_opposed_result(
         or result.opponent.trace.request_id != request.opponent.id
     ):
         raise ValueError("Exacting Opposed Test result belongs elsewhere")
-    initiator = result.initiator.successes
-    opponent = result.opponent.successes
+    if result.initiator.honour_bound is not None or result.opponent.honour_bound is not None:
+        from towr.rules.opposed_test import complete_opposed_test
+        if result != complete_opposed_test(request,result.initiator,result.opponent):
+            raise ValueError('Exacting opposed outcome changed its actual Honour Bound source')
+        return
+    initiator = result.initiator.effective_successes
+    opponent = result.opponent.effective_successes
     if initiator == 0 and opponent == 0:
         expected = (
             OpposedOutcome.BOTH_FAIL,

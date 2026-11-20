@@ -1,5 +1,7 @@
 """Strict Hochland Awareness and explicit Second Action source contracts."""
 from copy import deepcopy
+from tests.support.talent_sources import paid_talent,paid_talent_document
+from towr.domain.talent_catalog import TalentId
 from dataclasses import replace
 from enum import Enum
 import json
@@ -142,9 +144,13 @@ class PcHochlandSourceTests(unittest.TestCase):
                 actual = command.request.template if balance else command.request.scenario
                 self.assertEqual(scenario_document(actual),raw[key])
         old = make_pc_handgun_scenario()
-        self.assertTrue(replace(old.party[0],fate=replace(old.party[0].fate,has_lucky=True)).fate.has_lucky)
+        with self.assertRaises(ValueError):
+            replace(old.party[0],fate=replace(old.party[0].fate,has_lucky=True))
+        self.assertTrue(replace(old.party[0],fate=replace(old.party[0].fate,has_lucky=True),
+            talents=(paid_talent(TalentId.LUCKY),)).fate.has_lucky)
         raw = request_document();raw['scenario'] = scenario_document(old)
         raw['scenario']['party'][0]['fate']['has_lucky'] = True
+        raw['scenario']['party'][0]['talents'] = [paid_talent_document(TalentId.LUCKY)]
         validate_pc_melee_simulation_document(raw)
         self.assertTrue(wire.parse_pc_melee_simulation_request(json.dumps(raw)).request.scenario.party[0].fate.has_lucky)
         for value in (None,1,'true'):

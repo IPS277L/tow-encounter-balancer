@@ -133,6 +133,11 @@ def validate_npc_roster_attack(request: NpcRosterAttackExecutionRequest) -> None
     if execution.id in request.state.consumed_execution_ids:
         raise ValueError("NPC roster attack execution was already consumed")
     actor, target = roster.participant(execution.actor_id), roster.participant(execution.target_id)
+    from towr.domain.talent_actor_models import validate_npc_definition_talent_scope
+    from towr.domain.talent_catalog import TalentId
+    for participant in (actor, target):
+        # Hardy has no Wounds Table to modify for these profile injuries.
+        validate_npc_definition_talent_scope(participant.definition, frozenset((TalentId.HARDY,)))
     if actor.state.actor_id == target.state.actor_id:
         raise ValueError("NPC roster attack requires distinct actor and target")
     for participant in (actor, target):

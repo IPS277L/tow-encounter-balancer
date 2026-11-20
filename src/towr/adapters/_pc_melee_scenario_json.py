@@ -2,6 +2,7 @@
 from dataclasses import asdict
 from enum import Enum
 from functools import partial
+from towr.adapters._oath_json import parse_oath_context, oath_context_document
 
 from towr.adapters._json_common import build_value, resilience_document
 from towr.adapters.pc_melee_json_errors import PcMeleeInputError
@@ -15,9 +16,15 @@ from towr.domain.fate_models import (
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.pc_magic_source_models import PcWizardProfile, PcSpellId
-from towr.domain.pc_combat_talent_models import PcCombatTalent,TalentAcquisition
+from towr.adapters._talent_json import (
+    parse_acquired_talents, acquired_talents_document,
+    parse_talent_owner_facts, talent_owner_facts_document,
+)
+from towr.adapters._tool_json import parse_tool_item_sources, tool_item_sources_document
+from towr.domain.tool_inventory_models import initial_tool_inventory
+from towr.domain.battlefield_music_models import BattlefieldMusicAcoustics
 from towr.domain.pc_combat_equipment_models import PcWeaponItem,PcItemLocation
-from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedAbility, GeneratedTalent, GeneratedRangedFacts
+from towr.domain.generated_npc_models import GeneratedNpc, GeneratedWeapon, GeneratedAbility, TalentId, GeneratedRangedFacts
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.npc_attack_preparation_models import NpcAttackProfile
 from towr.domain.npc_roster_models import (
@@ -44,6 +51,7 @@ from towr.domain.weapon_capability_models import weapon_ranged_requirements
 from towr.domain.weapon_catalog import WeaponKind
 from towr.domain.weapon_inventory_models import WeaponItemSource,WeaponItemLocation,WeaponGrip
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec,PcAirspaceSpec
+from towr.domain.pc_companion_policy_models import DismountedMountPolicy
 from towr.domain.pc_single_combat_models import PcSingleCombatPair
 from towr.domain.pc_scene_feature_models import PcZoneFeatures,PcVisibilityFact
 from towr.domain.pc_mount_models import CombatMount, RiderKind
@@ -91,6 +99,8 @@ def parse_generated_components(raw, *, path_prefix, error_type):
         **dict(raw, weapons=tuple(parse_weapon_item_source(item,
                 path_prefix=f'{path_prefix}/weapons/{index}',error_type=error_type)
             for index,item in enumerate(raw['weapons'])),
+            tools=parse_tool_item_sources(raw.get('tools', []),
+                path_prefix=path_prefix+'/tools', error_type=error_type),
             armour=parse_armour_loadout(raw.get('armour'),
                 path_prefix=path_prefix+'/armour', error_type=error_type),
             mount=None if raw.get('mount') is None else CombatMount(raw['mount']),
@@ -98,7 +108,10 @@ def parse_generated_components(raw, *, path_prefix, error_type):
             ranged=None if raw.get('ranged') is None else build_value(error_type,
                 path_prefix+'/ranged', GeneratedRangedFacts, **raw['ranged']),
             abilities=tuple(GeneratedAbility(value) for value in raw['abilities']),
-            talents=tuple(GeneratedTalent(value) for value in raw['talents'])))
+            oath_context=parse_oath_context(raw.get('oath_context'), path=path_prefix+'/oath_context',error_type=error_type),
+            talents=parse_acquired_talents(raw['talents'],path=path_prefix+'/talents',error_type=error_type),
+            talent_facts=None if raw.get('talent_facts') is None else parse_talent_owner_facts(
+                raw['talent_facts'],path=path_prefix+'/talent_facts',error_type=error_type)))
 
 
 def parse_weapon_item_source(raw,*,path_prefix,error_type):
@@ -128,6 +141,17 @@ def weapon_item_source_document(item):
 def generated_components_document(npc):
     document=_plain(asdict(npc))
     document['weapons']=[weapon_item_source_document(item) for item in npc.weapons]
+    if npc.tools:
+        document['tools'] = tool_item_sources_document(npc.tools)
+    else:
+        del document['tools']
+    document['talents']=acquired_talents_document(npc.talents)
+    if npc.oath_context is None:
+        del document['oath_context']
+    else:
+        document['oath_context']=oath_context_document(npc.oath_context)
+    if npc.talent_facts is None:
+        del document['talent_facts']
     return document
 
 
@@ -187,7 +211,7 @@ def _parse_battlefield(data, *, path_prefix, error_type):
         return None
     path = path_prefix + '/battlefield'
     if (type(raw) is not dict or not {'initial_range','two_handed_max_range'} <= raw.keys()
-            or set(raw)-{'initial_range','two_handed_max_range','airspace','zone_features','visibility','darkness'}):
+            or set(raw)-{'initial_range','two_handed_max_range','airspace','zone_features','visibility','darkness','enemy_zone_blocking','dismounted_mount_policy','dismounted_mounts_are_combatants'}):
         raise error_type(Code.INVALID_INPUT, 'Battlefield requires its complete scene ranges', path=path)
     return build_value(error_type, path, PcBattlefieldSpec,
         RangedWeaponRange(raw['initial_range']), RangedWeaponRange(raw['two_handed_max_range']),
@@ -195,11 +219,25 @@ def _parse_battlefield(data, *, path_prefix, error_type):
         **parse_scene_features(raw,path=path,error_type=error_type))
 
 
+def parse_music_acoustics(raw, *, path, error_type):
+    if raw is None:
+        return None
+    if (type(raw) is not dict or set(raw) != {'audible_confirmed', 'blocked_zone_pairs'}
+            or type(raw['blocked_zone_pairs']) is not list
+            or any(type(pair) is not list for pair in raw['blocked_zone_pairs'])):
+        raise error_type(Code.INVALID_INPUT, 'Music acoustics require complete GM hearing facts and Zone pairs', path=path)
+    return build_value(error_type, path, BattlefieldMusicAcoustics, raw['audible_confirmed'],
+        tuple(tuple(pair) for pair in raw['blocked_zone_pairs']))
+
+
 def parse_scene_features(raw,*,path,error_type):
     return dict(zone_features=tuple(build_value(error_type,f'{path}/zone_features/{index}',
             PcZoneFeatures,**feature) for index,feature in enumerate(raw.get('zone_features',()))),
         visibility=tuple(build_value(error_type,f'{path}/visibility/{index}',PcVisibilityFact,**fact)
-            for index,fact in enumerate(raw.get('visibility',()))),darkness=raw.get('darkness',False))
+            for index,fact in enumerate(raw.get('visibility',()))),darkness=raw.get('darkness',False),
+        enemy_zone_blocking=raw.get('enemy_zone_blocking',False),
+        dismounted_mount_policy=DismountedMountPolicy(raw.get('dismounted_mount_policy','wait_and_recover')),
+        dismounted_mounts_are_combatants=raw.get('dismounted_mounts_are_combatants',False))
 
 
 def parse_airspace(raw,*,path,error_type):
@@ -267,6 +305,8 @@ def _parse_participant(data, *, path_prefix, error_type):
         path=path_prefix+'/combat_equipment',error_type=error_type)
     requirements=weapon_ranged_requirements(tuple(item.weapon for item in combat_equipment or ()))
     pc_raw = dict(data["pc"])
+    pc_raw['tools'] = parse_tool_item_sources(pc_raw.get('tools', []),
+        path_prefix=path_prefix+'/pc/tools', error_type=error_type)
     pc_raw["weapon"] = PcMeleeWeapon(pc_raw["weapon"])
     if 'pistol' in pc_raw:
         raise error_type(Code.INVALID_INPUT, 'PC pistol profile key was replaced by ranged',
@@ -352,9 +392,10 @@ def _parse_participant(data, *, path_prefix, error_type):
         agilulf_code_confirmed=data.get('agilulf_code_confirmed'),
         mount=None if data.get('mount') is None else CombatMount(data['mount']),
         combat_equipment=combat_equipment,
-        combat_talents=tuple(build(f'{path_prefix}/combat_talents/{index}',PcCombatTalent,
-            GeneratedTalent(value['talent']),TalentAcquisition(value['acquisition']))
-            for index,value in enumerate(data.get('combat_talents',[]))),
+        talents=parse_acquired_talents(data.get('talents',[]),path=path_prefix+'/talents',error_type=error_type),
+        oath_context=parse_oath_context(data.get('oath_context'),path=path_prefix+'/oath_context',error_type=error_type),
+        talent_facts=None if data.get('talent_facts') is None else parse_talent_owner_facts(
+            data['talent_facts'],path=path_prefix+'/talent_facts',error_type=error_type),
         consumables=tuple(build(f'{path_prefix}/consumables/{index}', ConsumableItem,
             **dict(item, kind=ConsumableKind(item['kind'])))
             for index,item in enumerate(data.get('consumables', []))),
@@ -607,7 +648,11 @@ def _parse_scenario(data, *, path_prefix, error_type):
         definition = build(path + "/definition", NpcDefinition,
             definition_raw["id"], definition_raw["source_rule_id"],
             TargetInjuryPolicy(definition_raw["injury_policy"]), definition_raw["wound_limit"],
-            resilience, attacks, protection_profiles, generated_components=generated)
+            resilience, attacks, protection_profiles, generated_components=generated,
+            talents=parse_acquired_talents(definition_raw.get('talents', []),
+                path=path+'/definition/talents', error_type=error_type),
+            talent_facts=(None if definition_raw.get('talent_facts') is None else parse_talent_owner_facts(
+                definition_raw['talent_facts'], path=path+'/definition/talent_facts', error_type=error_type)))
         from towr.domain.armour_models import armour_burden_sources
         initial_conditions=ConditionState(frozenset((Condition.BURDENED,))
             if generated is not None and armour_burden_sources(generated.armour,generated.strength)
@@ -615,7 +660,8 @@ def _parse_scenario(data, *, path_prefix, error_type):
         state = build(path, NpcParticipantState, enemy["actor_id"], definition.id,
             CombatSide.OPPOSITION, ProfileInjuryState(0, definition.wound_limit,initial_conditions), tuple(profile.id for profile in attacks),
             resilience, generated.participant(enemy['actor_id']).state.wields_weapon
-                if generated is not None else attack.hands is not None, enemy["holds_shield"])
+                if generated is not None else attack.hands is not None, enemy["holds_shield"],
+            tool_inventory=initial_tool_inventory(enemy['actor_id'], () if generated is None else generated.tools))
         enemies.append(NpcParticipantSnapshot(definition, state))
     return build(path_prefix, PcMeleeScenario, data["id"], party,
         data["day_id"], tuple(enemies), build(path_prefix + "/facts", PcMeleeFacts, **data["facts"]),
@@ -628,6 +674,8 @@ def _parse_scenario(data, *, path_prefix, error_type):
         npc_extra_attack_actor_ids=tuple(data['npc_extra_attack_actor_ids']),
         short_range_opening=_parse_short_range_opening(data,path_prefix=path_prefix,error_type=error_type),
         battlefield=_parse_battlefield(data,path_prefix=path_prefix,error_type=error_type),
+        music_acoustics=parse_music_acoustics(data.get('music_acoustics'),
+            path=path_prefix+'/music_acoustics', error_type=error_type),
         single_combat_pairs=tuple(build(f'{path_prefix}/single_combat_pairs/{index}',
             PcSingleCombatPair,**pair) for index,pair in enumerate(data.get('single_combat_pairs',()))),
         blunderbuss_nearby=_parse_blunderbuss_nearby(data,path_prefix=path_prefix,error_type=error_type),
@@ -652,19 +700,29 @@ def _parse_scenario(data, *, path_prefix, error_type):
 def scenario_document(scenario: PcMeleeScenario) -> dict:
     validate_pc_melee_scenario_admission(scenario)
     party = _plain([asdict(member) for member in scenario.party])
-    for member in party:
+    for member, source in zip(party, scenario.party, strict=True):
+        if source.pc.tools:
+            member['pc']['tools'] = tool_item_sources_document(source.pc.tools)
+        else:
+            del member['pc']['tools']
         for name in ('armour','rider_kind','agilulf_code_confirmed'):
             if member[name] is None:
                 del member[name]
-        for name in ('throwing','brawn','ballistic_skill'):
+        for name in ('throwing','brawn','ballistic_skill','fellowship','leadership'):
             if member['pc'][name] is None:
                 del member['pc'][name]
         if member['mount'] is None:
             del member['mount']
         if member['combat_equipment'] is None:
             del member['combat_equipment']
-        if not member['combat_talents']:
-            del member['combat_talents']
+        if not member['talents']:
+            del member['talents']
+        if member['talent_facts'] is None:
+            del member['talent_facts']
+        if source.oath_context is None:
+            del member['oath_context']
+        else:
+            member['oath_context']=oath_context_document(source.oath_context)
         if member['armour_worn'] is None:
             del member['armour_worn']
         if member['wizard'] is None:
@@ -694,6 +752,11 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
             "attack": _npc_attack_document(attack),
             "protection": {"source_rule_id": protection.source_rule_id,
                 "skill": protection.skill.value,"test_profile": asdict(protection.test_profile)}}})
+        owned_talents = acquired_talents_document(definition.talents)
+        if owned_talents:
+            enemies[-1]['definition']['talents'] = owned_talents
+        if definition.talent_facts is not None:
+            enemies[-1]['definition']['talent_facts'] = talent_owner_facts_document(definition.talent_facts)
         if definition.generated_components is not None:
             del enemies[-1]['definition']['attack']
             enemies[-1]['definition']['attacks']=[_npc_attack_document(profile) for profile in definition.attacks]
@@ -742,6 +805,8 @@ def scenario_document(scenario: PcMeleeScenario) -> dict:
         document['short_range_opening'] = asdict(scenario.short_range_opening)
     if scenario.battlefield is not None:
         document['battlefield'] = _plain(asdict(scenario.battlefield))
+    if scenario.music_acoustics is not None:
+        document['music_acoustics'] = _plain(asdict(scenario.music_acoustics))
     if scenario.blunderbuss_nearby is not None:
         document['blunderbuss_nearby'] = {
             'initial_npc_clustered_confirmed':scenario.blunderbuss_nearby.initial_npc_clustered_confirmed,

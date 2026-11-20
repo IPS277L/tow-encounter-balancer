@@ -16,7 +16,7 @@ from towr.domain.exacting_test_models import ExactingTestContribution
 from towr.domain.generated_npc_models import GeneratedNpc, GeneratedRangedFacts, GeneratedWeapon, generated_weapon_allows_shield
 from towr.domain.injury_models import CharacterInjuryState
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec, build_pc_battlefield, with_actor_placement
-from towr.domain.pc_mount_models import CombatMount
+from towr.domain.pc_mount_models import CombatMount,PcMountedState
 from towr.domain.pc_npc_ranged_models import (
     initial_pc_npc_weapon_inventories, pc_npc_ranged_weapon, npc_ranged_inventory_update,
 )
@@ -65,7 +65,8 @@ def view(*, shield=ShieldKind.SHIELD, weapon=GeneratedWeapon.PISTOL,
         pending=(), pending_wound=None, magic_pending=None, exited_npc_ids=(), history=(),
         battlefield=build_pc_battlefield(PcBattlefieldSpec(RangedWeaponRange.CLOSE,
             RangedWeaponRange.LONG), ('pc',), ('enemy',), 'shield-fixture') if battlefield else None,
-        npc_shields=initial_npc_shields(source))
+        npc_shields=initial_npc_shields(source),
+        mounts=() if mount is None else (PcMountedState('enemy',mount,True),))
     state.enemy = lambda actor: next(value for value in state.enemies if value.state.actor_id == actor)
     if not loaded:
         weapon_state = pc_npc_ranged_weapon(state,'enemy')

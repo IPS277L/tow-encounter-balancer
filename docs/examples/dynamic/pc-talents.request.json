@@ -29,8 +29,28 @@
         "armour": []
       },
       "talents": [
-        "defensive_stance",
-        "wild_attack"
+        {
+          "id": "defensive_stance",
+          "acquisitions": [
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            }
+          ]
+        },
+        {
+          "id": "wild_attack",
+          "acquisitions": [
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            }
+          ]
+        }
       ],
       "resources": {
         "fate": 3
@@ -62,15 +82,22 @@
         "armour": []
       },
       "talents": [
-        "wild_attack"
+        {
+          "id": "wild_attack",
+          "acquisitions": [
+            {
+              "phase": "creation",
+              "funding": "free",
+              "choice": null,
+              "devotion_confirmed": null
+            }
+          ]
+        }
       ],
       "resources": {
         "fate": 2
       },
-      "consumables": [],
-      "talent_acquisition": {
-        "wild_attack": "creation_free"
-      }
+      "consumables": []
     }
   ],
   "search_space": {

@@ -22,6 +22,11 @@ from towr.engine.pc_melee_runner import apply_pc_melee_step, run_pc_melee_scenar
 class PcDemigryphIntegrationTests(unittest.TestCase):
     def test_mount_wound_finishes_inside_one_paid_attack_and_full_native_replay(self):
         source = reserved().source
+        # Rider Damage5 adds Staggered; Claws Damage6 then causes an actual
+        # Wound. A Toughness20 fixture instead offers legal Give Ground, so it
+        # cannot prove this Wound path under the current automatic NPC tactic.
+        components=replace(source.enemies[0].definition.generated_components,toughness=5)
+        source=replace(source,enemies=(components.participant(source.enemies[0].state.actor_id),))
         result = run_pc_melee_scenario(source, Ones())
         self.assertEqual(result.outcome.value, 'objective_achieved')
         self.assertEqual(result.executed_actions, 1)

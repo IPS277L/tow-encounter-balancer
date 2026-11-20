@@ -7,6 +7,110 @@
       "minLength": 1,
       "pattern": "\\S"
     },
+    "music_acoustics": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "audible_confirmed": {
+          "type": "boolean"
+        },
+        "blocked_zone_pairs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "pattern": "^(zone|air):(0|-?[1-9][0-9]*)$"
+              },
+              {
+                "type": "string",
+                "pattern": "^(zone|air):(0|-?[1-9][0-9]*)$"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": true
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "audible_confirmed",
+        "blocked_zone_pairs"
+      ],
+      "additionalProperties": false
+    },
+    "tool_item": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "kind": {
+          "const": "musicians_gear"
+        },
+        "hands_required": {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "location": {
+          "enum": [
+            "left_hand",
+            "right_hand",
+            "both_hands",
+            "carried"
+          ]
+        },
+        "instrument_name": {
+          "$ref": "#/$defs/identifier"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "hands_required",
+        "location"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "hands_required": {
+                "const": 1
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "location": {
+                "enum": [
+                  "left_hand",
+                  "right_hand",
+                  "carried"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "location": {
+                "enum": [
+                  "both_hands",
+                  "carried"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
     "seed": {
       "type": "string",
       "pattern": "^(0|[1-9][0-9]{0,19})$"
@@ -374,6 +478,19 @@
                 "test_profile"
               ],
               "additionalProperties": false
+            },
+            "talents": {
+              "$ref": "urn:towr:talent:common:1#/$defs/acquired_talents"
+            },
+            "talent_facts": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "urn:towr:talent:common:1#/$defs/owner_facts"
+                }
+              ]
             }
           },
           "required": [
@@ -844,6 +961,27 @@
     "pc": {
       "type": "object",
       "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tool_item"
+          }
+        },
+        "fellowship": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "leadership": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
         "id": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
         },
@@ -979,6 +1117,28 @@
         ]
       },
       "allOf": [
+        {
+          "if": {
+            "required": [
+              "leadership"
+            ],
+            "properties": {
+              "leadership": {
+                "type": "integer"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "fellowship"
+            ],
+            "properties": {
+              "fellowship": {
+                "type": "integer"
+              }
+            }
+          }
+        },
         {
           "if": {
             "properties": {
@@ -1131,7 +1291,8 @@
           "enum": [
             "glorious_test",
             "second_action",
-            "tactical_retreat"
+            "tactical_retreat",
+            "honour_bound_unmitigated_success"
           ]
         },
         "subject_id": {
@@ -1404,6 +1565,9 @@
     "scenario": {
       "type": "object",
       "properties": {
+        "music_acoustics": {
+          "$ref": "#/$defs/music_acoustics"
+        },
         "id": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/identifier"
         },
@@ -2160,6 +2324,46 @@
             "$ref": "urn:towr:pc-melee:common:1#/$defs/pcRangedCount"
           }
         },
+        "rapid_reload_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/rapidReloadCount"
+          }
+        },
+        "immediate_attack_counts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "properties": {
+              "actor_id": {
+                "$ref": "#/$defs/identifier"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "actor_id",
+              "count"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "total_immediate_attack_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "npc_aim_counts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/aimActionCount"
+          }
+        },
         "pc_extra_attack_counts": {
           "type": "array",
           "minItems": 1,
@@ -2170,6 +2374,30 @@
         "pc_extra_attack_trial_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "companion_counts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/companionCount"
+          }
+        },
+        "music_counts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/musicCount"
+          }
+        },
+        "oath_counts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/oathCount"
+          }
         }
       },
       "required": [
@@ -2211,6 +2439,12 @@
       ],
       "additionalProperties": false,
       "dependentRequired": {
+        "immediate_attack_counts": [
+          "total_immediate_attack_count"
+        ],
+        "total_immediate_attack_count": [
+          "immediate_attack_counts"
+        ],
         "pc_extra_attack_counts": [
           "pc_extra_attack_trial_count"
         ],
@@ -2555,46 +2789,6 @@
         "armour_worn": {
           "type": "boolean"
         },
-        "combat_talents": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/pc_combat_talent"
-          },
-          "maxItems": 2,
-          "uniqueItems": true,
-          "allOf": [
-            {
-              "contains": {
-                "type": "object",
-                "properties": {
-                  "talent": {
-                    "const": "defensive_stance"
-                  }
-                },
-                "required": [
-                  "talent"
-                ]
-              },
-              "minContains": 0,
-              "maxContains": 1
-            },
-            {
-              "contains": {
-                "type": "object",
-                "properties": {
-                  "talent": {
-                    "const": "wild_attack"
-                  }
-                },
-                "required": [
-                  "talent"
-                ]
-              },
-              "minContains": 0,
-              "maxContains": 1
-            }
-          ]
-        },
         "combat_equipment": {
           "type": "array",
           "items": {
@@ -2628,6 +2822,15 @@
         },
         "armour": {
           "$ref": "urn:towr:pc-melee:common:1#/$defs/armour_loadout"
+        },
+        "talents": {
+          "$ref": "urn:towr:talent:common:1#/$defs/acquired_talents"
+        },
+        "talent_facts": {
+          "$ref": "urn:towr:talent:common:1#/$defs/owner_facts"
+        },
+        "oath_context": {
+          "$ref": "urn:towr:talent:common:1#/$defs/oath_context"
         }
       },
       "required": [
@@ -2695,6 +2898,37 @@
               "properties": {
                 "aim_second_action_policy": {
                   "type": "object"
+                }
+              }
+            },
+            {
+              "required": [
+                "talents",
+                "oath_context"
+              ],
+              "properties": {
+                "talents": {
+                  "contains": {
+                    "required": [
+                      "id"
+                    ],
+                    "properties": {
+                      "id": {
+                        "const": "honour_bound"
+                      }
+                    }
+                  }
+                },
+                "oath_context": {
+                  "type": "object",
+                  "required": [
+                    "unmitigated_success_scope_confirmed"
+                  ],
+                  "properties": {
+                    "unmitigated_success_scope_confirmed": {
+                      "const": true
+                    }
+                  }
                 }
               }
             }
@@ -3099,99 +3333,6 @@
                     }
                   }
                 }
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "required": [
-              "combat_talents"
-            ],
-            "properties": {
-              "combat_talents": {
-                "contains": {
-                  "type": "object",
-                  "properties": {
-                    "talent": {
-                      "const": "defensive_stance"
-                    },
-                    "acquisition": {
-                      "const": "earned"
-                    }
-                  },
-                  "required": [
-                    "talent",
-                    "acquisition"
-                  ]
-                }
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "pc": {
-                "properties": {
-                  "weapon_skill": {
-                    "minimum": 3
-                  }
-                }
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "required": [
-              "combat_talents"
-            ],
-            "properties": {
-              "combat_talents": {
-                "contains": {
-                  "type": "object",
-                  "properties": {
-                    "talent": {
-                      "const": "wild_attack"
-                    },
-                    "acquisition": {
-                      "const": "earned"
-                    }
-                  },
-                  "required": [
-                    "talent",
-                    "acquisition"
-                  ]
-                }
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "pc": {
-                "properties": {
-                  "strength": {
-                    "minimum": 4
-                  }
-                }
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "required": [
-              "combat_talents"
-            ],
-            "properties": {
-              "combat_talents": {
-                "minItems": 1
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "policy": {
-                "const": "automatic_combat"
               }
             }
           }
@@ -3816,6 +3957,38 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "required": [
+              "talents"
+            ],
+            "properties": {
+              "talents": {
+                "contains": {
+                  "type": "object",
+                  "required": [
+                    "id"
+                  ],
+                  "properties": {
+                    "id": {
+                      "enum": [
+                        "defensive_stance",
+                        "wild_attack"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "policy": {
+                "const": "automatic_combat"
+              }
+            }
+          }
         }
       ]
     },
@@ -3885,6 +4058,7 @@
               "shooting",
               "dexterity",
               "willpower",
+              "leadership",
               "throwing",
               "brawn"
             ]
@@ -4697,6 +4871,23 @@
         }
       }
     },
+    "rapidReloadCount": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "count"
+      ],
+      "additionalProperties": false
+    },
     "aimActionCount": {
       "type": "object",
       "properties": {
@@ -4812,6 +5003,27 @@
     "generated_components": {
       "type": "object",
       "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tool_item"
+          }
+        },
+        "fellowship": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "leadership": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 2,
+          "maximum": 6
+        },
         "weapon_skill": {
           "type": "integer",
           "minimum": 1
@@ -4853,11 +5065,7 @@
           "maximum": 6
         },
         "talents": {
-          "type": "array",
-          "items": {
-            "$ref": "urn:towr:pc-melee:common:1#/$defs/generated_talent"
-          },
-          "uniqueItems": true
+          "$ref": "urn:towr:talent:common:1#/$defs/acquired_talents"
         },
         "ranged": {
           "oneOf": [
@@ -4934,6 +5142,12 @@
           ],
           "minimum": 2,
           "maximum": 6
+        },
+        "talent_facts": {
+          "$ref": "urn:towr:talent:common:1#/$defs/owner_facts"
+        },
+        "oath_context": {
+          "$ref": "urn:towr:talent:common:1#/$defs/oath_context"
         }
       },
       "required": [
@@ -4959,42 +5173,22 @@
       "allOf": [
         {
           "if": {
-            "properties": {
-              "talents": {
-                "contains": {
-                  "const": "defensive_stance"
-                }
-              }
-            },
             "required": [
-              "talents"
-            ]
-          },
-          "then": {
+              "leadership"
+            ],
             "properties": {
-              "weapon_skill": {
-                "minimum": 3
+              "leadership": {
+                "type": "integer"
               }
             }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "talents": {
-                "contains": {
-                  "const": "wild_attack"
-                }
-              }
-            },
-            "required": [
-              "talents"
-            ]
           },
           "then": {
+            "required": [
+              "fellowship"
+            ],
             "properties": {
-              "strength": {
-                "minimum": 4
+              "fellowship": {
+                "type": "integer"
               }
             }
           }
@@ -5562,30 +5756,16 @@
       "enum": [
         "magic_resistance",
         "defensive_stance",
-        "wild_attack"
+        "wild_attack",
+        "mighty_blow",
+        "rapid_reload",
+        "armour_bane",
+        "allies_in_arms",
+        "bash_attack",
+        "acrobatic",
+        "back_in_the_saddle",
+        "battlefield_musician"
       ]
-    },
-    "pc_combat_talent": {
-      "type": "object",
-      "properties": {
-        "talent": {
-          "enum": [
-            "defensive_stance",
-            "wild_attack"
-          ]
-        },
-        "acquisition": {
-          "enum": [
-            "earned",
-            "creation_free"
-          ]
-        }
-      },
-      "required": [
-        "talent",
-        "acquisition"
-      ],
-      "additionalProperties": false
     },
     "generated_ranged_facts": {
       "type": "object",
@@ -6030,6 +6210,119 @@
       ],
       "additionalProperties": false
     },
+    "immediateAttackSummaryPresence": {
+      "if": {
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "required": [
+              "scenario"
+            ],
+            "properties": {
+              "scenario": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "party"
+                    ],
+                    "properties": {
+                      "party": {
+                        "contains": {
+                          "required": [
+                            "talents"
+                          ],
+                          "properties": {
+                            "talents": {
+                              "contains": {
+                                "required": [
+                                  "id"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "const": "bash_attack"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "enemies"
+                    ],
+                    "properties": {
+                      "enemies": {
+                        "contains": {
+                          "required": [
+                            "definition"
+                          ],
+                          "properties": {
+                            "definition": {
+                              "required": [
+                                "talents"
+                              ],
+                              "properties": {
+                                "talents": {
+                                  "contains": {
+                                    "required": [
+                                      "id"
+                                    ],
+                                    "properties": {
+                                      "id": {
+                                        "const": "bash_attack"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "required": [
+              "immediate_attack_counts",
+              "total_immediate_attack_count"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "summary": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "immediate_attack_counts"
+                  ]
+                },
+                {
+                  "required": [
+                    "total_immediate_attack_count"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
     "pcRangedSummaryPresence": {
       "if": {
         "required": [
@@ -6049,13 +6342,9 @@
                   "party": {
                     "contains": {
                       "required": [
-                        "policy",
                         "pc"
                       ],
                       "properties": {
-                        "policy": {
-                          "const": "automatic_combat"
-                        },
                         "pc": {
                           "required": [
                             "ranged"
@@ -6066,7 +6355,38 @@
                             }
                           }
                         }
-                      }
+                      },
+                      "anyOf": [
+                        {
+                          "required": [
+                            "policy"
+                          ],
+                          "properties": {
+                            "policy": {
+                              "const": "automatic_combat"
+                            }
+                          }
+                        },
+                        {
+                          "required": [
+                            "talents"
+                          ],
+                          "properties": {
+                            "talents": {
+                              "contains": {
+                                "required": [
+                                  "id"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "const": "rapid_reload"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
                     }
                   }
                 }
@@ -6134,6 +6454,17 @@
           }
         },
         "darkness": {
+          "type": "boolean"
+        },
+        "enemy_zone_blocking": {
+          "type": "boolean"
+        },
+        "dismounted_mount_policy": {
+          "enum": [
+            "wait_and_recover"
+          ]
+        },
+        "dismounted_mounts_are_combatants": {
           "type": "boolean"
         }
       },
@@ -7147,6 +7478,461 @@
         "visible"
       ],
       "additionalProperties": false
+    },
+    "companionCount": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "rider_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "retentions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "remounts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligible_turns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "started_turns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "waits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recover_actions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "movement_actions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "departures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "landings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wounds_at_end": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "defeats": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "rider_id",
+        "retentions",
+        "remounts",
+        "eligible_turns",
+        "started_turns",
+        "waits",
+        "recover_actions",
+        "movement_actions",
+        "departures",
+        "landings",
+        "wounds_at_end",
+        "defeats"
+      ],
+      "additionalProperties": false
+    },
+    "companionSummaryPresence": {
+      "if": {
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "required": [
+              "scenario"
+            ],
+            "properties": {
+              "scenario": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "party"
+                    ],
+                    "properties": {
+                      "party": {
+                        "contains": {
+                          "required": [
+                            "mount"
+                          ],
+                          "properties": {
+                            "mount": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "enemies"
+                    ],
+                    "properties": {
+                      "enemies": {
+                        "contains": {
+                          "required": [
+                            "definition"
+                          ],
+                          "properties": {
+                            "definition": {
+                              "required": [
+                                "generated_components"
+                              ],
+                              "properties": {
+                                "generated_components": {
+                                  "required": [
+                                    "mount"
+                                  ],
+                                  "properties": {
+                                    "mount": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "required": [
+              "companion_counts"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "summary": {
+            "not": {
+              "required": [
+                "companion_counts"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "musicCount": {
+      "type": "object",
+      "properties": {
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "actions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pickups": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inspired_allies": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "signals": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "protected_ties": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "actor_id",
+        "actions",
+        "pickups",
+        "inspired_allies",
+        "signals",
+        "protected_ties"
+      ],
+      "additionalProperties": false
+    },
+    "musicSummaryPresence": {
+      "if": {
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "required": [
+              "scenario"
+            ],
+            "properties": {
+              "scenario": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "party"
+                    ],
+                    "properties": {
+                      "party": {
+                        "contains": {
+                          "required": [
+                            "talents"
+                          ],
+                          "properties": {
+                            "talents": {
+                              "contains": {
+                                "required": [
+                                  "id"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "const": "battlefield_musician"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "enemies"
+                    ],
+                    "properties": {
+                      "enemies": {
+                        "contains": {
+                          "required": [
+                            "definition"
+                          ],
+                          "properties": {
+                            "definition": {
+                              "required": [
+                                "talents"
+                              ],
+                              "properties": {
+                                "talents": {
+                                  "contains": {
+                                    "required": [
+                                      "id"
+                                    ],
+                                    "properties": {
+                                      "id": {
+                                        "const": "battlefield_musician"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "required": [
+              "music_counts"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "summary": {
+            "not": {
+              "required": [
+                "music_counts"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "oathCount": {
+      "type": "object",
+      "required": [
+        "actor_id",
+        "prayers",
+        "wound_negations",
+        "glorious_activations",
+        "unmitigated_activations",
+        "fate_spends",
+        "fate_session_cost"
+      ],
+      "properties": {
+        "actor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prayers": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wound_negations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "glorious_activations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmitigated_activations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fate_spends": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fate_session_cost": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "oathSummaryPresence": {
+      "if": {
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "required": [
+              "scenario"
+            ],
+            "properties": {
+              "scenario": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "party"
+                    ],
+                    "properties": {
+                      "party": {
+                        "contains": {
+                          "required": [
+                            "talents"
+                          ],
+                          "properties": {
+                            "talents": {
+                              "contains": {
+                                "required": [
+                                  "id"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "enum": [
+                                      "honour_bound",
+                                      "blessings_of_the_lady"
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "enemies"
+                    ],
+                    "properties": {
+                      "enemies": {
+                        "contains": {
+                          "required": [
+                            "definition"
+                          ],
+                          "properties": {
+                            "definition": {
+                              "required": [
+                                "talents"
+                              ],
+                              "properties": {
+                                "talents": {
+                                  "contains": {
+                                    "required": [
+                                      "id"
+                                    ],
+                                    "properties": {
+                                      "id": {
+                                        "enum": [
+                                          "honour_bound",
+                                          "blessings_of_the_lady"
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "required": [
+              "oath_counts"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "summary": {
+            "not": {
+              "required": [
+                "oath_counts"
+              ]
+            }
+          }
+        }
+      }
     }
   }
 }

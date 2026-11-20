@@ -31,6 +31,9 @@ def _alive(state, actor):
         return not state.participant(actor).injury.dead
     if actor in state.source.enemy_activation_order:
         return not state.enemy(actor).state.injury.defeated and actor not in state.exited_npc_ids
+    from towr.domain.pc_actor_models import pc_active_actor_ids, pc_companion
+    if pc_companion(state, actor) is not None:
+        return actor in pc_active_actor_ids(state)
     raise ValueError('Brawn effect requires a participant of the actual source battle')
 
 
@@ -128,6 +131,9 @@ def selected_brawn_effect(state, actor, target, use):
         if components is None or components.brawn is None:
             return BrawnAttackEffect.STAGGER
     if not _alive(state, actor) or not _alive(state, target):
+        return BrawnAttackEffect.STAGGER
+    from towr.domain.pc_bash_advice import bash_weapon_available
+    if bash_weapon_available(state,actor,target) is not None:
         return BrawnAttackEffect.STAGGER
     from towr.domain.pc_mount_models import pc_is_mounted
     if pc_is_mounted(state, target):

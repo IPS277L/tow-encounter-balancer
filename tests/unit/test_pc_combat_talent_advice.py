@@ -4,9 +4,9 @@ import unittest
 from unittest.mock import patch
 
 from tests.support.pc_tactics_fixtures import automatic_source, weak_helper_source, tactical_snapshot
+from tests.support.talent_sources import free_talent
+from towr.domain.talent_catalog import TalentId
 from towr.domain.condition_models import Condition, ConditionState
-from towr.domain.generated_npc_models import GeneratedTalent
-from towr.domain.pc_combat_talent_models import PcCombatTalent, TalentAcquisition
 from towr.domain.pc_generated_talents import PcWildAttackProof, WILD_ATTACK_RULE_ID
 from towr.domain.pc_melee_models import PcFatePolicy, PcGloriousPolicy, PcHelpTarget, PcMeleeWeapon
 from towr.domain.pc_melee_result_models import pc_melee_action_id
@@ -20,8 +20,7 @@ from towr.domain.turn_models import CombatActionKind
 def talented(source=None, *, fate=False, maximum=20, reserve=0, weapon=None):
     source = source or automatic_source()
     actor = source.party[0]
-    actor = replace(actor, combat_talents=(PcCombatTalent(GeneratedTalent.WILD_ATTACK,
-        TalentAcquisition.CREATION_FREE),),
+    actor = replace(actor, talents=(free_talent(TalentId.WILD_ATTACK),),
         fate_policy=PcFatePolicy.CONFIGURED if fate else PcFatePolicy.DECLINE_OPTIONAL_FATE,
         glorious_policy=PcGloriousPolicy((Skill.MELEE,), maximum, reserve) if fate else None)
     if weapon is not None:
@@ -63,10 +62,12 @@ class FiniteFateAdviceTests(unittest.TestCase):
         source = talented(fate=True)
         actor = source.party[0]
         source = replace(source, party=(replace(actor,
-            fate=replace(actor.fate, rating=0, session_spend_limit=0, has_lucky=True)), *source.party[1:]))
+            fate=replace(actor.fate, rating=0, session_spend_limit=0, has_lucky=True),
+            talents=(*actor.talents,free_talent(TalentId.LUCKY))), *source.party[1:]))
         self.assertEqual(self.distribution(20, source=source), (0.0625, 0.375, 0.5625))
         actor = source.party[0]
-        source = replace(source, party=(replace(actor, fate=replace(actor.fate, has_lucky=False)), *source.party[1:]))
+        source = replace(source, party=(replace(actor, fate=replace(actor.fate, has_lucky=False),
+            talents=tuple(t for t in actor.talents if t.id is not TalentId.LUCKY)), *source.party[1:]))
         self.assertEqual(self.distribution(20, source=source), (0.25, 0.5, 0.25))
 
     def test_existing_glorious_has_no_second_fate_benefit_even_when_grim(self):
@@ -161,8 +162,8 @@ class WildTacticalChoiceTests(unittest.TestCase):
             definition=replace(enemy.definition, attacks=(attack,))),))
         self.assertFalse(select_pc_tactic(tactical_snapshot(source)).wild_attack)
         actor = source.party[0]
-        actor = replace(actor, combat_talents=(*actor.combat_talents,
-            PcCombatTalent(GeneratedTalent.DEFENSIVE_STANCE, TalentAcquisition.CREATION_FREE)))
+        actor = replace(actor, talents=(*actor.talents,
+            free_talent(TalentId.DEFENSIVE_STANCE)))
         source = replace(source, party=(actor, *source.party[1:]))
         self.assertTrue(select_pc_tactic(tactical_snapshot(source)).wild_attack)
 
@@ -178,8 +179,7 @@ class WildTacticalChoiceTests(unittest.TestCase):
             return select_pc_tactic(with_conditions(tactical_snapshot(value), 'pc1',
                 Condition.STAGGERED, Condition.DRAINED))
         self.assertIs(choice(source).action, CombatActionKind.RECOVER)
-        actor = replace(actor, combat_talents=(PcCombatTalent(GeneratedTalent.DEFENSIVE_STANCE,
-            TalentAcquisition.CREATION_FREE),))
+        actor = replace(actor, talents=(free_talent(TalentId.DEFENSIVE_STANCE),))
         self.assertIs(choice(replace(source, party=(actor,))).action, CombatActionKind.ATTACK)
 
     def test_price_retains_immutable_selected_intent_after_stagger(self):

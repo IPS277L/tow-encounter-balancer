@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from towr.domain.talent_acrobatic_models import validate_acrobatic_source, acrobatic_rule_ids
+
 from dataclasses import replace
 
 from towr.domain.condition_models import Condition
@@ -36,6 +38,7 @@ def execute_move_carefully_action(
     decisions: TestDecisionProvider | None = None,
 ) -> MoveCarefullyActionExecutionResult:
     """Use free movement through Difficult Terrain and optionally search."""
+    replace(request)
     if request.rule_id != MOVE_CAREFULLY_ACTION_EXECUTION_RULE_ID:
         raise ValueError("Move Carefully request uses an unknown source rule")
     movement = request.free_movement
@@ -85,7 +88,7 @@ def execute_move_carefully_action(
         previous_zone_id = zone_id
     for entity_id in movement.path_entity_ids:
         crossed = state.placement_for(entity_id)
-        if crossed.side_id != actor.side_id:
+        if crossed.side_id != actor.side_id and not validate_acrobatic_source(movement.acrobatic,movement.actor_id):
             raise ValueError("Move Carefully cannot pass through an enemy")
 
     updated_placements = tuple(
@@ -170,6 +173,7 @@ def execute_move_carefully_action(
                     FREE_MOVEMENT_RULE_ID,
                     SPEED_MOVEMENT_RULE_ID,
                     ZONE_GRAPH_RULE_ID,
+                    *acrobatic_rule_ids(movement.acrobatic,movement.actor_id),
                     *(
                         awareness_result.trace.applied_rule_ids
                         if awareness_result is not None

@@ -5,6 +5,7 @@ complete battle histories. Full runs retain actual prices, cycles and receipts.
 """
 from tests.support.generated_weapon_sources import initial_generated_weapons
 from tests.support.armour_fixtures import light_loadout
+from tests.support.talent_sources import paid_talent
 from copy import deepcopy
 from dataclasses import replace
 import unittest
@@ -14,11 +15,11 @@ from tests.support.pc_shield_scenarios import shield_loadout
 from tests.support.pc_tactics_fixtures import automatic_source
 from towr.domain.attack_models import AttackOutcome, MissConsequence
 from towr.domain.condition_models import Condition
+from towr.domain.talent_catalog import TalentId
 from towr.domain.generated_npc_models import (
-    GeneratedNpc, GeneratedRangedFacts, GeneratedWeapon, GeneratedTalent,
+    GeneratedNpc, GeneratedRangedFacts, GeneratedWeapon,
     GENERATED_RANGED_WEAPONS,
 )
-from towr.domain.pc_combat_talent_models import PcCombatTalent
 from towr.domain.pc_generated_talents import PcWildAttackProof, PcDefensiveStanceProof
 from towr.domain.pc_melee_models import PcFatePolicy, PcMeleePolicy, PcMeleeWeapon, PcWeaponHand
 from towr.domain.pc_melee_result_models import (
@@ -53,7 +54,7 @@ def scene(*, weapons=(GeneratedWeapon.PISTOL,), rounds=1, automatic=False,
         policy=PcMeleePolicy.AUTOMATIC_COMBAT if automatic else PcMeleePolicy.ATTACK_OR_RECOVER_SELF,
         fate_policy=PcFatePolicy.DECLINE_OPTIONAL_FATE,near_miss_policy=None,glorious_policy=None,
         initial_weapon_hand=PcWeaponHand.RIGHT if shield else PcWeaponHand.LEFT,
-        shield=shield_loadout() if shield else None,combat_talents=pc_talents)
+        shield=shield_loadout() if shield else None,talents=pc_talents)
     components=tuple(component(weapon,**(npc_changes or {})) for weapon in weapons)
     actors=source.enemy_activation_order
     return replace(source,party=(member,),
@@ -156,8 +157,8 @@ class GeneratedRangedExecutionTests(unittest.TestCase):
 
     def test_shooting_does_not_activate_wild_or_trade_stagger_through_shield_defence(self):
         source=scene(automatic=True,shield=True,pc_changes=dict(weapon_skill=3,defence=6),
-            npc_changes=dict(ws=3,strength=4,talents=(GeneratedTalent.WILD_ATTACK,)),
-            pc_talents=(PcCombatTalent(GeneratedTalent.DEFENSIVE_STANCE),))
+            npc_changes=dict(ws=3,strength=4,talents=(paid_talent(TalentId.WILD_ATTACK),)),
+            pc_talents=(paid_talent(TalentId.DEFENSIVE_STANCE),))
         result=execute(source,[10]*3+[1]*3+[10]*2+[1]*3)
         shot,=shots(result)
         self.assertEqual(attack(shot).defender_test.successes,3)

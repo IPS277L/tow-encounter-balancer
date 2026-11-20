@@ -24,6 +24,14 @@ def resolve_exacting_test_contribution(
     if request.rule_id != EXACTING_TEST_RULE_ID:
         raise ValueError("Exacting contribution uses an unknown source rule")
     result = resolve_test(request.test, rng, decisions=decisions)
+    return complete_exacting_test_contribution(request,result)
+
+
+def complete_exacting_test_contribution(request: ExactingTestContributionRequest,
+        result) -> ExactingTestContributionResult:
+    """Record one actual Test contribution; an override never finishes other actions."""
+    from towr.domain.honour_bound_models import validate_honour_bound_test_source
+    validate_honour_bound_test_source(request.test,result,actor_id=request.contributor_id)
     contribution = _expected_contribution(request, result)
     progress = ExactingTestProgress(
         id=request.progress.id,

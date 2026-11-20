@@ -12,8 +12,10 @@ from towr.domain.npc_attack_preparation_models import NpcAttackProfile, NpcAttac
 from towr.domain.protection_models import PROTECTION_SKILLS, ProtectionTestOption
 from towr.domain.resolution_models import TargetInjuryPolicy
 from towr.domain.test_models import InlineProfile, Skill, TestRequest
+from towr.domain.talent_models import AcquiredTalent, TalentOwnerFacts, validate_acquired_talents
 from towr.domain.turn_models import CombatSide, CombatTurnParticipant
 from towr.domain.weapon_inventory_models import WeaponInventoryState
+from towr.domain.tool_inventory_models import ToolInventoryState
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +46,8 @@ class NpcDefinition:
     attacks: tuple[NpcAttackProfile, ...]
     protection: tuple[NpcProtectionProfile, ...]
     generated_components: GeneratedNpc | None = field(default=None, kw_only=True)
+    talents: tuple[AcquiredTalent, ...] = field(default=(), kw_only=True)
+    talent_facts: TalentOwnerFacts | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _identifier(self.id, "NPC definition id")
@@ -78,6 +82,21 @@ class NpcDefinition:
             raise ValueError("NPC Protection skills must be unique")
         object.__setattr__(self, "attacks", attacks)
         object.__setattr__(self, "protection", protection)
+        if type(self.talents) is not tuple or any(type(value) is not AcquiredTalent for value in self.talents):
+            raise TypeError('NPC Talents require their complete typed acquisition sources')
+        for value in self.talents:
+            replace(value)
+        if self.talent_facts is not None:
+            if type(self.talent_facts) is not TalentOwnerFacts:
+                raise TypeError('NPC Talent prerequisites require exact typed owner facts')
+            replace(self.talent_facts)
+        if self.generated_components is None:
+            facts = TalentOwnerFacts() if self.talent_facts is None else self.talent_facts
+            if facts.toughness is not None and facts.toughness != self.resilience.toughness:
+                raise ValueError('NPC Talent facts differ from its original Toughness')
+            # A supplied numeric attack is not proof of WS/S/Ag. Only the
+            # explicit Resilience Toughness has an unambiguous base source.
+            validate_acquired_talents(self.talents, replace(facts, toughness=self.resilience.toughness))
         # Import locally: generated builders depend on the ordinary roster types.
         from towr.domain.generated_npc_models import validate_generated_definition
         validate_generated_definition(self)
@@ -94,8 +113,12 @@ class NpcParticipantState:
     wields_weapon: bool
     holds_shield: bool
     weapon_inventory: WeaponInventoryState | None = field(default=None, kw_only=True)
+    tool_inventory: ToolInventoryState = field(default_factory=ToolInventoryState, kw_only=True)
 
     def __post_init__(self) -> None:
+        if type(self.tool_inventory) is not ToolInventoryState:
+            raise TypeError('NPC tools require their actual typed physical inventory')
+        replace(self.tool_inventory)
         _identifier(self.actor_id, "NPC actor id")
         _identifier(self.definition_id, "NPC definition id")
         if not isinstance(self.side, CombatSide):

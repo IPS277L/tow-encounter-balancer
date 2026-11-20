@@ -1,5 +1,7 @@
 """Independent Hochland sources with explicit Aim and Second Action choices."""
 from dataclasses import replace
+from tests.support.talent_sources import paid_talent
+from towr.domain.talent_catalog import TalentId
 
 from tests.support.pc_bow_scenarios import make_pc_bow_scenario
 from tests.support.pc_weapon_sources import initial_weapon_items
@@ -34,6 +36,7 @@ def make_pc_hochland_scenario(*, pc_count: int = 1, enemy_count: int = 1,
             initiative=initiative, dexterity=dexterity, awareness=awareness)),
         fate=replace(member.fate, rating=fate_rating, session_spend_limit=fate_rating,
             has_lucky=has_lucky),
+        talents=(paid_talent(TalentId.LUCKY),) if has_lucky else (),
         fate_policy=PcFatePolicy.CONFIGURED if use_second_action else PcFatePolicy.DECLINE_OPTIONAL_FATE,
         aim_second_action_policy=PcAimSecondActionPolicy(reserve) if use_second_action else None,
         combat_equipment=initial_weapon_items(PcMeleeWeapon.HOCHLAND_LONG_RIFLE,

@@ -376,7 +376,8 @@ def resolve_internal_damage(
             npc_type=_profile_type(request.caster.policy),
             state=request.caster.state,
             additional_wounds=request.additional_profile_wounds,
-        )
+            negation_options=request.wound_negation_options,
+        ), decisions=decisions,
     )
     return MiscastInternalDamageResult(
         request_id=request.id,
@@ -386,7 +387,8 @@ def resolve_internal_damage(
         character_wound=None,
         wound_effect=None,
         profile_wound=wound,
-        consume_wound_negation=None,
+        consume_wound_negation=(ConsumeWoundNegationRequest(request.id, wound.negated_by_rule_id)
+            if wound.negated_by_rule_id is not None else None),
         applied_rule_ids=_unique_rule_ids(
             request.source.rule_id,
             *wound.applied_rule_ids,
@@ -424,9 +426,10 @@ def apply_internal_damage_character_wound_completion(
 
 def resolve_ears_ringing(
     request: MiscastEarsRingingRequest,
+    *, decisions: WoundDecisionProvider | None = None,
 ) -> MiscastEarsRingingResult:
     results = tuple(
-        _resolve_ears_ringing_target(request, target)
+        _resolve_ears_ringing_target(request, target, decisions)
         for target in request.targets
     )
     return MiscastEarsRingingResult(
@@ -808,7 +811,7 @@ def _resolve_fascinating_rift_witness(
         ),
     )
     test = resolve_test(test_request, rng, decisions=decisions)
-    if test.successes:
+    if test.succeeded:
         return MiscastFascinatingRiftWitnessResult(
             target_id=witness.target_id,
             outcome=MiscastFascinatingRiftWitnessOutcome.RESISTED,
@@ -843,6 +846,7 @@ def _resolve_fascinating_rift_witness(
 def _resolve_ears_ringing_target(
     request: MiscastEarsRingingRequest,
     target: MiscastEffectTarget,
+    decisions=None,
 ) -> MiscastEarsRingingTargetResult:
     _ensure_active(target.state)
     if target.policy in {
@@ -883,7 +887,8 @@ def _resolve_ears_ringing_target(
             id=f"{request.id}:{target.target_id}:wound",
             npc_type=_profile_type(target.policy),
             state=target.state,
-        )
+            negation_options=target.wound_negation_options,
+        ), decisions=decisions,
     )
     return MiscastEarsRingingTargetResult(
         target_id=target.target_id,
@@ -891,6 +896,8 @@ def _resolve_ears_ringing_target(
         fixed_character_wound=None,
         wound_effect=None,
         profile_wound=wound,
+        consume_wound_negation=(ConsumeWoundNegationRequest(request.id, wound.negated_by_rule_id)
+            if wound.negated_by_rule_id is not None else None),
         applied_rule_ids=_unique_rule_ids(
             request.source.rule_id,
             *wound.applied_rule_ids,

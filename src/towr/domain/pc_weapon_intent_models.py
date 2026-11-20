@@ -83,6 +83,10 @@ def pc_attack_selection(state):
     from towr.domain.pc_battlefield_movement_models import pc_battlefield_attack_available
     turn = state.round_state.active_turn
     actor = turn.actor_id
+    from towr.domain.pc_rapid_reload_models import pending_rapid_reload
+    rapid = pending_rapid_reload(state)
+    if rapid is not None:
+        return actor, rapid.target_id, False
     charge = current_pc_charge(state, actor)
     mounted = pc_uses_mount_attack(state, actor)
     pc_attacks = actor in state.source.pc_activation_order
@@ -104,11 +108,11 @@ def pc_attack_selection(state):
             from towr.domain.pc_tactical_models import select_pc_tactic
             target = select_pc_tactic(state, actor).target_id
     else:
-        target = (grant.target_id if grant is not None else next(a for a in state.source.enemy_target_priority
-            if not state.participant(a).injury.dead))
+        from towr.domain.pc_battlefield_movement_models import _enemies
+        candidates = _enemies(state, actor)
+        target = grant.target_id if grant is not None else next(iter(candidates))
         if state.battlefield is not None and grant is None and charge is None:
-            target = next((a for a in state.source.enemy_target_priority
-                if not state.participant(a).injury.dead and pc_battlefield_attack_available(state, actor, a)), target)
+            target = next((a for a in candidates if pc_battlefield_attack_available(state, actor, a)), target)
     return actor, charge.target_id if charge is not None else target, mounted
 
 
@@ -128,7 +132,11 @@ def build_pc_attack_weapon_intent(state):
     return build_pc_explicit_attack_weapon_intent(state, actor, target, action_id, mount_attack=mounted)
 
 
-def build_pc_explicit_attack_weapon_intent(state, actor, target, action_id, *, mount_attack=False):
+_SELECT_EXPLICIT_USE = object()
+
+
+def build_pc_explicit_attack_weapon_intent(state, actor, target, action_id, *, mount_attack=False,
+        weapon_use=_SELECT_EXPLICIT_USE):
     """Prepare one already chosen attack, also used by natural follow-ups."""
     from towr.domain.pc_melee_result_models import pc_attack_skill, pc_selected_npc_attack_profile
     from towr.domain.pc_weapon_inventory import pc_attack_weapon_use, pc_protection_weapon_use
@@ -143,20 +151,30 @@ def build_pc_explicit_attack_weapon_intent(state, actor, target, action_id, *, m
     use = (None if mounted else pc_attack_weapon_use(state, actor, target) if pc_attacks
         else npc_attack_weapon_use(state, actor, target)
         if state.enemy(actor).definition.generated_components is not None else None)
+    if weapon_use is not _SELECT_EXPLICIT_USE:
+        from towr.domain.pc_magic_weapon_models import actor_inventory
+        if mounted or type(weapon_use) is not WeaponUse:
+            raise TypeError('an explicit physical strike requires its exact actual WeaponUse')
+        replace(weapon_use)
+        if weapon_use.actor_id!=actor or weapon_use.inventory!=actor_inventory(state,actor):
+            raise ValueError('explicit strike implements differ from the actual actor inventory')
+        use,skill=weapon_use,weapon_use.skill
     profile = None
-    if pc_attacks:
+    if target not in state.source.pc_activation_order:
+        from towr.domain.pc_actor_models import pc_actor_npc_snapshot
+        target_snapshot = pc_actor_npc_snapshot(state, target)
         from towr.domain.pc_generated_equipment import npc_protection_test
         policy = (next((p for p in (state.source.npc_close_shooting_protection_policies or ())
             if p.actor_id == target), None) if skill is Skill.SHOOTING
             and pc_enemy_range(state, actor, target).value == 'close' else None)
         if policy is not None:
             from towr.domain.pc_npc_close_shooting_models import pc_close_shooting_protection_profile
-            profile = pc_close_shooting_protection_profile(state.enemy(target).definition, policy.skill)
+            profile = pc_close_shooting_protection_profile(target_snapshot.definition, policy.skill)
         profile, _ = npc_protection_test(state, target, actor, action_id+':protection', profile, attack_skill=skill)
         protection_skill = profile.skill
         protection_use = (npc_protection_weapon_use(state, target, protection_skill, skill)
-            if state.enemy(target).definition.generated_components is not None else None)
-        injury = state.enemy(target).state.injury
+            if target_snapshot.definition.generated_components is not None else None)
+        injury = target_snapshot.state.injury
     else:
         from towr.domain.pc_melee_result_models import pc_protection_skill
         member = state.participant(target)

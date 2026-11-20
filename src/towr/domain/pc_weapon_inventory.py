@@ -170,9 +170,15 @@ def drop_pc_weapons_in_hand(member,side):
     return replace_pc_member(member,weapon_inventory=replace(member.weapon_inventory,items=items))
 
 
-def _usable_pc_grips(member):
+def equipment_usable_hands(member):
+    """Anatomical hands left available by actual held non-weapon tools."""
     from towr.domain.pc_heavy_wound_models import usable_hands
-    return tuple(WeaponGrip(side.value) for side in usable_hands(member))
+    occupied = member.tool_inventory.occupied_hands
+    return tuple(side for side in usable_hands(member) if WeaponGrip(side.value) not in occupied)
+
+
+def _usable_pc_grips(member):
+    return tuple(WeaponGrip(side.value) for side in equipment_usable_hands(member))
 
 
 def pc_attack_weapon_use(state,actor,target=None):
@@ -205,7 +211,8 @@ def pc_attack_weapon_use(state,actor,target=None):
     injured={WeaponGrip(hand.value) for hand in injured_hands(member)}
     def value(use):
         dice=weapon_test_modifiers(use,member.injury.conditions,
-            target_conditions=enemy.state.injury.conditions,target_mounted=pc_is_mounted(state,target)).modifiers
+            target_conditions=enemy.state.injury.conditions,target_mounted=pc_is_mounted(state,target),
+            talents=state.source.participant(actor).talents).modifiers
         prepared=weapon_damage_preparation(use,pc.strength,enemy.state.current_resilience)
         damage=(() if prepared.damage is None else effective_damage_modifiers(DamageImpactSpec(
             prepared.damage,enemy.state.current_resilience,damage_modifiers=prepared.modifiers,
@@ -228,7 +235,7 @@ def pc_attack_weapon_use(state,actor,target=None):
     return best
 
 
-def pc_protection_weapon_use(member,skill,attack_skill=None):
+def pc_protection_weapon_use(member,skill,attack_skill=None,*,talents=()):
     """Prepare Defence implements independently from the selected Attack item."""
     from towr.domain.weapon_use_models import build_weapon_protection_use
     from towr.domain.weapon_effect_preparation import weapon_test_modifiers
@@ -263,7 +270,7 @@ def pc_protection_weapon_use(member,skill,attack_skill=None):
             candidate=build_weapon_protection_use(member.actor_id,inventory,skill,ids,use_shield,usable)
         except ValueError:
             continue
-        modifiers=weapon_test_modifiers(candidate,member.injury.conditions).modifiers
+        modifiers=weapon_test_modifiers(candidate,member.injury.conditions,talents=talents).modifiers
         delta=sum(mod.amount for mod in modifiers if mod.amount<0 or not member.injury.conditions.has(Condition.DRAINED))
         score=(.25*delta-len(injured & set(candidate.used_hands)),-len(candidate.used_hands))
         if best_score is None or score>best_score:
@@ -318,7 +325,7 @@ def pc_weapon_swap_hand(state,actor_id,item_id):
     item=next((item for item in inventory.items if item.id==item_id),None)
     if item is None:
         return None
-    hands=usable_hands(member)
+    hands=equipment_usable_hands(member)
     if pc_weapon_requires_two_hands(pc_item_weapon(item)):
         return PcTwoHandedGrip.BOTH if len(hands)==2 else None
     source=state.source.participant(actor_id)
@@ -327,7 +334,13 @@ def pc_weapon_swap_hand(state,actor_id,item_id):
         else source.initial_weapon_hand))
     if pc_weapon_supports_variable_grip(pc_item_weapon(item)):
         from towr.domain.pc_backup_weapon_models import preferred_variable_weapon_hand
-        return preferred_variable_weapon_hand(member,preferred)
+        candidate=preferred_variable_weapon_hand(member,preferred)
+        if candidate is PcTwoHandedGrip.BOTH and len(hands)==2 or candidate in hands:
+            return candidate
+        shield=(member.shield.hand if member.shield is not None
+            and member.shield.location is PcShieldLocation.HELD else None)
+        return next((side for pool in (tuple(side for side in hands if side is not shield
+            and side not in injured_hands(member)),hands) for side in (preferred,*PcWeaponHand) if side in pool),None)
     order=(preferred,*(side for side in PcWeaponHand if side is not preferred))
     shield=(member.shield.hand if member.shield is not None
         and member.shield.location is PcShieldLocation.HELD else None)
@@ -353,7 +366,7 @@ def _swapped_member(state,actor_id,item_id,*,forecast,allow_dropped=False,for_re
             or (target.location is WeaponItemLocation.DROPPED and not allow_dropped)):
         return None
     from towr.domain.pc_heavy_wound_models import usable_hands
-    usable=tuple(WeaponGrip(side.value) for side in usable_hands(member))
+    usable=_usable_pc_grips(member)
     if target.location is WeaponItemLocation.HELD:
         needed=(WeaponGrip.LEFT,WeaponGrip.RIGHT) if target.grip is WeaponGrip.BOTH else (target.grip,)
         if all(side in usable for side in needed) and not for_reload and not stow_other_weapons:
@@ -479,6 +492,9 @@ def pc_weapon_pickup_member(state,actor_id,item_id,*,injury=None):
 
 
 def expected_pc_weapon_swap(state):
+    from towr.domain.pc_bash_attack_models import expected_bash_pc_swap
+    bash=expected_bash_pc_swap(state)
+    if bash is not None:return bash
     from towr.domain.pc_melee_models import PcMeleePolicy,PC_RANGED_WEAPONS,PC_THROWING_WEAPONS
     from towr.domain.pc_melee_result_models import pc_melee_action_id
     from towr.domain.pc_tactical_models import select_pc_tactic
@@ -538,6 +554,9 @@ def apply_pc_weapon_swap(state,proof):
     if expected is None or proof!=expected:
         raise ValueError('weapon swap changed its actual source, item, hand or committed intent')
     validate_pc_melee_source_types(proof,expected)
+    if proof.intent.reason=='bash_immediate':
+        from towr.domain.pc_bash_attack_models import apply_bash_pc_swap
+        return apply_bash_pc_swap(state,proof)
     member=_swapped_member(state,proof.actor_id,proof.state.active_item_id,forecast=False,for_reload=proof.intent.ranged_reload)
     if not proof.changes_equipment:
         return member

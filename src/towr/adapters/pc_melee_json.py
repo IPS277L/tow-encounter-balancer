@@ -170,6 +170,19 @@ def _summary(summary: PcMeleeSimulationSummary) -> dict:
         document['npc_ranged_counts'] = [asdict(row) for row in summary.npc_ranged_counts]
     if summary.pc_ranged_counts is not None:
         document['pc_ranged_counts'] = [asdict(row) for row in summary.pc_ranged_counts]
+    if summary.rapid_reload_counts is not None:
+        document['rapid_reload_counts'] = [asdict(row) for row in summary.rapid_reload_counts]
+    if summary.immediate_attack_counts is not None:
+        document['immediate_attack_counts'] = [asdict(row) for row in summary.immediate_attack_counts]
+        document['total_immediate_attack_count'] = summary.total_immediate_attack_count
+    if summary.companion_counts is not None:
+        document['companion_counts'] = [asdict(row) for row in summary.companion_counts]
+    if summary.music_counts is not None:
+        document['music_counts'] = [asdict(row) for row in summary.music_counts]
+    if summary.oath_counts is not None:
+        document['oath_counts'] = [asdict(row) for row in summary.oath_counts]
+    if summary.npc_aim_counts is not None:
+        document['npc_aim_counts'] = [asdict(row) for row in summary.npc_aim_counts]
     if summary.magic_counts is not None:
         document['magic_counts'] = [asdict(row) for row in summary.magic_counts]
     if summary.pc_extra_attack_counts is not None:

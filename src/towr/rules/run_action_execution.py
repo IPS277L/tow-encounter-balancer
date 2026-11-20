@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from towr.domain.talent_acrobatic_models import validate_acrobatic_source, acrobatic_rule_ids
+
 from dataclasses import replace
 
 from towr.domain.condition_models import (
@@ -45,6 +47,7 @@ def execute_run_action(
     request: RunActionExecutionRequest,
 ) -> RunActionExecutionResult:
     """Move one extra Zone and complete one reserved Run action slot."""
+    replace(request)
     turn = request.round_state.active_turn
     assert turn is not None
     if request.slot_index > len(turn.action_slots):
@@ -88,7 +91,7 @@ def execute_run_action(
         raise ValueError("Run must cross exactly one Zone boundary")
     for entity_id in request.path_entity_ids:
         crossed = spatial_state.placement_for(entity_id)
-        if crossed.side_id != actor.side_id:
+        if crossed.side_id != actor.side_id and not validate_acrobatic_source(request.acrobatic,request.actor_id):
             raise ValueError("Run cannot pass through an enemy")
 
     updated_placements = tuple(
@@ -130,6 +133,8 @@ def execute_run_action(
     )
 
     return RunActionExecutionResult(
+        acrobatic=request.acrobatic,
+        path_entity_ids=request.path_entity_ids,
         request_id=request.id,
         actor_id=request.actor_id,
         slot_index=request.slot_index,
@@ -145,6 +150,7 @@ def execute_run_action(
             RUN_ACTION_EXECUTION_RULE_ID,
             SPEED_MOVEMENT_RULE_ID,
             ZONE_GRAPH_RULE_ID,
+            *acrobatic_rule_ids(request.acrobatic,request.actor_id),
         ),
     )
 
@@ -229,6 +235,7 @@ def execute_difficult_terrain_run_action(
 
 
 def _validate_run_athletics_extension(request: RunAthleticsExtensionRequest) -> None:
+    replace(request)
     """The same pre-RNG admission for direct and Fate-owned phased Tests."""
     if type(request) is not RunAthleticsExtensionRequest:
         raise TypeError('Run extension requires its exact request')
@@ -266,7 +273,7 @@ def _validate_run_athletics_extension(request: RunAthleticsExtensionRequest) -> 
         raise ValueError("Run extension must target one adjacent Zone")
     for entity_id in request.path_entity_ids:
         crossed = spatial_state.placement_for(entity_id)
-        if crossed.side_id != actor.side_id:
+        if crossed.side_id != actor.side_id and not validate_acrobatic_source(request.acrobatic,request.base_run.actor_id):
             raise ValueError("Run extension cannot pass through an enemy")
 
 
@@ -315,6 +322,8 @@ def _complete_run_athletics_extension_after_test(request: RunAthleticsExtensionR
         )
 
     return RunAthleticsExtensionResult(
+        acrobatic=request.acrobatic,
+        path_entity_ids=request.path_entity_ids,
         request_id=request.id,
         rule_id=request.rule_id,
         actor_id=request.base_run.actor_id,
@@ -335,6 +344,7 @@ def _complete_run_athletics_extension_after_test(request: RunAthleticsExtensionR
                     request.rule_id,
                     ZONE_GRAPH_RULE_ID,
                     *test_result.trace.applied_rule_ids,
+                    *acrobatic_rule_ids(request.acrobatic,request.base_run.actor_id),
                 )
             )
         ),

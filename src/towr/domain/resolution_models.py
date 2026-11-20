@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+from towr.domain.talent_acrobatic_models import (
+    AcrobaticSource, AcrobaticFallReduction, validate_acrobatic_source, validate_acrobatic_trace,
+)
 
 from towr.domain.attack_models import (
     AttackRequest,
@@ -156,8 +159,10 @@ class GiveGroundResolutionRequest:
     crosses_obstacle: bool = False
     crosses_difficult_terrain: bool = False
     enemy_entity_ids: tuple[str,...] | None = field(default=None,kw_only=True)
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_source(self.acrobatic,self.mover_id)
         if not isinstance(self.source, GiveGroundRequest):
             raise TypeError("source must be a GiveGroundRequest")
         if not isinstance(self.state, SpatialBattleState):
@@ -224,8 +229,12 @@ class GiveGroundResolutionResult:
     entered_enemy_zone: bool
     applied_rule_ids: tuple[str, ...]
     source_request: GiveGroundResolutionRequest | None = None
+    acrobatic: AcrobaticSource | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
+        validate_acrobatic_trace(self.acrobatic,self.mover_id,self.applied_rule_ids)
+        if self.acrobatic is not None and self.source_request is None:
+            raise ValueError('Acrobatic Give Ground requires its complete path/source request')
         if not isinstance(self.source, GiveGroundRequest):
             raise TypeError("source must be a GiveGroundRequest")
         _validate_non_empty_string(self.mover_id, "mover_id")
@@ -335,7 +344,8 @@ class GiveGroundResolutionResult:
                 raise TypeError("source_request must be a GiveGroundResolutionRequest")
             replace(request)
             if (request.source != self.source or request.state != self.previous_state
-                    or request.mover_id != self.mover_id or request.destination_zone_id != self.destination_zone_id):
+                    or request.mover_id != self.mover_id or request.destination_zone_id != self.destination_zone_id
+                    or request.acrobatic != self.acrobatic):
                 raise ValueError("Give Ground result differs from its source request")
             expected_conditions = (request.mover_conditions.with_condition(Condition.BROKEN)
                                    if self.entered_enemy_zone else request.mover_conditions)
@@ -486,9 +496,18 @@ class MonstrosityReactionRequest:
     target_effect_immunities: tuple[EffectImmunity, ...] = field(
         default_factory=tuple
     )
+    wound_negation_options: tuple[WoundNegationOption, ...] = field(default=(), kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
+        options = tuple(self.wound_negation_options)
+        if any(type(option) is not WoundNegationOption for option in options):
+            raise TypeError('Monstrosity Wound negation requires exact typed options')
+        for option in options:
+            replace(option)
+        if len({option.rule_id for option in options}) != len(options):
+            raise ValueError('Monstrosity Wound negation options cannot repeat')
+        object.__setattr__(self, 'wound_negation_options', options)
         if not isinstance(self.reaction, _MONSTROSITY_REACTION_SPEC_TYPES):
             raise TypeError("reaction must be a MonstrosityReactionSpec")
         additional_wounds = tuple(self.additional_profile_wounds)
@@ -757,14 +776,24 @@ class HazardExposureRequest:
     repeated_condition_replacements: tuple[
         RepeatedConditionReplacement, ...
     ] = field(default_factory=tuple)
+    acrobatic_fall: AcrobaticFallReduction | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.resolution_id, "resolution_id")
         _validate_non_empty_string(self.test_id, "test_id")
         if not isinstance(self.rating, int) or isinstance(self.rating, bool):
             raise TypeError("rating must be an integer")
-        if self.rating < 1:
-            raise ValueError("rating must be positive")
+        if self.acrobatic_fall is None:
+            if self.rating < 1:
+                raise ValueError("rating must be positive")
+        else:
+            if type(self.acrobatic_fall) is not AcrobaticFallReduction:
+                raise TypeError('fall Hazard requires its exact Acrobatic reduction witness')
+            replace(self.acrobatic_fall)
+            if self.rating != self.acrobatic_fall.rating:
+                raise ValueError('fall Hazard rating differs from its actual Acrobatic source and GM base')
+            if self.avoidance_skill is not Skill.ATHLETICS:
+                raise ValueError('Acrobatic fall reduction applies to a declared Athletics fall Hazard')
         if not isinstance(self.avoidance_skill, Skill):
             raise TypeError("avoidance_skill must be a Skill")
         _validate_non_empty_string(self.rule_id, "rule_id")
@@ -1549,6 +1578,9 @@ class HazardResolutionRequest:
         _validate_non_empty_string(self.target_id, "target_id")
         if not isinstance(self.exposure, HazardExposureRequest):
             raise TypeError("exposure must be a HazardExposureRequest")
+        replace(self.exposure)
+        if self.exposure.acrobatic_fall is not None:
+            validate_acrobatic_source(self.exposure.acrobatic_fall.source,self.target_id)
         if not isinstance(self.avoidance_test, TestResult):
             raise TypeError("avoidance_test must be a TestResult")
         if self.avoidance_test.trace.request_id != self.exposure.test_id:
@@ -1732,9 +1764,7 @@ class KernelAttackRequest:
             TargetInjuryPolicy.PLAYER,
             TargetInjuryPolicy.CHAMPION,
         }
-        if not character_policy and (
-            self.wound_dice_modifiers or self.wound_negation_options
-        ):
+        if not character_policy and self.wound_dice_modifiers:
             raise ValueError(
                 "profile NPCs use additional_profile_wounds, not table options"
             )
@@ -1827,21 +1857,22 @@ def _validate_minion_stagger_defeat(spec, policy, state) -> None:
     if isinstance(state, ProfileInjuryState) and type(state.defeat_cause) is MinionStaggerDefeatCause:
         replace(state)
         if type(policy) is not TargetInjuryPolicy or policy is not TargetInjuryPolicy.MINION:
-            raise ValueError("a Minion fleeing-defeat cause cannot be used by another injury policy")
+            raise ValueError("a Minion repeated-Staggered defeat cause cannot be used by another injury policy")
     if spec is None:
         return
     if type(spec) is not MinionStaggerDefeatSpec:
         raise TypeError("Minion Staggered defeat requires its exact typed spec")
     replace(spec)
     if type(policy) is not TargetInjuryPolicy or policy is not TargetInjuryPolicy.MINION:
-        raise ValueError("Staggered fleeing defeat is only supported for Minions")
+        raise ValueError("repeated-Staggered defeat is only supported for Minions")
     if type(state) is not ProfileInjuryState:
-        raise TypeError("Staggered fleeing defeat requires an exact profile state")
+        raise TypeError("repeated-Staggered defeat requires an exact profile state")
     replace(state)
+    replace(state.conditions)
     if type(state.wound_limit) is not int or state.wound_limit != 1:
-        raise ValueError("Staggered fleeing defeat requires a one-Wound Minion")
+        raise ValueError("repeated-Staggered defeat requires a one-Wound Minion")
     if state.defeated:
-        raise ValueError("Staggered fleeing defeat cannot target an already defeated Minion")
+        raise ValueError("repeated-Staggered defeat cannot target an already defeated Minion")
 
 
 def condition_forces_wound(
@@ -2009,9 +2040,7 @@ def _validate_injury_options(
         raise ValueError(
             "Player/Champion uses Wounds Table dice, not profile wounds"
         )
-    if not character_policy and (
-        wound_dice_modifiers or wound_negation_options
-    ):
+    if not character_policy and wound_dice_modifiers:
         raise ValueError(
             "profile NPCs use additional_profile_wounds, not table options"
         )

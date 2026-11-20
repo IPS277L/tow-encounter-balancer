@@ -1026,8 +1026,13 @@ def _validate_opposed_result(
     request: OpposedTestRequest,
     result: OpposedTestResult,
 ) -> None:
-    initiator = result.initiator.successes
-    opponent = result.opponent.successes
+    if result.initiator.honour_bound is not None or result.opponent.honour_bound is not None:
+        from towr.rules.opposed_test import complete_opposed_test
+        if result != complete_opposed_test(request,result.initiator,result.opponent):
+            raise ValueError('Retreat opposed outcome changed its actual Honour Bound source')
+        return
+    initiator = result.initiator.effective_successes
+    opponent = result.opponent.effective_successes
     if initiator == 0 and opponent == 0:
         expected = (
             OpposedOutcome.BOTH_FAIL,
@@ -1090,7 +1095,7 @@ def _escape_test_succeeded(result: RetreatEscapeTestResult) -> bool:
 
 def _escape_test_is_marginal(result: RetreatEscapeTestResult) -> bool:
     if isinstance(result, TestResult):
-        return result.successes == 1
+        return result.honour_bound is None and result.effective_successes == 1
     return (
         result.winner is OpposedSide.INITIATOR
         and result.consequence is BasicOutcome.MARGINAL_SUCCESS

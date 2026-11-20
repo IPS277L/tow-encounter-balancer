@@ -5,20 +5,25 @@ Wound and Fate window; no second combat action or synthetic Damage is added.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from towr.domain.attack_models import AttackOutcome, HazardImpactSpec
 from towr.domain.condition_models import Condition, ConditionApplicationResult
 from towr.domain.injury_models import (
-    CharacterInjuryState, CharacterWoundRequest, ProfileInjuryState,
-    ProfileNpcType, ProfileStateChangeRequest, ProfileWoundResult,
+    CharacterInjuryState, CharacterWoundRequest, ProfileInjuryState, WoundDiceModifier,
+    ProfileNpcType, ProfileStateChangeRequest, ProfileWoundResult, WoundNegationOption,
 )
 from towr.domain.pc_battlefield_models import PcBattlefieldState, battlefield_range
+from towr.domain.pc_actor_models import (
+    pc_active_actor_ids, pc_actor_injury, pc_actor_npc_snapshot, pc_actor_npc_update,
+    pc_actor_side, pc_companion,
+)
 from towr.domain.resolution_models import (
     HazardExposureRequest, HazardResolutionRequest, HazardResolutionResult, TargetInjuryPolicy,
 )
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 from towr.domain.test_models import Skill, TestRequest, TestResult
+from towr.domain.turn_models import CombatRoundState
 from towr.domain.weapon_catalog import WeaponKind
 from towr.domain.weapon_impact_preparation import OIL_IMPACT_RULE_ID, BLAST_IMPACT_RULE_ID
 from towr.domain.wound_lifecycle_models import (
@@ -59,14 +64,11 @@ def _same(actual, expected, message):
 
 
 def _injury(state, actor):
-    return (state.participant(actor).injury if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury)
+    return pc_actor_injury(state, actor)
 
 
 def _alive(state, actor):
-    body = _injury(state, actor)
-    return not body.dead if type(body) is CharacterInjuryState else (
-        not body.defeated and actor not in state.exited_npc_ids)
+    return actor in pc_active_actor_ids(state)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,11 +92,9 @@ def weapon_area_snapshot(state, request, execution, use):
 
 
 def weapon_area_target_ids(state,kind,centre,*,hit=True):
-    actors = (*state.source.pc_activation_order, *state.source.enemy_activation_order)
+    actors = pc_active_actor_ids(state)
     targets = []
     for actor in actors:
-        if not _alive(state, actor):
-            continue
         if kind is WeaponKind.OIL_FLASK and not hit:
             continue
         if state.battlefield is None:
@@ -115,10 +115,14 @@ def throwing_special_value(state,actor,target,kind,attacker,defender):
     another Monte Carlo sample. Blast's miss and friendly casualties count.
     """
     from towr.domain.pc_tactical_models import stagger_attack_value,_distribution
-    hit=sum(chance*sum(defender[:successes+1]) for successes,chance in enumerate(attacker) if successes)
+    from towr.domain.pc_musician_effect_models import musician_defends_ties,pc_attack_success_wins
+    hit=sum(chance*other for successes,chance in enumerate(attacker)
+        for opposed,other in enumerate(defender)
+        if pc_attack_success_wins(state,actor,target,successes,opposed))
     conditions=_injury(state,target).conditions
     if kind is WeaponKind.ROCK:
-        return stagger_attack_value(attacker,defender,conditions.has(Condition.STAGGERED))
+        return stagger_attack_value(attacker,defender,conditions.has(Condition.STAGGERED),
+            defender_wins_ties=musician_defends_ties(state,target))
     if kind is WeaponKind.WEIGHTED_NET:
         return .2*hit if not conditions.has(Condition.BURDENED) else 0.0
     if kind not in (WeaponKind.OIL_FLASK,WeaponKind.BLASTING_CHARGE):
@@ -137,13 +141,13 @@ def throwing_special_value(state,actor,target,kind,attacker,defender):
                 for successes,chance in enumerate(distribution))
         return sum(chance*min(1.5,max(0,rating-successes)*.7)
             for successes,chance in enumerate(distribution))
-    pc_actor=actor in state.source.pc_activation_order
+    side=pc_actor_side(state,actor)
     def score(centre,hit):
         total=0.0
         for victim in weapon_area_target_ids(state,kind,centre,hit=hit):
             if kind is WeaponKind.OIL_FLASK and _injury(state,victim).conditions.has(Condition.ABLAZE):
                 continue
-            opponent=(victim in state.source.pc_activation_order)!=pc_actor
+            opponent=pc_actor_side(state,victim) is not side
             loss=expected_loss(victim,2 if kind is WeaponKind.OIL_FLASK else 3)
             total+=(1.0 if opponent else -1.0)*loss*(2 if kind is WeaponKind.OIL_FLASK else 1)
         return total
@@ -172,6 +176,23 @@ class PcWeaponHazardRequest:
     previous_injury: CharacterInjuryState | ProfileInjuryState
     target_injury: CharacterInjuryState | ProfileInjuryState
     target_policy: TargetInjuryPolicy
+    wound_dice_modifiers: tuple[WoundDiceModifier, ...] = field(default=(),kw_only=True)
+    wound_negation_options: tuple[WoundNegationOption, ...] = field(default=(),kw_only=True)
+    periodic_clock: CombatRoundState | None = field(default=None,kw_only=True)
+
+    def __post_init__(self):
+        from towr.domain.injury_models import WoundNegationOption
+        if type(self.wound_negation_options) is not tuple or any(
+                type(option) is not WoundNegationOption for option in self.wound_negation_options):
+            raise TypeError('weapon Hazard retains exact current-owner Wound negation options')
+        for option in self.wound_negation_options:
+            replace(option)
+        if self.periodic_clock is not None:
+            if type(self.periodic_clock) is not CombatRoundState:
+                raise TypeError('body periodic Hazard requires its exact actual combat clock')
+            replace(self.periodic_clock)
+            if self.periodic_clock.active_turn is None:
+                raise ValueError('body periodic Hazard requires its actual end-phase owner')
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,7 +229,8 @@ def _remaining_area_targets(state, area):
         and proof.request.event_id == area.action_id)
     if area.weapon is WeaponKind.OIL_FLASK and area.hit:
         used.add(area.target_id)  # K1 already applied this exact primary condition.
-    return tuple(actor for actor in area.target_ids if actor not in used and _alive(state, actor))
+    live = frozenset(pc_active_actor_ids(state))
+    return tuple(actor for actor in area.target_ids if actor not in used and actor in live)
 
 
 def _hazard_request(state, actor, event, rating, rule):
@@ -220,9 +242,13 @@ def _hazard_request(state, actor, event, rating, rule):
     test = prepare_hazard_avoidance(state, actor, exposure,environmental=rule==ABLAZE_HAZARD_RULE_ID)
     injury = _injury(state, actor)
     pc = actor in state.source.pc_activation_order
+    from towr.domain.talent_injury_models import hardy_wound_dice_modifiers
+    from towr.domain.pc_oath_models import pc_oath_wound_options
     return PcWeaponHazardRequest(identifier, event, actor, exposure, test, injury,
         pc_after_test(state, actor) if pc else injury,
-        TargetInjuryPolicy.PLAYER if pc else state.enemy(actor).definition.injury_policy)
+        TargetInjuryPolicy.PLAYER if pc else pc_actor_npc_snapshot(state,actor).definition.injury_policy,
+        wound_dice_modifiers=hardy_wound_dice_modifiers(state.source.participant(actor).talents) if pc else (),
+        wound_negation_options=pc_oath_wound_options(state,actor))
 
 
 def expected_weapon_area_step(state):
@@ -253,28 +279,43 @@ def expected_ablaze_hazard(state):
     if turn is None or any(not slot.executed for slot in turn.action_slots):
         return None
     actor = turn.actor_id
-    if not _alive(state, actor) or not _injury(state, actor).conditions.has(Condition.ABLAZE):
-        return None
     if not turn.action_slots and not _injury(state, actor).conditions.has(Condition.DEFENCELESS):
         from towr.domain.pc_broken_battlefield_models import pc_broken_turn_blocked
-        if not pc_broken_turn_blocked(state):
+        from towr.domain.pc_companion_turn_models import expected_companion_wait
+        if not pc_broken_turn_blocked(state) and expected_companion_wait(state) is None:
             return None
     from towr.domain.pc_demigryph_models import build_pc_demigryph_strike
     from towr.domain.pc_aim_models import build_pc_aim_second_action
     from towr.domain.pc_npc_extra_attack_models import build_pc_npc_extra_attack_slot
     from towr.domain.pc_duellist_models import build_pc_duellist_second_action
-    if (build_pc_demigryph_strike(state) is not None or build_pc_aim_second_action(state) is not None
-            or build_pc_npc_extra_attack_slot(state) is not None or build_pc_duellist_second_action(state) is not None):
-        return None
-    event = f'{state.source.id}:r{state.round_state.round_number}:{actor}:ablaze'
-    if any(type(proof) is PcWeaponHazardProof and proof.request.event_id == event for proof in state.history):
-        return None
-    return _hazard_request(state, actor, event, 2, ABLAZE_HAZARD_RULE_ID)
+    from towr.domain.pc_rapid_reload_models import build_pc_rapid_reload_second_action
+    if pc_companion(state, actor) is None:
+        if (build_pc_demigryph_strike(state) is not None or build_pc_aim_second_action(state) is not None
+                or build_pc_npc_extra_attack_slot(state) is not None or build_pc_duellist_second_action(state) is not None
+                or build_pc_rapid_reload_second_action(state) is not None):
+            return None
+    # A mounted body keeps its own HP and ongoing effects. The paid turn is
+    # still the rider's; the animal receives no extra action or Fate window.
+    bodies = tuple(row.snapshot.state.actor_id for row in state.companions
+        if row.rider_id == actor and any(mount.actor_id == actor and mount.mounted for mount in state.mounts))
+    for victim in (actor, *bodies):
+        if (_injury(state, victim).dead if victim in state.source.pc_activation_order
+                else _injury(state, victim).defeated):
+            continue
+        if not _injury(state, victim).conditions.has(Condition.ABLAZE):
+            continue
+        event = f'{state.source.id}:r{state.round_state.round_number}:{victim}:ablaze'
+        if any(type(proof) is PcWeaponHazardProof and proof.request.event_id == event for proof in state.history):
+            continue
+        request = _hazard_request(state, victim, event, 2, ABLAZE_HAZARD_RULE_ID)
+        return replace(request, periodic_clock=state.round_state) if pc_companion(state, victim) is not None else request
+    return None
 
 
 def weapon_hazard_resolution_request(request, test):
     return HazardResolutionRequest(request.id, request.actor_id, request.exposure, test,
-        request.target_policy, request.target_injury)
+        request.target_policy, request.target_injury,wound_dice_modifiers=request.wound_dice_modifiers,
+        wound_negation_options=request.wound_negation_options)
 
 
 def weapon_hazard_completion(state):
@@ -299,11 +340,14 @@ def _canonical_hazard(request, test, result):
     if type(result) is not HazardResolutionResult:
         raise TypeError('weapon Hazard needs its actual typed result')
     rating = request.exposure.rating
-    shortfall = max(0, rating - test.successes)
+    shortfall = max(0, rating - test.effective_successes)
     injury = request.target_injury
     rule = request.exposure.rule_id
+    from towr.domain.resolution_models import ConsumeWoundNegationRequest
+    selected = request.wound_negation_options[0].rule_id if request.wound_negation_options else None
+    consumed = (ConsumeWoundNegationRequest(request.id,selected),) if selected is not None else ()
     if not shortfall:
-        expected = HazardResolutionResult(request.id, injury, True, test.successes, rating, 0,
+        expected = HazardResolutionResult(request.id, injury, True, test.effective_successes, rating, 0,
             None, None, None, (), (), (rule,))
     elif request.target_policy is TargetInjuryPolicy.PLAYER:
         pending = result.pending_character_wound
@@ -311,20 +355,23 @@ def _canonical_hazard(request, test, result):
             raise ValueError('failed weapon Hazard must retain the real PC Wound lifecycle')
         replace(pending)
         expected_source = CharacterWoundLifecycleRollRequest(request.id + ':wound-lifecycle', request.actor_id,
-            CharacterWoundRequest(request.id + ':wound', injury, base_dice=shortfall))
+            CharacterWoundRequest(request.id + ':wound', injury, base_dice=shortfall,
+                dice_modifiers=request.wound_dice_modifiers,negation_options=request.wound_negation_options))
         _same(pending.source_request, expected_source, 'Hazard Wound changed its source/shortfall')
-        expected = HazardResolutionResult(request.id, pending.wound_result.state, False, test.successes,
-            rating, shortfall, pending.wound_result, None, None, (), (), (rule,),
+        if pending.wound_result.negated_by_rule_id != selected:
+            raise ValueError('weapon Hazard changed its actual automatic negation choice')
+        expected = HazardResolutionResult(request.id, pending.wound_result.state, False, test.effective_successes,
+            rating, shortfall, pending.wound_result, None, None, (), consumed, (rule,),
             pending_character_wound=pending, deferred_failure_exposure=request.exposure)
     else:
-        wounds = min(injury.wound_limit, injury.wounds + shortfall)
-        wounded = replace(injury, wounds=wounds, conditions=injury.conditions.without_condition(Condition.STAGGERED),
-            defeated=wounds >= injury.wound_limit)
-        change = ProfileStateChangeRequest(ProfileNpcType(request.target_policy.value), injury.wounds,
-            wounds, wounded.defeated)
-        profile = ProfileWoundResult(request.id + ':wound', wounded, shortfall, wounds - injury.wounds, change, ())
-        expected = HazardResolutionResult(request.id, wounded, False, test.successes, rating, shortfall,
-            None, None, profile, (), (change,), (rule,))
+        from towr.domain.injury_models import ProfileWoundRequest, _expected_profile_wound_result
+        source = ProfileWoundRequest(request.id + ':wound', ProfileNpcType(request.target_policy.value),injury,
+            base_wounds=shortfall,negation_options=request.wound_negation_options)
+        profile = _expected_profile_wound_result(source,selected)
+        wounded = profile.state
+        changes = (profile.state_change,) if profile.wounds_inflicted else ()
+        expected = HazardResolutionResult(request.id, wounded, False, test.effective_successes, rating, shortfall,
+            None, None, profile, (), (*consumed,*changes), (rule,))
     _same(result, expected, 'weapon Hazard changed its actual Test/Wound/outcome')
 
 
@@ -332,8 +379,9 @@ def _with_injury(state, actor, injury, *, fate=None):
     if actor in state.source.pc_activation_order:
         return dict(party=tuple(replace(member, injury=injury, fate=member.fate if fate is None else fate)
             if member.actor_id == actor else member for member in state.party))
-    return dict(enemies=tuple(replace(enemy, state=replace(enemy.state, injury=injury))
-        if enemy.state.actor_id == actor else enemy for enemy in state.enemies))
+    if fate is not None:
+        raise ValueError('a profile NPC cannot receive PC Fate')
+    return pc_actor_npc_update(state,actor,injury=injury)
 
 
 def project_weapon_area_step(state, proof):
@@ -369,7 +417,11 @@ def project_weapon_area_step(state, proof):
             raise ValueError('NPC Hazard cannot spend PC Fate')
         _test_result(request.avoidance_test, proof.test)
     _canonical_hazard(request, proof.test, proof.result)
-    updates = _with_injury(state, actor, proof.result.state, fate=fate)
+    injury = proof.result.state
+    if pc_companion(state, actor) is not None:
+        from towr.domain.pc_companion_effect_models import companion_profile, companion_wound_band_injury
+        injury = companion_wound_band_injury(companion_profile(state, actor), injury)
+    updates = _with_injury(state, actor, injury, fate=fate)
     updates['pending'] = tuple(item for item in state.pending if type(item) is not HazardExposureRequest)
     if pc:
         updates['pending_wound'] = proof.result.pending_character_wound
@@ -377,12 +429,14 @@ def project_weapon_area_step(state, proof):
             updates['pending_actor_id'] = actor
     else:
         from towr.domain.pc_falling_models import falling_npc_disposition
-        disposition = falling_npc_disposition(state.source, actor) if proof.result.profile_wound is not None else None
+        disposition = (falling_npc_disposition(state.source, actor)
+            if proof.result.profile_wound is not None and pc_companion(state,actor) is None else None)
         if proof.npc_disposition is not disposition:
             raise ValueError('NPC Hazard requires its actual agreed GM disposition')
         if proof.result.state.defeated:
             clock = state.round_state
-            if actor not in (*clock.completed_turn_entity_ids, *clock.excluded_turn_entity_ids):
+            if (actor in tuple(participant.entity_id for participant in clock.participants)
+                    and actor not in (*clock.completed_turn_entity_ids, *clock.excluded_turn_entity_ids)):
                 updates['round_state'] = replace(clock,
                     active_turn=None if clock.active_turn is not None and clock.active_turn.actor_id == actor else clock.active_turn,
                     excluded_turn_entity_ids=(*clock.excluded_turn_entity_ids, actor))

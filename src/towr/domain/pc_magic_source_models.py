@@ -48,8 +48,8 @@ class PcWizardProfile:
         origins = ('human', 'dwarf', 'halfling', 'high_elf', 'wood_elf', 'ogre')
         if type(self.origin) is not str or self.origin not in origins:
             raise ValueError('Wizard profile requires a supported Origin fact')
-        if self.origin in ('dwarf', 'halfling'):
-            raise ValueError('Wizard Talent excludes Dwarf and Halfling Origins (PG81)')
+        # The paid Talent Requirements belong to its acquisition owner.
+        # PG73 explicitly permits the free Character Creation waiver.
         _integer(self.reason, 'Reason', 1)
         _integer(self.willpower, 'Willpower', 1, 10)
         _integer(self.wizard_level, 'Wizard Level', 1, 4)

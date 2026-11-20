@@ -6,6 +6,7 @@ from towr.domain.test_models import (
     OpposedSide,
     OpposedTestRequest,
     OpposedTestResult,
+    TestResult,
 )
 from towr.rules.dice import RandomSource
 from towr.rules.test_resolution import (
@@ -23,8 +24,30 @@ def resolve_opposed_test(
 ) -> OpposedTestResult:
     initiator = resolve_test(request.initiator, rng, decisions=decisions)
     opponent = resolve_test(request.opponent, rng, decisions=decisions)
-    initiator_successes = initiator.successes
-    opponent_successes = opponent.successes
+    return complete_opposed_test(request,initiator,opponent)
+
+
+def complete_opposed_test(request: OpposedTestRequest, initiator: TestResult,
+        opponent: TestResult) -> OpposedTestResult:
+    """Complete actual retained Tests without rerolls or invented successes."""
+    from dataclasses import replace
+    for actual,source in ((initiator,request.initiator),(opponent,request.opponent)):
+        if type(actual) is not TestResult or actual.trace.request_id != source.id:
+            raise ValueError('opposed completion requires its actual bound Test results')
+        if actual.honour_bound is not None:
+            replace(actual)
+            if actual.honour_bound.activation.source_request.test != source:
+                raise ValueError('Unmitigated opposed result replaced its actual prepared Test')
+    first, second = initiator.honour_bound,opponent.honour_bound
+    if first is not None and second is not None:
+        raise ValueError('opposed Unmitigated outcomes require an explicitly resolved GM conflict')
+    if first is not None or second is not None:
+        winner = OpposedSide.INITIATOR if first is not None else OpposedSide.OPPONENT
+        grant = first if first is not None else second
+        return OpposedTestResult(request.id,initiator,opponent,_winner_outcome(winner),winner,
+            grant.maximum_successes,BasicOutcome.TOTAL_SUCCESS,False,None)
+    initiator_successes = initiator.effective_successes
+    opponent_successes = opponent.effective_successes
 
     if initiator_successes == 0 and opponent_successes == 0:
         return OpposedTestResult(

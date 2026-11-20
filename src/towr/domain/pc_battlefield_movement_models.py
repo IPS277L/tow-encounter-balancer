@@ -1,5 +1,7 @@
 """Source-bound incidental movement in the explicit open encounter battlefield."""
 from __future__ import annotations
+from towr.domain.pc_acrobatic_models import actor_acrobatic_source
+from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
 
 from collections import deque
 from dataclasses import dataclass, replace
@@ -40,18 +42,22 @@ def _identifier(value):
 
 
 def _conditions(state, actor):
-    return (state.participant(actor).injury.conditions if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury.conditions)
+    from towr.domain.pc_actor_models import pc_actor_injury
+    return pc_actor_injury(state, actor).conditions
 
 
 def _enemies(state, actor):
+    from towr.domain.pc_actor_models import pc_opponent_ids
+    opponents = pc_opponent_ids(state, actor)
     if actor in state.source.pc_activation_order:
-        live = {enemy.state.actor_id for enemy in state.live_enemies}
-        return tuple(target for target in state.source.participant(actor).target_priority if target in live)
+        priority = state.source.participant(actor).target_priority
+        return tuple(target for target in priority if target in opponents) + tuple(
+            target for target in opponents if target not in priority)
     if actor in state.source.enemy_activation_order:
-        live = {member.actor_id for member in state.live_party}
-        return tuple(target for target in state.source.enemy_target_priority if target in live)
-    raise ValueError('battlefield actor must belong to the complete encounter')
+        priority = state.source.enemy_target_priority
+        return tuple(target for target in priority if target in opponents) + tuple(
+            target for target in opponents if target not in priority)
+    return opponents
 
 
 def _has_close_enemy(state, actor):
@@ -71,8 +77,8 @@ def aerialmovement_permission(state, actor: str, path: tuple[str, ...], *, battl
     A separately paid Run after an earlier free move has its own actual source.
     """
     _identifier(actor)
-    if actor not in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
-        raise ValueError('aerial movement requires an actual encounter actor')
+    from towr.domain.pc_actor_models import pc_actor_side
+    pc_actor_side(state, actor)
     if type(path) is not tuple or any(type(zone) is not str or not zone.strip() for zone in path):
         raise TypeError('aerial movement requires an exact ordered Zone path')
     original = state.battlefield
@@ -93,13 +99,13 @@ def aerialmovement_permission(state, actor: str, path: tuple[str, ...], *, battl
         battlefield_is_midair(current, zone, zone=True) for zone in path)
     if not needs_flight:
         return True
-    from towr.domain.pc_mount_models import mounted_can_fly
-    if not mounted_can_fly(state, actor):
+    from towr.domain.pc_mount_models import actor_can_fly
+    if not actor_can_fly(state, actor):
         return False
     if any(battlefield_is_midair(current, zone, zone=True) for zone in path):
-        if any(not battlefield_is_midair(original, target)
+        if (actor_acrobatic_source(state,actor) is None and any(not battlefield_is_midair(original, target)
                 and battlefield_range(original, actor, target) is RangedWeaponRange.CLOSE
-                for target in _enemies(state, actor)):
+                for target in _enemies(state, actor))):
             return False
     return True
 
@@ -115,6 +121,8 @@ def battlefield_path_available(state, actor, path, *, battlefield=None, close_to
     """Geometry-only proposal check; does not spend movement or fake owner state."""
     current = state.battlefield if battlefield is None else battlefield
     if not aerialmovement_permission(state, actor, path, battlefield=current):
+        return False
+    if pc_enemy_path_blockers(state,actor,path,battlefield=current) and actor_acrobatic_source(state,actor) is None:
         return False
     destination = path[-1] if path else current.spatial.placement_for(actor).zone_id
     after = with_actor_placement(current, actor, destination, close_to_ids=close_to_ids)
@@ -139,18 +147,21 @@ def _ranged_flight_preference(state, actor):
 
 def pc_battlefield_allows_outnumbering(state: PcMeleeState, actor: str) -> bool:
     """Compare able participants in the actor's actual Zone, or the legacy arena."""
+    from towr.domain.pc_actor_models import pc_active_actor_ids, pc_actor_side, pc_actor_injury, pc_companion
+    from towr.domain.turn_models import CombatSide
     def same_zone(actor_id):
         return (state.battlefield is None or state.battlefield.spatial.placement_for(actor_id).zone_id
             == state.battlefield.spatial.placement_for(actor).zone_id)
-    party = sum(not member.injury.conditions.has(Condition.DEFENCELESS) and same_zone(member.actor_id)
-        for member in state.live_party)
-    enemies = sum(not enemy.state.injury.conditions.has(Condition.DEFENCELESS) and same_zone(enemy.state.actor_id)
-        for enemy in state.live_enemies)
-    if actor in state.source.pc_activation_order:
-        return party > enemies
-    if actor in state.source.enemy_activation_order:
-        return enemies > party
-    raise ValueError('outnumbering requires an actual encounter actor')
+    counts = {side: 0 for side in CombatSide}
+    for candidate in pc_active_actor_ids(state):
+        if (pc_companion(state, candidate) is not None
+                and not state.source.battlefield.dismounted_mounts_are_combatants):
+            continue
+        if not pc_actor_injury(state, candidate).conditions.has(Condition.DEFENCELESS) and same_zone(candidate):
+            counts[pc_actor_side(state, candidate)] += 1
+    side = pc_actor_side(state, actor)
+    return counts[side] > counts[CombatSide.OPPOSITION if side is CombatSide.PLAYERS_AND_ALLIES
+        else CombatSide.PLAYERS_AND_ALLIES]
 
 
 def _ranges(state, actor, weapon=None):
@@ -335,12 +346,18 @@ class PcBattlefieldMoveProof:
 
 
 def expected_pc_action_positioning(state: PcMeleeState) -> PcBattlefieldMoveProof | None:
+    from towr.domain.pc_oath_models import lady_prayer_selected
+    if lady_prayer_selected(state):
+        return None
     """Shared execution gate after equipment/approach work, before the action.
 
     A possible Shield pickup is not necessarily the selected action: a mount
     Attack can take priority. Keep physical movement queries independent of
     this action ordering so tactical forecasts do not recurse through it.
     """
+    from towr.domain.pc_musician_tactics import committed_musician_intent
+    if committed_musician_intent(state) is not None:
+        return None
     from towr.domain.pc_melee_result_models import (
         pc_melee_briarroot_recovery, pc_melee_selected_action,
     )
@@ -389,7 +406,7 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
     low, high, _, allows_close = _ranges(state, actor)
     seek_air = _ranged_flight_preference(state, actor) and not battlefield_is_midair(state.battlefield, actor)
     retreat=close_enemy and not allows_close
-    if close_enemy and not retreat:
+    if close_enemy and not retreat and not (seek_air and actor_acrobatic_source(state,actor) is not None):
         return None
     if not retreat and not seek_air and any(_rank(low) <= _rank(battlefield_range(state.battlefield, actor, target)) <= _rank(high)
             for target in targets):
@@ -451,7 +468,7 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
     from towr.domain.pc_terrain_models import terrain_test_required_for_route
     terrain=terrain_test_required_for_route(state,actor,route)
     request = FreeMovementRequest(action_id, state.round_state, spatial, actor,
-        speed, conditions, route,crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain)
+        speed, conditions, route,crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain,acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,route))
     result = resolve_free_movement(request)
     close = (target,) if destination == target_zone and high is RangedWeaponRange.CLOSE else ()
     after = replace(with_actor_placement(previous, actor,
@@ -462,6 +479,30 @@ def expected_pc_battlefield_move(state: PcMeleeState) -> PcBattlefieldMoveProof 
 
 def pc_battlefield_after_proof(current: PcBattlefieldState,proof) -> PcBattlefieldState:
     """Fold actual spatial receipts; shared by the owner and HIT snapshots."""
+    from towr.domain.pc_companion_landing_models import PcCompanionLandingProof
+    if type(proof) is PcCompanionLandingProof:
+        replace(proof)
+        if proof.previous_battlefield != current:
+            raise ValueError('Pegasus landing changed its actual airborne prefix')
+        return proof.battlefield
+    from towr.domain.pc_companion_departure_models import PcCompanionDepartureProof
+    if type(proof) is PcCompanionDepartureProof:
+        replace(proof)
+        if proof.previous_battlefield != current:
+            raise ValueError('companion departure changed its actual physical presence')
+        return proof.battlefield
+    from towr.domain.pc_mount_retention_models import PcMountRetentionProof
+    if type(proof) is PcMountRetentionProof:
+        replace(proof)
+        if proof.previous_battlefield != current:
+            raise ValueError('mount retention changed its actual physical dismount prefix')
+        return proof.battlefield
+    from towr.domain.pc_back_in_saddle_models import BACK_IN_SADDLE_REMOUNT_PROOFS
+    if type(proof) in BACK_IN_SADDLE_REMOUNT_PROOFS:
+        replace(proof)
+        if proof.previous_battlefield != current:
+            raise ValueError('remount changed its actual detached creature position')
+        return proof.battlefield
     from towr.domain.pc_battlefield_manoeuvre_models import BATTLEFIELD_MANOEUVRE_PROOFS
     from towr.domain.pc_terrain_models import PcTerrainTraversalProof
     from towr.domain.pc_broken_battlefield_models import PcBrokenMoveProof,PcBrokenRunProof
@@ -594,6 +635,9 @@ def pc_battlefield_npc_recover_selected(state: PcMeleeState) -> bool:
     actor = state.round_state.active_turn.actor_id
     if actor not in state.source.enemy_activation_order:
         return False
+    from towr.domain.pc_back_in_saddle_models import available_remount
+    if available_remount(state, actor) is not None:
+        return True
     if state.source.battlefield is not None and _conditions(state,actor).has(Condition.BROKEN):
         from towr.domain.pc_broken_battlefield_models import pc_broken_standard_recover_selected
         return pc_broken_standard_recover_selected(state)
@@ -602,6 +646,9 @@ def pc_battlefield_npc_recover_selected(state: PcMeleeState) -> bool:
     conditions = _conditions(state, actor)
     if conditions.has(Condition.DEFENCELESS):
         return False
+    from towr.domain.pc_oath_models import npc_oath_attack_blocked
+    if npc_oath_attack_blocked(state, actor):
+        return True  # No allowed ready attack: a real standard action, not Flagellant healing.
     from towr.domain.pc_briarroot_weapon_models import briarroot_weapon_on_ground
     if not state.enemy(actor).state.wields_weapon and briarroot_weapon_on_ground(state,actor) is not None:
         return True  # A real approach/pickup precedes this standard waiting action.
@@ -635,10 +682,13 @@ def build_pc_battlefield_npc_recover(state: PcMeleeState) -> RecoverActionExecut
     conditions = state.enemy(actor).state.injury.conditions
     def target(condition):
         return RecoverConditionTarget(actor, conditions, None) if conditions.has(condition) else None
+    choice = RecoverStandardChoice(WizardMagicState(),
+        staggered_target=target(Condition.STAGGERED), prone_target=target(Condition.PRONE))
+    from towr.domain.pc_back_in_saddle_models import configure_back_in_saddle_recover
+    choice = configure_back_in_saddle_recover(state, actor, pc_melee_action_id(state, actor), choice)
     return RecoverActionExecutionRequest(pc_melee_action_id(state, actor)+':battlefield:recover',
         state.round_state, actor, conditions, _has_close_enemy(state, actor), 1,
-        RecoverMode.STANDARD, RecoverStandardChoice(WizardMagicState(),
-            staggered_target=target(Condition.STAGGERED), prone_target=target(Condition.PRONE)))
+        RecoverMode.STANDARD, choice)
 
 
 def battlefield_recovered_injury(before, result):

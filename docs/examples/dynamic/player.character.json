@@ -14,11 +14,29 @@
   },
   "equipment": {
     "weapons": [
-      {"id": "weapon:1", "weapon": "sword", "location": "left_hand"}
+      {
+        "id": "weapon:1",
+        "weapon": "sword",
+        "location": "left_hand"
+      }
     ],
     "armour": []
   },
   "consumables": [],
-  "talents": ["lucky"],
-  "resources": {"fate": 3}
+  "talents": [
+    {
+      "id": "lucky",
+      "acquisitions": [
+        {
+          "phase": "advancement",
+          "funding": "xp",
+          "choice": null,
+          "devotion_confirmed": null
+        }
+      ]
+    }
+  ],
+  "resources": {
+    "fate": 3
+  }
 }

@@ -11,6 +11,7 @@ import unittest
 
 from towr.adapters._local_ui_planning import PLANNING_SCRIPT
 from towr.adapters._local_ui_visual import VISUAL_SCRIPT
+from towr.adapters._local_ui_inventory import INVENTORY_SCRIPT
 from towr.domain.generated_npc_models import GENERATED_PHYSICAL_WEAPONS
 
 
@@ -29,9 +30,16 @@ const standard=copy(inputs.melee);standard.npc_count={minimum:1,maximum:10};stan
 assert(canonical(generatedWeaponIds)===canonical(inputs.generated_weapon_ids),'UI and server expose the same ordered generated weapons');
 standard.targets={win_rate:{numerator:1,denominator:2},started_rounds:{numerator:5,denominator:1}};
 standard.search.max_total_trials=100;
+const fellowshipParty=copy(standard);fellowshipParty.search_space=null;fellowshipParty.party=fellowshipParty.party.slice(0,1);delete fellowshipParty.party[0].characteristics.fellowship;fellowshipParty.party[0].talent_facts={fellowship:5};assert(canonical(planningSearchSpace(fellowshipParty).fellowship)===canonical([4,5,6]),'automatic Fellowship follows the authoritative initial Talent facts');
 const original=canonical(standard),baseTime=estimatedSearchTime(standard),basePlan=automaticSearchPlan(standard);
 assert(baseTime.low>0&&baseTime.high>=baseTime.low,'positive ordered time interval');
 assert(canonical(standard)===original,'estimation and planning do not mutate the input');
+const blockedPassages=copy(standard);blockedPassages.scene.enemy_zone_blocking=true;
+const blockedBefore=canonical(blockedPassages);automaticSearchPlan(blockedPassages);estimatedSearchTime(blockedPassages);
+assert(blockedPassages.scene.enemy_zone_blocking===true&&canonical(blockedPassages)===blockedBefore,'planning preserves the explicit GM enemy Zone blocking fact');
+const companionScene=copy(standard);companionScene.scene.dismounted_mount_policy='wait_and_recover';companionScene.scene.dismounted_mounts_are_combatants=true;
+const companionBefore=canonical(companionScene);automaticSearchPlan(companionScene);estimatedSearchTime(companionScene);
+assert(canonical(companionScene)===companionBefore,'planning preserves mount policy and the explicit GM companion combatant status');
 assert(basePlan.max_candidates>=8&&basePlan.max_candidates<=64,'ordinary capacity explores a useful range of candidates');
 assert(basePlan.exploration_trials>=8&&basePlan.top_k<=basePlan.max_candidates,'screening and finalists are bounded');
 assert(Number.isSafeInteger(budget(basePlan))&&budget(basePlan)<=searchCostModel.maxTrials,'automatic trial budget stays bounded');
@@ -55,7 +63,7 @@ const mage=copy(ranged);mage.party.push(copy(inputs.mage.party[0]));
 assert(estimatedSearchTime(mage).high>estimatedSearchTime(ranged).high,'caster and extra actor contribute to cost');
 const oneSpell=copy(mage);oneSpell.party.at(-1).magic.memorised_spells=oneSpell.party.at(-1).magic.memorised_spells.slice(0,1);
 assert(estimatedSearchTime(mage).high>estimatedSearchTime(oneSpell).high,'spell choices contribute independently');
-const talented=copy(standard);talented.party[0].talents=['defensive_stance'];
+const talented=copy(standard);talented.party[0].talents=[{id:'defensive_stance',acquisitions:[{phase:'advancement',funding:'xp'}]}];
 assert(estimatedSearchTime(talented).high>baseTime.high,'PC combat talents contribute to cost');
 const many=copy(standard);many.npc_count.maximum=20;
 assert(estimatedSearchTime(many).high>baseTime.high,'more NPCs increase cost at the same trial count');
@@ -68,7 +76,7 @@ const npcTalent=copy(meleeNpc);npcTalent.search_space.allowed_talents=['wild_att
 assert(estimatedSearchTime(npcTalent).high>estimatedSearchTime(meleeNpc).high,'permitted NPC talents contribute to cost');
 const finite=copy(meleeNpc);finite.npc_count={minimum:1,maximum:1};
 finite.search_space.brawn=[3];finite.search_space.endurance=[3];
-for(const key of Object.keys(finite.search_space))finite.search_space[key]=finite.search_space[key].slice(0,1);
+for(const key of Object.keys(finite.search_space))if(Array.isArray(finite.search_space[key]))finite.search_space[key]=finite.search_space[key].slice(0,1);
 assert(automaticSearchPlan(finite).max_candidates===1,'finite source space caps candidates');
 const finiteThrowing=copy(finite);finiteThrowing.search_space.weapon=['rock'];finiteThrowing.search_space.throwing=[3];finiteThrowing.search_space.ballistic_skill=[3];
 assert(automaticSearchPlan(finiteThrowing).max_candidates===1,'fixed Throwing source space keeps a single candidate');
@@ -141,7 +149,9 @@ def planning_document():
     dependencies="const controls={};const byId=id=>controls[id]||(controls[id]={checked:false});let busy=false;const syncForm=()=>{},message=()=>{};"
     throwing_function=re.search(r'function playerThrowingWeapons\(member\)\{[^\n]+\}',VISUAL_SCRIPT).group()
     brawn_function=re.search(r'function playerBrawnRequired\(member\)\{[^\n]+\}',VISUAL_SCRIPT).group()
-    program='try{'+dependencies+ranged_sets+ranged_function+throwing_function+brawn_function+PLANNING_SCRIPT
+    talent_set=re.search(r'const pcCombatTalentIds=[^\n]+;',INVENTORY_SCRIPT).group()
+    metadata=re.search(r'const talentMetadata=[^\n]+;',INVENTORY_SCRIPT).group()
+    program='try{'+dependencies+metadata+talent_set+ranged_sets+ranged_function+throwing_function+brawn_function+PLANNING_SCRIPT
     program+='const inputs='+json.dumps(inputs)+';'+CHECK+"}catch(error){document.body.dataset.planningError=error.stack;document.body.textContent=error.stack;}"
     return '<!doctype html><html><body><script>'+program+'</script></body></html>'
 

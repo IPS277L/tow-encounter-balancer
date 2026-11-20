@@ -537,11 +537,15 @@ def _resolve_wound(
             npc_type=npc_type,
             state=state,
             additional_wounds=request.additional_profile_wounds,
+            negation_options=request.wound_negation_options,
             decapitation_cause=(ProfileDecapitationCause(f'{request.id}:wound', request.target_id)
                 if request.fixed_character_wound is not None else None),
-        )
+        ), decisions=decisions,
     )
-    follow_ups.append(wound.state_change)
+    if wound.negated_by_rule_id is not None:
+        follow_ups.append(ConsumeWoundNegationRequest(request.id, wound.negated_by_rule_id))
+    if wound.wounds_inflicted > 0:
+        follow_ups.append(wound.state_change)
     return ResolutionResult(
         request_id=request.id,
         attack=attack,
@@ -604,6 +608,7 @@ def _resolve_monstrosity(
                     target_effect_immunities=(
                         request.target_effect_immunities
                     ),
+                    wound_negation_options=request.wound_negation_options,
                 ),
             ),
         )

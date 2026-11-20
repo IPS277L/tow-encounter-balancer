@@ -22,13 +22,21 @@ if TYPE_CHECKING:
 
 
 def actor_inventory(state, actor):
-    return (state.participant(actor).weapon_inventory if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.weapon_inventory)
+    if actor in state.source.pc_activation_order:
+        return state.participant(actor).weapon_inventory
+    if actor in state.source.enemy_activation_order:
+        return state.enemy(actor).state.weapon_inventory
+    from towr.domain.pc_actor_models import pc_actor_inventory
+    return pc_actor_inventory(state, actor)
 
 
 def actor_injury(state, actor):
-    return (state.participant(actor).injury if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury)
+    if actor in state.source.pc_activation_order:
+        return state.participant(actor).injury
+    if actor in state.source.enemy_activation_order:
+        return state.enemy(actor).state.injury
+    from towr.domain.pc_actor_models import pc_actor_injury
+    return pc_actor_injury(state, actor)
 
 
 def magic_contributor_value(state,use,target):
@@ -60,8 +68,10 @@ def magic_weapon_intent_facts(state, actor, target, use):
             for item in use.item_ids):
         return None, False
     injury, victim = actor_injury(state, actor), actor_injury(state, target)
+    from towr.domain.pc_actor_models import pc_actor_npc_snapshot
+    from towr.domain.resolution_models import TargetInjuryPolicy
     target_is_pc_or_champion = (target in state.source.pc_activation_order
-        or state.enemy(target).definition.injury_policy.value == 'champion')
+        or pc_actor_npc_snapshot(state,target).definition.injury_policy is TargetInjuryPolicy.CHAMPION)
     turn = state.round_state.active_turn
     action_index = None
     if use.kind is WeaponKind.DUELLIST_BLADES and turn is not None:
@@ -158,11 +168,16 @@ def prepare_magic_weapon_attack(state,request,execution,intent):
     charge=None
     if (any(use.inventory.item(item).kind is WeaponKind.SCARAB_KNIFE for item in use.item_ids)
             and execution.resolution.profile_wound is not None):
-        from towr.domain.injury_models import ProfileWoundRequest,ProfileNpcType
+        from towr.domain.injury_models import ProfileWoundRequest,ProfileNpcType,ProfileDecapitationCause
+        from towr.domain.pc_actor_models import pc_actor_npc_snapshot
         from towr.domain.pc_hit_condition_models import pc_pre_stagger_target
         injury,_=pc_pre_stagger_target(request.kernel_request,execution.resolution.attack.outcome)
         source=ProfileWoundRequest(request.kernel_request.id+':wound',
-            ProfileNpcType(state.enemy(intent.target_id).definition.injury_policy.value),injury)
+            ProfileNpcType(pc_actor_npc_snapshot(state,intent.target_id).definition.injury_policy.value),injury,
+            additional_wounds=request.kernel_request.additional_profile_wounds,
+            negation_options=request.kernel_request.wound_negation_options,
+            decapitation_cause=(ProfileDecapitationCause(request.kernel_request.id+':wound',intent.target_id)
+                if request.kernel_request.fixed_character_wound is not None else None))
         charge=prepare_scarab_wound_charge(use,following,execution.resolution.profile_wound,profile_request=source)
     from towr.domain.pc_briarroot_weapon_models import _bank,_ground,_add_marker,PcBriarrootDroppedWeapon
     drops=[]
@@ -232,8 +247,9 @@ def expected_scarab_charge(state):
     from towr.domain.pc_melee_result_models import PcAttackProof,PcWoundCompletionProof
     from towr.domain.weapon_magic_lifecycle import prepare_scarab_wound_charge
     spent={proof.action_id for proof in state.history if type(proof) is PcScarabChargeProof}
+    from towr.domain.pc_immediate_attack_models import PcImmediateStrikeProof
     for attack in state.history:
-        if type(attack) is not PcAttackProof or attack.request.id in spent:
+        if type(attack) not in (PcAttackProof,PcImmediateStrikeProof) or attack.request.id in spent:
             continue
         use=attack.weapon_intent.attack_use
         if use is None or not any(use.inventory.item(item).kind is WeaponKind.SCARAB_KNIFE for item in use.item_ids):
@@ -288,11 +304,23 @@ def pc_profile_wound_decision(state,attack):
     from towr.domain.injury_models import ProfileDecapitationCause
     from towr.domain.minion_defeat_models import MinionDefeatDecision,NpcDefeatDisposition
     from towr.domain.pc_demigryph_models import pc_kernel_resolution
+    from towr.domain.pc_actor_models import pc_actor_npc_snapshot,pc_actor_side
+    target=attack.request.target_id
+    pc_actor_npc_snapshot(state,target)
+    pc_actor_side(state,attack.request.actor_id)
     result=pc_kernel_resolution(attack)
-    if type(getattr(result.target_state,'defeat_cause',None)) is ProfileDecapitationCause:
-        return MinionDefeatDecision(attack.request.actor_id,attack.request.target_id,
+    cause=getattr(result.target_state,'defeat_cause',None)
+    if type(cause) is ProfileDecapitationCause:
+        replace(cause)
+        if (cause.target_id!=target or cause.source_id!=attack.request.kernel_request.id+':wound'
+                or attack.request.kernel_request.fixed_character_wound is None
+                or result.profile_wound is None or result.profile_wound.state.defeat_cause!=cause):
+            raise ValueError('mandatory NPC Decapitation lacks its actual fixed-Wound Attack source')
+        return MinionDefeatDecision(attack.request.actor_id,target,
             NpcDefeatDisposition.KILLED,True)
-    return state.source.participant(attack.request.actor_id).defeat_decision(attack.request.target_id)
+    if target not in state.source.enemy_activation_order:
+        return None
+    return state.source.participant(attack.request.actor_id).defeat_decision(target)
 
 
 def pc_hammer_retrieval_selected(state):

@@ -9,19 +9,25 @@ from hashlib import sha256
 from math import exp, isfinite, log, sqrt
 from random import Random
 
+from towr.application.generated_oath_sources import GeneratedOathSource, OATH_TALENT_IDS, merge_oath_facts, matches_oath_source
 from towr.application.ranged_simulation_models import SimulationExecutionMode,SimulationExecutionOptions
 from towr.domain.generated_npc_models import (GeneratedNpc,GeneratedWeapon,GeneratedAbility,
-    GeneratedTalent,generated_talent_requirements_met,GeneratedRangedFacts,GENERATED_RANGED_WEAPONS,
+    TalentId,generated_talent_acquisition,generated_talent_requirements_met,GeneratedRangedFacts,GENERATED_RANGED_WEAPONS,
     generated_weapon_allows_shield,generated_weapon_grips,GENERATED_VARIABLE_GRIP_WEAPONS,
     GENERATED_TWO_HANDED_RANGED_WEAPONS,GENERATED_CLOSE_WEAPONS,GENERATED_PHYSICAL_WEAPONS,GENERATED_ORDINARY_WEAPONS,
     GENERATED_NON_CLOSE_RANGED_WEAPONS)
 from towr.domain.armour_models import ArmourLoadout,BodyArmour,HelmetKind,ShieldKind
+from towr.domain.talent_models import TalentOwnerFacts, TalentLoreFact
+from towr.domain.talent_catalog import TalentEquipmentRequirement
+from towr.domain.tool_inventory_models import ToolItemSource, ToolKind
 from towr.domain.weapon_catalog import WeaponKind,WeaponGroup,weapon_profile,weapon_printed_damage
 from towr.domain.weapon_inventory_models import WeaponItemSource,WeaponItemLocation,WeaponGrip,weapon_reload_target
 from towr.domain.weapon_capability_models import weapon_ranged_requirements
 from towr.domain.ranged_weapon_profiles import RangedWeaponHands,RangedWeaponId,ranged_weapon_combat_profile
 from towr.domain.pc_battlefield_models import PcBattlefieldSpec
+from towr.domain.battlefield_music_models import BattlefieldMusicAcoustics
 from towr.domain.pc_single_combat_models import PcSingleCombatPair
+from towr.domain.talent_actor_models import GENERATED_TALENT_POOL
 from towr.domain.pc_mount_models import CombatMount,RiderKind
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
 from towr.domain.pc_melee_models import PcMeleeFacts, PcMeleeParticipant, PcMeleeScenario, PC_RANGED_WEAPONS
@@ -74,10 +80,14 @@ class NpcSearchSpace:
     shield: tuple[ShieldKind | None, ...] = (None,ShieldKind.SHIELD)
     barding: tuple[bool, ...] = (False,)
     abilities: tuple[tuple[GeneratedAbility, ...], ...] = ((),)
-    allowed_talents: tuple[GeneratedTalent,...] = tuple(GeneratedTalent)
+    allowed_talents: tuple[TalentId,...] = GENERATED_TALENT_POOL
+    allowed_oath_sources: tuple[GeneratedOathSource,...] = ()
     ballistic_skill: tuple[int, ...] = (2, 3, 4)
     shooting: tuple[int, ...] = (3, 4, 5)
     initiative: tuple[int, ...] = (2, 3, 4)
+    fellowship: tuple[int, ...] = (2, 3, 4)
+    leadership: tuple[int, ...] = (3, 4, 5)
+    musician_instrument_hands: tuple[int, ...] = (1, 2)
     dexterity: tuple[int, ...] = (3, 4, 5)
     awareness: tuple[int, ...] = (3, 4, 5)
     weapon_grip: tuple[RangedWeaponHands, ...] = (
@@ -90,6 +100,20 @@ class NpcSearchSpace:
     agilulf_code_confirmed: bool | None = None
 
     def __post_init__(self):
+        if (type(self.allowed_oath_sources) is not tuple
+                or any(type(source) is not GeneratedOathSource for source in self.allowed_oath_sources)
+                or len(set(self.allowed_oath_sources)) != len(self.allowed_oath_sources)):
+            raise ValueError('allowed_oath_sources requires distinct exact declared acquisition/GM bundles')
+        for source in self.allowed_oath_sources:
+            replace(source)
+            for name in ('weapon_skill','strength','toughness','agility','ballistic_skill','initiative','fellowship'):
+                declared=getattr(source.talent_facts,name)
+                if declared is not None and declared not in getattr(self,name):
+                    raise ValueError('allowed Oath source characteristic is outside the numeric search space: '+name)
+        if (type(self.musician_instrument_hands) is not tuple or not self.musician_instrument_hands
+                or any(type(value) is not int or value not in (1,2) for value in self.musician_instrument_hands)
+                or len(set(self.musician_instrument_hands)) != len(self.musician_instrument_hands)):
+            raise ValueError('musician_instrument_hands requires distinct exact one/two-hand GM choices')
         for name in ('weapon','weapon_count','initial_loaded','scarab_initial_charges'):
             choices=getattr(self,name)
             if type(choices) is not tuple or not choices or len(set(choices)) != len(choices):
@@ -120,18 +144,26 @@ class NpcSearchSpace:
                 or len(set(self.weapon_grip)) != len(self.weapon_grip)):
             raise ValueError('weapon_grip requires nonempty distinct typed hand choices')
         if (type(self.allowed_talents) is not tuple
-                or any(type(t) is not GeneratedTalent for t in self.allowed_talents)
+                or any(type(t) is not TalentId for t in self.allowed_talents)
                 or len(set(self.allowed_talents)) != len(self.allowed_talents)):
             raise ValueError('allowed_talents requires unique supported Talents; empty disables generation')
-        for name in (*self._ordinary_names(), *self._ranged_names(), 'awareness','throwing'):
+        if set(self.allowed_talents) & OATH_TALENT_IDS:
+            raise ValueError('Honour Bound/Lady require allowed_oath_sources, not a bare allowed_talents identity')
+        from towr.domain.talent_actor_models import NPC_EXECUTABLE_TALENTS
+        if not set(self.allowed_talents) <= NPC_EXECUTABLE_TALENTS:
+            raise ValueError('allowed_talents includes a Talent without its connected NPC execution owner')
+        if any(not {talent.id for talent in source.talents} <= NPC_EXECUTABLE_TALENTS
+                for source in self.allowed_oath_sources):
+            raise ValueError('allowed Oath source includes a Talent without its connected NPC execution owner')
+        for name in (*self._ordinary_names(), *self._ranged_names(), 'awareness','throwing','fellowship','leadership'):
             choices = getattr(self,name)
             if type(choices) is not tuple or not choices or len(set(choices)) != len(choices):
                 raise ValueError(f'{name} requires nonempty distinct tuple choices')
             for value in choices:
-                if name in ('weapon_skill','strength','toughness','agility','ballistic_skill','initiative'):
+                if name in ('weapon_skill','strength','toughness','agility','ballistic_skill','initiative','fellowship'):
                     if type(value) is not int or value < 1:
                         raise ValueError(f'{name} choices must be positive integers')
-                elif name in ('melee','athletics','defence','shooting','dexterity','awareness','throwing','brawn','endurance'):
+                elif name in ('melee','athletics','defence','shooting','dexterity','awareness','throwing','brawn','endurance','leadership'):
                     if type(value) is not int or not 2 <= value <= 6:
                         raise ValueError(f'{name} choices must be integers in 2..6')
                 elif name == 'weapon' and type(value) is not GeneratedWeapon:
@@ -293,7 +325,8 @@ class NpcSearchSpace:
             result.append(current)
         return tuple(result)
 
-    def _build(self,facts,weapons,talents=(),ranged_values=None,*,throwing=None,ballistic_skill=None,rider_kind=None):
+    def _build(self,facts,weapons,talents=(),ranged_values=None,*,throwing=None,ballistic_skill=None,rider_kind=None,
+               talent_facts=None,tools=(),fellowship=None,leadership=None,oath_context=None):
         requirements=weapon_ranged_requirements(tuple(item.kind for item in weapons))
         names=self._ranged_names(weapons)
         values={name:(ranged_values[name] if ranged_values is not None and name in ranged_values
@@ -317,11 +350,47 @@ class NpcSearchSpace:
         rider_kind=rider_kind if rider_kind in rider_choices else rider_choices[0]
         return GeneratedNpc(**ordinary,weapons=weapons,armour=armour,talents=talents,ranged=ranged,
             throwing=throwing,ballistic_skill=ballistic_skill,rider_kind=rider_kind,
+            talent_facts=talent_facts,tools=tools,fellowship=fellowship,leadership=leadership,oath_context=oath_context,
             agilulf_code_confirmed=self.agilulf_code_confirmed if BodyArmour.AGILULF in armour.body else None)
 
+    def _musician_bundle(self,weapons,*,tools=(),talent_facts=None,fellowship=None,leadership=None,rng=None):
+        """Propose explicit independent sources for a new paid music purchase.
+
+        This is generation, not recovery of missing runtime gear from a flag.
+        Existing instruments/Lore/actual ratings are retained unchanged.
+        """
+        choose=lambda values: values[0] if rng is None else rng.choice(values)
+        if not tools:
+            occupied={item.id for item in weapons}
+            identifier='musicians-gear'
+            index=1
+            while identifier in occupied:
+                identifier='musicians-gear:'+str(index)
+                index+=1
+            tools=(ToolItemSource(identifier,ToolKind.MUSICIANS_GEAR,
+                choose(self.musician_instrument_hands),WeaponItemLocation.CARRIED,None),)
+        facts=talent_facts or TalentOwnerFacts()
+        music=next((lore for lore in facts.lores if lore.id=='music'),None)
+        if music is not None and music.magic:
+            raise ValueError('Music instrument use requires ordinary Music Lore, not a magic Lore alias')
+        fellowship=(facts.fellowship if facts.fellowship is not None else choose(self.fellowship)
+            ) if fellowship is None else fellowship
+        leadership=choose(self.leadership) if leadership is None else leadership
+        facts=replace(facts,fellowship=fellowship,
+            lores=facts.lores if music is not None else (*facts.lores,TalentLoreFact('music',False)),
+            equipment=facts.equipment if TalentEquipmentRequirement.MUSICIANS_GEAR in facts.equipment
+                else (*facts.equipment,TalentEquipmentRequirement.MUSICIANS_GEAR))
+        return dict(tools=tools,talent_facts=facts,fellowship=fellowship,leadership=leadership)
+
     def sample(self,rng:Random)->GeneratedNpc:
+        oath=(rng.choice((None,*self.allowed_oath_sources)) if self.allowed_oath_sources else None)
         facts={name:rng.choice(getattr(self,name)) for name in self._ordinary_names()
             if name not in ('shield','mount','abilities','armour','secondary_armour','barding')}
+        if oath is not None:
+            for name in ('weapon_skill','strength','toughness','agility'):
+                declared=getattr(oath.talent_facts,name)
+                if declared is not None:
+                    facts[name]=declared
         facts['mount']=self.mount[0] if len(self.mount)==1 else rng.choice(self.mount)
         bodies=self._body_choices()
         facts['armour']=rng.choice(bodies)
@@ -366,12 +435,31 @@ class NpcSearchSpace:
         facts['barding']=rng.choice(tuple(value for value in self.barding if not value or facts['mount'] is not None))
         riders=self._rider_choices(facts['mount'])
         ranged_values={name:rng.choice(getattr(self,name)) for name in self._ranged_names(weapons)}
-        talents=tuple(t for t in self.allowed_talents if generated_talent_requirements_met(t,
-            weapon_skill=facts['weapon_skill'],strength=facts['strength']) and rng.randrange(2))
+        if oath is not None:
+            for name in ('ballistic_skill','initiative'):
+                declared=getattr(oath.talent_facts,name)
+                if declared is not None and name in ranged_values:
+                    ranged_values[name]=declared
+        talent_facts=(TalentOwnerFacts(fellowship=(oath.talent_facts.fellowship
+                if oath is not None and oath.talent_facts.fellowship is not None else rng.choice(self.fellowship)))
+            if TalentId.ALLIES_IN_ARMS in self.allowed_talents else None)
+        if oath is not None:
+            talent_facts=merge_oath_facts(talent_facts,oath.talent_facts)
+        selected_music=TalentId.BATTLEFIELD_MUSICIAN in self.allowed_talents and bool(rng.randrange(2))
+        talents=tuple(generated_talent_acquisition(t) for t in self.allowed_talents if (
+            t is TalentId.BATTLEFIELD_MUSICIAN and selected_music) or (t is not TalentId.BATTLEFIELD_MUSICIAN and generated_talent_requirements_met(t,
+            weapon_skill=facts['weapon_skill'],strength=facts['strength'],agility=facts['agility'],
+            ballistic_skill=ranged_values.get('ballistic_skill'),
+            fellowship=None if talent_facts is None else talent_facts.fellowship) and rng.randrange(2)))
+        music=(self._musician_bundle(weapons,talent_facts=talent_facts,rng=rng)
+            if selected_music else dict(talent_facts=talent_facts))
+        talents=(*talents,*(oath.talents if oath is not None else ()))
         return self._build(facts,weapons,talents,ranged_values,
+            oath_context=None if oath is None else oath.context,
             throwing=rng.choice(self.throwing) if self._has_throwing(weapons) else None,
-            ballistic_skill=(ranged_values.get('ballistic_skill',rng.choice(self.ballistic_skill))
-                if self._has_throwing(weapons) else None),rider_kind=rng.choice(riders))
+            ballistic_skill=(ranged_values.get('ballistic_skill',oath.talent_facts.ballistic_skill
+                if oath is not None and oath.talent_facts.ballistic_skill is not None else rng.choice(self.ballistic_skill))
+                if self._has_throwing(weapons) else None),rider_kind=rng.choice(riders),**music)
 
     def mutate(self,npc:GeneratedNpc,rng:Random)->GeneratedNpc:
         if type(npc) is not GeneratedNpc or not self.contains(npc):
@@ -387,7 +475,9 @@ class NpcSearchSpace:
                     weapons=self._pose(weapons,newfacts['shield'],chivalric=BodyArmour.AGILULF in (
                         newfacts['armour'],newfacts['secondary_armour']))
                 candidate=self._build(newfacts,weapons,npc.talents,ranged_values,
-                    throwing=npc.throwing,ballistic_skill=npc.ballistic_skill,rider_kind=npc.rider_kind,**kwargs)
+                    throwing=npc.throwing,ballistic_skill=npc.ballistic_skill,rider_kind=npc.rider_kind,
+                    talent_facts=npc.talent_facts,tools=npc.tools,fellowship=npc.fellowship,
+                    leadership=npc.leadership,oath_context=npc.oath_context,**kwargs)
                 if candidate!=npc and self.contains(candidate):
                     variable.append(candidate)
             except (ValueError,TypeError):
@@ -445,7 +535,13 @@ class NpcSearchSpace:
                         changes={'ranged':replace(npc.ranged,**{name:value})}
                         if name=='ballistic_skill' and npc.ballistic_skill is not None:
                             changes['ballistic_skill']=value
-                        variable.append(replace(npc,**changes))
+                        # The current source was admitted above. A proposed
+                        # lower BS may invalidate an owned Talent; omit that
+                        # neighbour without repairing the submitted source.
+                        try:
+                            variable.append(replace(npc,**changes))
+                        except (ValueError,TypeError):
+                            pass
         if self._has_throwing(npc.weapons):
             for value in self.throwing:
                 if value!=npc.throwing:
@@ -453,11 +549,61 @@ class NpcSearchSpace:
             if npc.ranged is None:
                 for value in self.ballistic_skill:
                     if value!=npc.ballistic_skill:
-                        variable.append(replace(npc,ballistic_skill=value))
+                        try:
+                            variable.append(replace(npc,ballistic_skill=value))
+                        except (ValueError,TypeError):
+                            pass
+        fellowship=None if npc.talent_facts is None else npc.talent_facts.fellowship
+        if TalentId.ALLIES_IN_ARMS in self.allowed_talents or fellowship is not None or npc.fellowship is not None:
+            for value in self.fellowship:
+                if value != fellowship:
+                    try:
+                        changes=dict(talent_facts=replace(npc.talent_facts or TalentOwnerFacts(),fellowship=value))
+                        if npc.fellowship is not None:
+                            changes['fellowship']=value
+                        variable.append(replace(npc,**changes))
+                    except (ValueError,TypeError):
+                        pass
+        if npc.leadership is not None:
+            for value in self.leadership:
+                if value!=npc.leadership:
+                    variable.append(replace(npc,leadership=value))
+        for index,item in enumerate(npc.tools):
+            for hands in self.musician_instrument_hands:
+                if hands!=item.hands_required:
+                    try:
+                        grip=(None if item.initial_location is WeaponItemLocation.CARRIED else
+                            WeaponGrip.BOTH if hands==2 else WeaponGrip.LEFT)
+                        tool=replace(item,hands_required=hands,initial_grip=grip)
+                        variable.append(replace(npc,tools=npc.tools[:index]+(tool,)+npc.tools[index+1:]))
+                    except (ValueError,TypeError):
+                        pass
         for talent in self.allowed_talents:
-            selected=tuple(t for t in self.allowed_talents if (t in npc.talents)!=(t is talent))
-            if all(generated_talent_requirements_met(t,weapon_skill=npc.weapon_skill,strength=npc.strength) for t in selected):
-                variable.append(replace(npc,talents=selected))
+            owned={entry.id:entry for entry in npc.talents}
+            selected=(*tuple(owned.get(t) or generated_talent_acquisition(t)
+                for t in self.allowed_talents if (t in owned)!=(t is talent)),
+                *(entry for entry in npc.talents if entry.id in OATH_TALENT_IDS))
+            # Readmit the full acquisitions, including explicit creation-free
+            # waivers, rather than reinterpreting an existing source as paid.
+            try:
+                music=(self._musician_bundle(npc.weapons,tools=npc.tools,talent_facts=npc.talent_facts,
+                    fellowship=npc.fellowship,leadership=npc.leadership)
+                    if talent is TalentId.BATTLEFIELD_MUSICIAN and talent not in owned else {})
+                variable.append(replace(npc,talents=selected,**music))
+            except (ValueError,TypeError):
+                pass
+        if self.allowed_oath_sources or npc.oath_context is not None:
+            ordinary=tuple(entry for entry in npc.talents if entry.id not in OATH_TALENT_IDS)
+            for oath in (None,*self.allowed_oath_sources):
+                try:
+                    candidate=replace(npc,talents=(*ordinary,*(oath.talents if oath is not None else ())),
+                        oath_context=None if oath is None else oath.context,
+                        talent_facts=npc.talent_facts if oath is None else merge_oath_facts(npc.talent_facts,oath.talent_facts))
+                    if candidate!=npc and self.contains(candidate):
+                        variable.append(candidate)
+                except (ValueError,TypeError):
+                    pass
+            variable=[candidate for candidate in variable if self.contains(candidate)]
         return rng.choice(variable) if variable else npc
 
     def contains(self,npc:GeneratedNpc)->bool:
@@ -485,7 +631,19 @@ class NpcSearchSpace:
                 for name in self._ranged_names(npc.weapons)))
             and (npc.ranged is None or npc.ranged.awareness is None
                 or 'awareness' in self._ranged_names(npc.weapons) and npc.ranged.awareness in self.awareness)
-            and set(npc.talents)<=set(self.allowed_talents))
+            and (npc.talent_facts is None or npc.talent_facts.fellowship is None
+                or npc.talent_facts.fellowship in self.fellowship)
+            and (npc.fellowship is None or npc.fellowship in self.fellowship)
+            and (npc.leadership is None or npc.leadership in self.leadership)
+            and all(item.kind is ToolKind.MUSICIANS_GEAR
+                and item.hands_required in self.musician_instrument_hands for item in npc.tools)
+            and (TalentId.BATTLEFIELD_MUSICIAN not in {entry.id for entry in npc.talents}
+                or bool(npc.tools) and npc.fellowship is not None and npc.leadership is not None
+                and npc.talent_facts is not None
+                and TalentLoreFact('music',False) in npc.talent_facts.lores)
+            and {entry.id for entry in npc.talents if entry.id not in OATH_TALENT_IDS}<=set(self.allowed_talents)
+            and ((npc.oath_context is None and not any(entry.id in OATH_TALENT_IDS for entry in npc.talents))
+                or any(matches_oath_source(npc,source) for source in self.allowed_oath_sources)))
 
     def resample_numeric(self,composition:tuple[GeneratedNpc,...],rng:Random,*,bias:float=0.)->NumericCompositionSample:
         """Resample ratings only; preserve every physical source and its readiness."""
@@ -504,11 +662,22 @@ class NpcSearchSpace:
             names+=(('throwing',) if self._has_throwing(member.weapons) else ())
             names+=(('ballistic_skill',) if self._has_throwing(member.weapons) and not ranged_names else ())
             names+=ranged_names
+            if member.leadership is not None:
+                names+=('leadership',)
+            if (TalentId.ALLIES_IN_ARMS in self.allowed_talents
+                    or member.talent_facts is not None and member.talent_facts.fellowship is not None
+                    or member.fellowship is not None):
+                names+=('fellowship',)
             for name in names:
                 candidates={}
                 for value in getattr(self,name):
                     try:
-                        if name in ranged_names:
+                        if name=='fellowship':
+                            changes=dict(talent_facts=replace(current.talent_facts or TalentOwnerFacts(),fellowship=value))
+                            if current.fellowship is not None:
+                                changes['fellowship']=value
+                            candidate=replace(current,**changes)
+                        elif name in ranged_names:
                             changes={'ranged':replace(current.ranged,**{name:value})}
                             if name=='ballistic_skill' and current.ballistic_skill is not None:
                                 changes['ballistic_skill']=value
@@ -560,6 +729,17 @@ def automatic_npc_search_space(party: tuple[PcMeleeParticipant, ...], *,
         if values:
             low,high = max(2,min(6,min(values)-1)),max(2,min(6,max(values)+1))
             choices[name] = tuple(range(low,high+1))
+    fellowship=[member.pc.fellowship if member.pc.fellowship is not None else member.talent_facts.fellowship
+        for member in party if member.pc.fellowship is not None
+            or member.talent_facts is not None and member.talent_facts.fellowship is not None]
+    if fellowship:
+        low=max(1,min(10,min(fellowship)-1))
+        high=max(low,min(10,max(fellowship)+1))
+        choices['fellowship']=tuple(range(low,high+1))
+    leadership=[member.pc.leadership for member in party if member.pc.leadership is not None]
+    if leadership:
+        low,high=max(2,min(6,min(leadership)-1)),max(2,min(6,max(leadership)+1))
+        choices['leadership']=tuple(range(low,high+1))
     # Melee-only parties have no BS/I/Shooting/Dexterity facts. Use the
     # explicit starting envelope rather than pretending their WS/Ag are those
     # characteristics. Where an admitted PC source supplies ranged facts,
@@ -602,6 +782,7 @@ class DynamicEncounterRequest:
     max_rounds: int
     defeat_disposition: NpcDefeatDisposition
     battlefield: PcBattlefieldSpec | None = field(default=None,kw_only=True)
+    music_acoustics: BattlefieldMusicAcoustics | None = field(default=None,kw_only=True)
     single_combat_pairs: tuple[PcSingleCombatPair,...] = field(default=(),kw_only=True)
 
     def __post_init__(self):
@@ -613,6 +794,10 @@ class DynamicEncounterRequest:
             raise TypeError('generation requires typed facts and search space')
         replace(self.facts)
         replace(self.space)
+        if self.music_acoustics is not None:
+            if type(self.music_acoustics) is not BattlefieldMusicAcoustics:
+                raise TypeError('dynamic music acoustics require exact GM facts or None')
+            replace(self.music_acoustics)
         if self.battlefield is None:
             if any(mount is not None for mount in self.space.mount) or any(
                     member.mount is not None for member in self.party):
@@ -679,7 +864,8 @@ class DynamicEncounterRequest:
             npc_flagellant_policies=(), npc_warped_form_policies=(),
             npc_ranged_policies=tuple(pc_npc_ranged_policy_for_generated(npc,actor)
                 for npc,actor in zip(composition,actors) if npc.ranged is not None),
-            battlefield=self.battlefield,single_combat_pairs=self.single_combat_pairs)
+            battlefield=self.battlefield,music_acoustics=self.music_acoustics,
+            single_combat_pairs=self.single_combat_pairs)
 
 
 @dataclass(frozen=True, slots=True)

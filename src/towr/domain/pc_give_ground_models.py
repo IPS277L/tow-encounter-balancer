@@ -6,6 +6,10 @@ Give Ground too; PG115's own-turn Athletics timing does not waive it.
 This owner spends neither a combat action nor the once-per-turn free move.
 """
 from __future__ import annotations
+from towr.domain.pc_acrobatic_models import actor_acrobatic_source
+from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
+
+from towr.domain.pc_demigryph_models import pc_kernel_attack_types
 
 from dataclasses import dataclass,replace
 from typing import TYPE_CHECKING
@@ -31,8 +35,8 @@ def _id(value):
 
 
 def _injury(state,actor):
-    return (state.participant(actor).injury if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury)
+    from towr.domain.pc_actor_models import pc_actor_injury
+    return pc_actor_injury(state, actor)
 
 
 def _known_pair(state,actor,attacker,*,allow_friendly_source=False):
@@ -41,16 +45,19 @@ def _known_pair(state,actor,attacker,*,allow_friendly_source=False):
         raise TypeError('friendly Give Ground source permission must be an exact bool')
     if actor==attacker and not allow_friendly_source:
         raise ValueError('an actor cannot Give Ground away from itself')
-    actors=(*state.source.pc_activation_order,*state.source.enemy_activation_order)
+    from towr.domain.pc_actor_models import pc_actor_side
+    actors=(*state.source.pc_activation_order,*state.source.enemy_activation_order,
+        *(row.snapshot.state.actor_id for row in state.companions
+          if row.retained_since_round is not None))
     if actor not in actors or attacker not in actors:
         raise ValueError('Give Ground requires two actual source participants')
-    if not allow_friendly_source and (actor in state.source.pc_activation_order)==(attacker in state.source.pc_activation_order):
+    if not allow_friendly_source and pc_actor_side(state, actor) is pc_actor_side(state, attacker):
         raise ValueError('Give Ground requires an opposing actual attacker')
 
 
 def _enemies(state,actor):
-    return (tuple(enemy.state.actor_id for enemy in state.live_enemies)
-        if actor in state.source.pc_activation_order else tuple(member.actor_id for member in state.live_party))
+    from towr.domain.pc_actor_models import pc_opponent_ids
+    return pc_opponent_ids(state, actor)
 
 
 @dataclass(frozen=True,slots=True)
@@ -84,6 +91,9 @@ def pc_give_ground_context(state,actor,attacker,*,allow_friendly_source=False):
     if before is None or state.source.battlefield is None:
         return blocked
     injury=_injury(state,actor)
+    from towr.domain.pc_undead_minion_models import pc_undead_minion_source
+    if pc_undead_minion_source(state, actor) is not None:
+        return blocked
     if (getattr(injury,'dead',False) or getattr(injury,'defeated',False)
             or actor in state.exited_npc_ids
             or any(injury.conditions.has(condition) for condition in (Condition.PRONE,Condition.DEFENCELESS))):
@@ -110,7 +120,7 @@ def pc_give_ground_context(state,actor,attacker,*,allow_friendly_source=False):
             continue
         request=GiveGroundResolutionRequest(source,before.spatial,actor,destination,injury.conditions,
             away_from_entity_id=None if actor==attacker else attacker,
-            enemy_entity_ids=_enemies(state,actor))
+            enemy_entity_ids=_enemies(state,actor),acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,(destination,)))
         try:
             actual=resolve_give_ground(request)
         except ValueError:
@@ -143,7 +153,9 @@ class _AttackDecisions:
             from towr.domain.pc_melee_models import PcMeleePolicy
             automatic=self.state.source.participant(target).policy is PcMeleePolicy.AUTOMATIC_COMBAT
         else:
-            automatic=self.state.enemy(target).definition.generated_components is not None
+            from towr.domain.pc_actor_models import pc_actor_npc_snapshot, pc_companion
+            automatic=(pc_companion(self.state, target) is not None
+                or pc_actor_npc_snapshot(self.state, target).definition.generated_components is not None)
         if not automatic:
             return self.base.choose_repeated_stagger(request=request,allowed_choices=allowed_choices)
         context=pc_give_ground_context(self.state,target,self.request.actor_id)
@@ -157,11 +169,13 @@ def pc_attack_decisions(state,request,base):
     """Adapt only this actual primary K1 Stagger; every other decision is delegated."""
     from towr.domain.action_execution_models import AttackActionExecutionRequest
     from towr.domain.pc_demigryph_models import PcDemigryphStrikeRequest
-    if type(request) not in (AttackActionExecutionRequest,PcDemigryphStrikeRequest):
+    from towr.domain.pc_immediate_attack_models import PcImmediateStrikeRequest
+    if type(request) not in (AttackActionExecutionRequest,PcDemigryphStrikeRequest,PcImmediateStrikeRequest):
         raise TypeError('Give Ground decisions require an exact actual Attack or Demigryph strike source')
     replace(request)
     _known_pair(state,request.target_id,request.actor_id)
-    return _AttackDecisions(state,request,base)
+    from towr.domain.pc_oath_models import LadyWoundDecisions
+    return _AttackDecisions(state,request,LadyWoundDecisions(base))
 
 
 def _source_attack(state,resolution_id):
@@ -169,7 +183,7 @@ def _source_attack(state,resolution_id):
     from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
     for index in range(len(state.history)-1,-1,-1):
         proof=state.history[index]
-        if type(proof) in (PcAttackProof,PcDemigryphStrikeProof) and proof.request.kernel_request.id==resolution_id:
+        if type(proof) in pc_kernel_attack_types() and proof.request.kernel_request.id==resolution_id:
             return index,proof,pc_kernel_resolution(proof)
     raise ValueError('Give Ground continuation lacks its actual journaled K1 Attack')
 
@@ -177,7 +191,7 @@ def _source_attack(state,resolution_id):
 def _check_attack(attack,source):
     from towr.domain.pc_melee_result_models import PcAttackProof
     from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof,pc_kernel_resolution
-    if type(attack) not in (PcAttackProof,PcDemigryphStrikeProof):
+    if type(attack) not in pc_kernel_attack_types():
         raise TypeError('Give Ground retains its exact actual K1 strike family')
     replace(attack.request)
     if (attack.request.kernel_request.id!=source.resolution_id
@@ -261,7 +275,7 @@ def expected_pc_give_ground(state):
     if not context.can_leave:
         raise ValueError('the chosen Give Ground has no actual legal adjacent route')
     request=GiveGroundResolutionRequest(source,state.battlefield.spatial,actor,context.destination_zone_id,
-        _injury(state,actor).conditions,away_from_entity_id=attacker,enemy_entity_ids=_enemies(state,actor))
+        _injury(state,actor).conditions,away_from_entity_id=attacker,enemy_entity_ids=_enemies(state,actor),acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,(context.destination_zone_id,)))
     actual=resolve_give_ground(request)
     following=with_actor_placement(state.battlefield,actor,request.destination_zone_id)
     following=replace(following,spatial=actual.state)
@@ -294,11 +308,19 @@ def project_pc_give_ground(state,proof):
     injury=(replace(_injury(state,proof.actor_id),conditions=proof.result.conditions)
         if type(proof) is PcGiveGroundProof else proof.result.state)
     updates=dict(pending=state.pending[1:],pending_actor_id=proof.actor_id if state.pending[1:] else None)
+    from towr.domain.resolution_models import NearbyTargetsStaggerRequest
+    if (updates['pending'] and type(updates['pending'][0]) is NearbyTargetsStaggerRequest
+            and proof.actor_id not in state.source.pc_activation_order
+            and proof.attack.request.actor_id in state.source.pc_activation_order):
+        # The target's actual retreat has settled. The remaining nearby wave
+        # belongs to the original PC attack, not the NPC movement recipient.
+        updates['pending_actor_id'] = proof.attack.request.actor_id
     if type(proof) is PcGiveGroundProof:updates['battlefield']=proof.state
     if proof.actor_id in state.source.pc_activation_order:
         updates['party']=_party_update(state,proof.actor_id,injury=injury)
     else:
-        updates['enemies']=_enemy_update(state,proof.actor_id,injury)
+        from towr.domain.pc_actor_models import pc_actor_npc_update
+        updates.update(pc_actor_npc_update(state,proof.actor_id,injury=injury))
     return updates
 
 

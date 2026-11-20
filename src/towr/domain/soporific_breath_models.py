@@ -376,11 +376,11 @@ def _validate_target_result(
     ):
         raise ValueError("Soporific Breath target result is inconsistent")
     hazard = result.hazard
-    expected_shortfall = max(0, 2 - result.avoidance_test.successes)
+    expected_shortfall = max(0, 2 - result.avoidance_test.effective_successes)
     if (
         result.avoidance_test.trace.request_id != target.avoidance_test.id
         or hazard.request_id != f"{request.id}:{target.target_id}:hazard"
-        or hazard.successes != result.avoidance_test.successes
+        or hazard.successes != result.avoidance_test.effective_successes
         or hazard.rating != 2
         or hazard.shortfall != expected_shortfall
         or hazard.avoided is not (expected_shortfall == 0)

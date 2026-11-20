@@ -219,10 +219,16 @@ def resolve_basic_test(
     decisions: TestDecisionProvider | None = None,
 ) -> BasicTestResult:
     test = resolve_test(request, rng, decisions=decisions)
-    return BasicTestResult(test=test, outcome=classify_basic_outcome(test.successes))
+    return BasicTestResult(test=test, outcome=classify_basic_outcome(test))
 
 
-def classify_basic_outcome(successes: int) -> BasicOutcome:
+def classify_basic_outcome(successes: int | TestResult) -> BasicOutcome:
+    if isinstance(successes,TestResult):
+        if successes.honour_bound is not None:
+            from dataclasses import replace
+            replace(successes)
+            return BasicOutcome.TOTAL_SUCCESS
+        successes = successes.effective_successes
     if successes < 0:
         raise ValueError("successes must not be negative")
     if successes == 0:

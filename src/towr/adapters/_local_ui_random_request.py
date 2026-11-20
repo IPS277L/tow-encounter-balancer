@@ -46,7 +46,8 @@ def _player(index, rng):
             ('defensive_stance', characteristics['weapon_skill'] >= 3),
             ('wild_attack', characteristics['strength'] >= 4)):
         if eligible and rng.randrange(4) == 0:
-            talents.append(talent)
+            talents.append(dict(id=talent,acquisitions=[dict(phase='advancement',funding='xp',
+                choice=None,devotion_confirmed=None)]))
     consumables = []
     if rng.randrange(3) == 0:
         consumables.append(dict(id='healing', kind='healing_potion', quantity=rng.randint(1, 2),
@@ -77,7 +78,7 @@ def _player(index, rng):
 
 
 def random_ui_request(template, rng):
-    """Keep the user's seed/precision/execution; randomize only the new scene.
+    """Keep seed/precision/execution and explicit GM scene policy facts.
 
     Ratings, ordinary equipment, preparation, talents and supplies here are
     example facts, not a book Character Creation procedure or XP allocation.
@@ -85,6 +86,9 @@ def random_ui_request(template, rng):
     """
     if type(template) is not dict:
         raise ValueError('Запрос должен быть JSON-объектом.')
+    previous_scene = template.get('scene', {})
+    if type(previous_scene) is not dict:
+        raise ValueError('Условия сцены должны быть JSON-объектом.')
     party = [_player(index + 1, rng) for index in range(rng.randint(1, 5))]
     rounds = rng.randint(3, 8)
     percent = rng.choice((30, 40, 50, 60, 70))
@@ -100,6 +104,11 @@ def random_ui_request(template, rng):
         defeat_disposition=template.get('defeat_disposition', 'killed'),
         execution=deepcopy(template.get('execution', dict(mode='sequential'))),
         scene=dict(range=rng.choice(('close', 'short', 'medium', 'long')),
-            ambush='none', terrain='open', session_start='fresh', two_handed_max_range='long'))
+            ambush='none', terrain='open', session_start='fresh', two_handed_max_range='long',
+            enemy_zone_blocking=previous_scene.get('enemy_zone_blocking', False),
+            dismounted_mount_policy=previous_scene.get('dismounted_mount_policy', 'wait_and_recover'),
+            dismounted_mounts_are_combatants=previous_scene.get('dismounted_mounts_are_combatants', False)))
+    if 'music_acoustics' in previous_scene:
+        document['scene']['music_acoustics'] = deepcopy(previous_scene['music_acoustics'])
     parse_dynamic_encounter_request(json.dumps(document, ensure_ascii=False, allow_nan=False))
     return document

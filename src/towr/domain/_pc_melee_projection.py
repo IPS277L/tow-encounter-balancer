@@ -1,4 +1,6 @@
 """Pure projections of the explicit M9 journal variants; no RNG or execution."""
+from towr.domain.pc_demigryph_models import pc_kernel_attack_types
+from towr.domain.resolution_models import ConsumeWoundNegationRequest
 from dataclasses import replace
 from towr.domain.pc_weapon_inventory import replace_pc_member, pc_grip, pc_item_weapon
 from towr.domain.pc_magic_models import (MAGIC_PROOFS,project_pc_magic_step,consume_magic_modifiers,
@@ -143,8 +145,18 @@ def _canonical_attack(request, attack):
             raise ValueError("unopposed Attack cannot invent a Protection Test")
     else:
         _test_result(request.defender_test, attack.defender_test)
+    if (attack.attacker_test.honour_bound is not None
+            or attack.defender_test is not None and attack.defender_test.honour_bound is not None):
+        from towr.rules.attack_resolution import _resolve_attack_after_tests
+        _same(attack, _resolve_attack_after_tests(request, attack.attacker_test, attack.defender_test),
+            'exceptional Attack changed its actual paid outcome or raw Test witnesses')
+        return
     a, d = attack.attacker_test.successes, (attack.defender_test.successes if attack.defender_test is not None else 0)
-    hit = a > 0 and a >= d
+    from towr.rules.attack_resolution import _attack_tie_break, _resolve_miss_consequence
+    from towr.domain.test_models import OpposedSide
+    tie_source=_attack_tie_break(request)
+    tie=a>0 and attack.defender_test is not None and a==d
+    hit = a > 0 and (a>d or tie and tie_source.winner is OpposedSide.INITIATOR)
     margin = a-d if hit else 0
     numeric = isinstance(request.impact_spec,DamageImpactSpec)
     from towr.domain.attack_models import effective_damage_modifiers,effective_ignores_armour,armour_ward_cancels_effects
@@ -155,13 +167,12 @@ def _canonical_attack(request, attack):
     resilience = ((request.impact_spec.resilience.toughness if effective_ignores_armour(request.impact_spec)
         else request.impact_spec.resilience.total)+sum(m.amount for m in request.impact_spec.resilience_modifiers)) if hit and numeric else None
     impact = (ImpactOutcome.WOUND if damage > resilience else ImpactOutcome.STAGGERED) if hit and numeric else None
-    miss = MissConsequence.NONE if hit or not request.is_close_range or request.attacker_is_staggered else MissConsequence.STAGGER_ATTACKER
-    tie = hit and request.defender_test is not None and a == d
+    miss,miss_rules=(MissConsequence.NONE,()) if hit else _resolve_miss_consequence(request)
     rules = ((tuple(m.rule_id for m in (*damage_modifiers,*request.impact_spec.resilience_modifiers))
         + ((METEORIC_PROTECTION_RULE_ID,) if armour_ward_cancels_effects(request.impact_spec) else ()) if numeric
-        else (request.impact_spec.rule_id,)) if hit else ())
+        else (request.impact_spec.rule_id,)) if hit else miss_rules)
     if tie:
-        rules = (*rules, 'RULE-COMBAT-006:attack-tie')
+        rules = (*rules, tie_source.rule_id)
     expected = (request.id,AttackOutcome.HIT if hit else AttackOutcome.MISS,margin,request.impact_spec,
         damage,resilience,impact,miss,tie,rules)
     actual = (attack.request_id,attack.outcome,attack.success_margin,attack.impact_spec,
@@ -306,31 +317,44 @@ def _canonical_wound_effect(completion):
         'PC Wound completion has forged immediate effects/follow-ups')
 
 
-def _kernel_impact_updates(state, request, result, pc_actor, pc_fate, pc_injury):
+def _kernel_impact_updates(state, request, result, pc_actor, pc_fate, pc_injury, *, mount_attack=False):
     """Validate and project one real K1 strike, independently of action receipts."""
     expected = request
-    member = state.participant(pc_actor)
+    member = state.participant(pc_actor) if pc_actor is not None else None
+    from towr.domain.pc_actor_models import pc_actor_npc_update, pc_actor_npc_snapshot, pc_companion
+    companion_target = pc_companion(state, expected.target_id) is not None
+    pending_owner = ((expected.target_id if result.attack.outcome is AttackOutcome.HIT else expected.actor_id)
+        if companion_target else pc_actor)
+    if mount_attack and result.attack.outcome is AttackOutcome.MISS:
+        from towr.domain.pc_companion_models import mount_companion_actor_id
+        pending_owner = mount_companion_actor_id(expected.actor_id)
+        if pc_companion(state, pending_owner) is None:
+            raise ValueError('natural mount miss requires its actual body Condition owner')
+
+    def target_updates(*, hit_sources=None, net_sources=None):
+        updates = dict(party=state.party, enemies=state.enemies)
+        if member is not None:
+            changes = dict(injury=result.target_state if expected.target_id == pc_actor else pc_injury, fate=pc_fate)
+            if hit_sources is not None: changes['hit_condition_sources'] = hit_sources
+            if net_sources is not None: changes['net_condition_sources'] = net_sources
+            updates['party'] = _party_update(state, pc_actor, **changes)
+        if expected.target_id != pc_actor:
+            if companion_target:
+                updates.update(pc_actor_npc_update(state, expected.target_id, injury=result.target_state))
+            else:
+                updates['enemies'] = _enemy_update(state, expected.target_id, result.target_state)
+        return updates
     before,_ = pc_pre_stagger_target(expected.kernel_request,result.attack.outcome)
     from towr.domain.brawn_impact_models import BrawnDisplacementImpactSpec
     if type(expected.kernel_request.attack.impact_spec) is BrawnDisplacementImpactSpec:
-        enemies=state.enemies
-        if expected.target_id==pc_actor:
-            pc_injury=result.target_state
-        else:
-            enemies=_enemy_update(state,expected.target_id,result.target_state)
-        return dict(party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate),enemies=enemies,
+        return dict(**target_updates(),
             pending=result.follow_ups,pending_wound=None,
-            pending_actor_id=(expected.target_id if result.attack.outcome is AttackOutcome.HIT else pc_actor)
+            pending_actor_id=(expected.target_id if result.attack.outcome is AttackOutcome.HIT else pending_owner)
                 if result.follow_ups else None)
     from towr.domain.weapon_impact_preparation import is_stagger_weapon_impact,is_oil_impact,is_blast_impact
     if is_oil_impact(expected.kernel_request.attack.impact_spec) or is_blast_impact(expected.kernel_request.attack.impact_spec):
-        enemies=state.enemies
-        if expected.target_id==pc_actor:
-            pc_injury=result.target_state
-        else:
-            enemies=_enemy_update(state,expected.target_id,result.target_state)
-        return dict(party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate),enemies=enemies,
-            pending=result.follow_ups,pending_wound=None)
+        return dict(**target_updates(), pending=result.follow_ups,pending_wound=None,
+            pending_actor_id=pending_owner if result.follow_ups else None)
     unarmed=is_stagger_weapon_impact(expected.kernel_request.attack.impact_spec)
     staggered_impact=result.attack.impact is ImpactOutcome.STAGGERED or unarmed
     pending_wound = None
@@ -341,7 +365,7 @@ def _kernel_impact_updates(state, request, result, pc_actor, pc_fate, pc_injury)
             and before.conditions.has(Condition.STAGGERED)
             and (unarmed or not condition_forces_wound(expected.kernel_request,result.attack))):
         cause = MinionStaggerDefeatCause(expected.kernel_request.id+':minion-stagger-defeat',
-            expected.target_id,spec.rule_id)
+            expected.target_id,spec.rule_id,outcome=spec.outcome)
         forced_target = replace(before,defeated=True,defeat_cause=cause)
         forced_defeat = MinionStaggerDefeatResult(cause.source_id,forced_target,cause,(spec.rule_id,))
     _same(result.minion_stagger_defeat,forced_defeat,'Attack changed its actual non-Wound Minion defeat')
@@ -402,6 +426,24 @@ def _kernel_impact_updates(state, request, result, pc_actor, pc_fate, pc_injury)
         _same((result.character_wound,result.wound_effect),
             (pending_wound.wound_result,None),'PC Wound effects preceded its Fate window')
         followups = ()
+        if pending_wound.wound_result.negated_by_rule_id is not None:
+            followups = (ConsumeWoundNegationRequest(expected.kernel_request.id,
+                pending_wound.wound_result.negated_by_rule_id),)
+    elif result.profile_wound is not None and result.profile_wound.negated_by_rule_id is not None:
+        from towr.domain.injury_models import (
+            ProfileWoundRequest, ProfileDecapitationCause, validate_profile_wound_result_provenance,
+        )
+        kernel = expected.kernel_request
+        source = ProfileWoundRequest(kernel.id+':wound',
+            ProfileNpcType(pc_actor_npc_snapshot(state, expected.target_id).definition.injury_policy.value),
+            before, kernel.additional_profile_wounds,
+            negation_options=kernel.wound_negation_options,
+            decapitation_cause=(ProfileDecapitationCause(kernel.id+':wound', expected.target_id)
+                if kernel.fixed_character_wound is not None else None))
+        validate_profile_wound_result_provenance(source, result.profile_wound)
+        base_target = result.profile_wound.state
+        followups = (ConsumeWoundNegationRequest(kernel.id, result.profile_wound.negated_by_rule_id),
+            *((result.profile_wound.state_change,) if result.profile_wound.wounds_inflicted > 0 else ()))
     else:
         if result.character_wound is not None or result.pending_character_wound is not None:
             raise ValueError('NPC profile Wound cannot carry a PLAYER lifecycle branch')
@@ -414,7 +456,7 @@ def _kernel_impact_updates(state, request, result, pc_actor, pc_fate, pc_injury)
             conditions=before.conditions.without_condition(Condition.STAGGERED),defeat_cause=decapitation)
         base_target = target
         _same(getattr(result.profile_wound,'state',None),target,'NPC profile Wound changed unrelated state')
-        npc_type = ProfileNpcType(state.enemy(expected.target_id).definition.injury_policy.value)
+        npc_type = ProfileNpcType(pc_actor_npc_snapshot(state, expected.target_id).definition.injury_policy.value)
         change = ProfileStateChangeRequest(npc_type,before.wounds,wounds,defeated)
         if type(result.profile_wound) is not ProfileWoundResult:
             raise TypeError('NPC profile Wound requires its typed K1 result')
@@ -462,18 +504,17 @@ def _kernel_impact_updates(state, request, result, pc_actor, pc_fate, pc_injury)
     _same((result.target_state,result.condition_applications,result.applied_secondary_rule_ids),
         (target,applications,secondary_rules),'PC Attack changed its canonical on-hit Condition application or target')
     _same(result.follow_ups,followups,'PC Attack altered mandatory follow-up order')
-    enemies = state.enemies
-    if expected.target_id == pc_actor:
-        pc_injury = result.target_state
+    hit_sources = net_sources = None
+    if member is not None and expected.target_id == pc_actor:
         hit_sources = (*member.hit_condition_sources,*hit_condition_sources_from_attack(expected,result))
-    else:
-        enemies = _enemy_update(state,expected.target_id,result.target_state)
+    elif member is not None:
         hit_sources = member.hit_condition_sources
-    net_sources = (*member.net_condition_sources,*(net_condition_sources_from_attack(expected,result)
-        if expected.target_id==pc_actor else ()))
-    updates=dict(party=_party_update(state,pc_actor,injury=pc_injury,fate=pc_fate,
-        hit_condition_sources=hit_sources,net_condition_sources=net_sources),enemies=enemies,
-        pending=result.follow_ups,pending_wound=pending_wound)
+    if member is not None:
+        net_sources = (*member.net_condition_sources,*(net_condition_sources_from_attack(expected,result)
+            if expected.target_id==pc_actor else ()))
+    updates=dict(**target_updates(hit_sources=hit_sources,net_sources=net_sources),
+        pending=result.follow_ups,pending_wound=pending_wound,
+        pending_actor_id=pending_owner if result.follow_ups or pending_wound is not None else None)
     if result.stagger is not None and result.stagger.gave_ground:
         updates['pending_actor_id']=expected.target_id
     return updates
@@ -526,13 +567,8 @@ def project_pc_step(state, proof):
         mounts=updated_pc_mounts(state,proof)
         enemies=state.enemies
         if proof.actor_id in state.source.enemy_activation_order:
-            enemy=state.enemy(proof.actor_id)
-            resilience=enemy.state.current_resilience
-            from towr.domain.pc_mount_models import mount_resilience_bonus
-            resilience=replace(resilience,bonus=resilience.bonus-mount_resilience_bonus(state,proof.actor_id))
-            from towr.domain.armour_models import armour_is_worn
-            resilience=replace(resilience,armoured=True if resilience.bonus==0
-                and armour_is_worn(enemy.definition.generated_components.armour) else None)
+            from towr.domain.pc_npc_resilience_models import npc_current_resilience
+            resilience=npc_current_resilience(state,proof.actor_id,mounted=False)
             enemies=tuple(replace(item,state=replace(item.state,current_resilience=resilience))
                 if item.state.actor_id==proof.actor_id else item for item in enemies)
         updates=dict(mounts=mounts,enemies=enemies)
@@ -542,6 +578,12 @@ def project_pc_step(state, proof):
         return replace(state,history=(*state.history,proof),**updates)
     if type(proof) is PcDismountProof:
         raise ValueError('no actual settled Prone injury permits this dismount')
+    from towr.domain.pc_mount_retention_models import (
+        PcMountRetentionProof, expected_pc_mount_retention, project_pc_mount_retention,
+    )
+    retention = expected_pc_mount_retention(state)
+    if retention is not None or type(proof) is PcMountRetentionProof:
+        return replace(state, history=(*state.history, proof), **project_pc_mount_retention(state, proof))
     falling_ack=falling_acknowledgement_source(state)
     if falling_ack is not None or type(proof) is PcFallingAcknowledgementProof:
         if type(proof) is not PcFallingAcknowledgementProof:
@@ -552,6 +594,24 @@ def project_pc_step(state, proof):
         if type(proof) is not PcFallingProof:
             raise ValueError('a midair dismount must settle its actual fall before continuation')
         return replace(state,history=(*state.history,proof),**project_pc_falling_step(state,proof))
+    from towr.domain.pc_companion_departure_models import (
+        PcCompanionDepartureProof,expected_companion_departure,project_companion_departure)
+    departure=expected_companion_departure(state)
+    if departure is not None or type(proof) is PcCompanionDepartureProof:
+        return replace(state,history=(*state.history,proof),**project_companion_departure(state,proof))
+    from towr.domain.pc_companion_landing_models import (
+        PcCompanionLandingProof,expected_companion_landing,project_companion_landing)
+    landing=expected_companion_landing(state)
+    if landing is not None or type(proof) is PcCompanionLandingProof:
+        return replace(state,history=(*state.history,proof),**project_companion_landing(state,proof))
+    from towr.domain.pc_back_in_saddle_models import (PcBackInSaddleMoveProof, expected_back_in_saddle_move,
+        project_back_in_saddle_move, PcBackInSaddleRecoverProof, expected_back_in_saddle_recover, project_back_in_saddle_recover)
+    paid_remount = expected_back_in_saddle_recover(state)
+    if paid_remount is not None or type(proof) is PcBackInSaddleRecoverProof:
+        return replace(state, history=(*state.history, proof), **project_back_in_saddle_recover(state, proof))
+    remount = expected_back_in_saddle_move(state)
+    if remount is not None or type(proof) is PcBackInSaddleMoveProof:
+        return replace(state, history=(*state.history, proof), **project_back_in_saddle_move(state, proof))
     from towr.domain.pc_weapon_area_models import (WEAPON_AREA_PROOFS,weapon_hazard_completion,
         expected_weapon_area_step,expected_ablaze_hazard,project_weapon_area_step)
     weapon_phase=weapon_hazard_completion(state) or expected_weapon_area_step(state) or expected_ablaze_hazard(state)
@@ -601,7 +661,11 @@ def project_pc_step(state, proof):
         raise ValueError('selected Wild Attack price must precede the Melee Test')
     paid=pending_wild_attack(state)
     if paid is not None:
-        expected_type=(PcHelpProof if paid.intent is not None
+        from towr.domain.pc_immediate_attack_models import PcImmediateStrikeProof
+        from towr.domain.pc_bash_attack_models import pending_bash_decision
+        bash_price=pending_bash_decision(state)
+        expected_type=(PcImmediateStrikeProof if bash_price is not None
+            and paid.action_id==bash_price.grant.id else PcHelpProof if paid.intent is not None
             and paid.intent.action is CombatActionKind.HELP else PcAttackProof)
         if type(proof) is not expected_type:
             raise ValueError('paid Wild Attack must be consumed by its actual next Melee Test')
@@ -636,10 +700,32 @@ def project_pc_step(state, proof):
     if (state.pending_wound is None and state.pending
             and type(state.pending[0]) is NearbyTargetsStaggerRequest):
         raise ValueError('nearby effects and acknowledgements must complete before another transition')
+    from towr.domain.pc_bash_attack_models import expected_bash_decision,pending_bash_decision,build_pc_bash_strike
+    from towr.domain.pc_immediate_attack_models import PcBashDecisionProof,PcImmediateStrikeProof
+    bash_decision=expected_bash_decision(state)
+    if bash_decision is not None or type(proof) is PcBashDecisionProof:
+        _same(proof,bash_decision,'Bash must settle its actual first-Stagger permission once')
+        return replace(state,history=(*state.history,proof))
+    bash_pending=pending_bash_decision(state)
+    bash_strike=build_pc_bash_strike(state)
+    if bash_strike is not None and type(proof) is not PcImmediateStrikeProof:
+        if wild is None or type(proof) is not PcWildAttackProof:
+            raise ValueError('the committed immediate Bash strike must precede ordinary continuation')
+    if bash_pending is not None and bash_strike is None:
+        from towr.domain.pc_bash_attack_models import expected_bash_pc_shield_release,expected_bash_pc_swap
+        ready=expected_bash_pc_shield_release(state) or expected_bash_pc_swap(state)
+        if ready is None or proof!=ready:
+            raise ValueError('Bash must complete its committed physical equipment readiness')
     demigryph_strike=build_pc_demigryph_strike(state)
-    if demigryph_strike is not None and type(proof) is not PcDemigryphStrikeProof:
+    if bash_pending is None and demigryph_strike is not None and type(proof) is not PcDemigryphStrikeProof:
         raise ValueError('the committed same-action Demigryph strike must precede turn end')
     combat, scenario = state.round_state, state.source
+    from towr.domain.pc_actor_models import pc_companion
+    from towr.domain.pc_broken_battlefield_models import pc_broken_run_selected
+    if (combat.active_turn is not None and pc_companion(state, combat.active_turn.actor_id) is not None
+            and not pc_broken_run_selected(state)):
+        from towr.domain.pc_companion_turn_models import project_companion_turn
+        return project_companion_turn(state, proof)
     approach = expected_pc_npc_approach(state)
     if approach is not None and type(proof) is not PcNpcApproachProof:
         raise ValueError('NPC free approach must precede its ordinary action')
@@ -665,7 +751,9 @@ def project_pc_step(state, proof):
     if type(proof) is not PcNpcDistractionExpiredProof and not state.pending and state.pending_wound is None and (current_warped_form(state) is not None
             or expected_pc_warped_form_activation(state) is not None):
         raise ValueError('own end phase cannot skip the selected Warped Form wave')
-    if state.pending_actor_id in scenario.enemy_activation_order:
+    from towr.domain.pc_companion_attack_models import companion_attack_pending_owner
+    companion_pending = companion_attack_pending_owner(state)
+    if state.pending_actor_id in scenario.enemy_activation_order and companion_pending is None:
         raise ValueError('wave NPC pending work requires its target-scoped acknowledgement')
     selected_attack_intent = None
     pc_actor = state.pending_actor_id
@@ -692,11 +780,13 @@ def project_pc_step(state, proof):
                 and combat.active_turn.action_slots[0].declaration.kind is CombatActionKind.ATTACK):
             # A lethal result can remove this target from live priority before
             # the attacker's turn is closed; retain the actual action target.
-            pc_actor = (proof.request.target_id if type(proof) is PcDemigryphStrikeProof else
+            pc_actor = (proof.request.target_id if type(proof) in (PcDemigryphStrikeProof,PcImmediateStrikeProof) else
                 next(p.request.target_id for p in reversed(state.history)
-                    if type(p) in (PcAttackProof,PcDemigryphStrikeProof) and p.request.actor_id==actor))
+                    if type(p) in pc_kernel_attack_types() and p.request.actor_id==actor))
         else:
             pc_actor = next((a for a in scenario.enemy_target_priority if not state.participant(a).injury.dead), None)
+    if pc_actor not in scenario.pc_activation_order:
+        pc_actor = None
     member = state.participant(pc_actor) if pc_actor is not None else None
     participant = scenario.participant(pc_actor) if pc_actor is not None else None
     draw_hand = pc_backup_draw_hand(state,pc_actor) if pc_actor is not None else None
@@ -736,6 +826,8 @@ def project_pc_step(state, proof):
         return project_npc_aim_step(state,proof)
 
     def finish(**updates):
+        from towr.domain.pc_tool_models import reconcile_native_tool_losses
+        updates=reconcile_native_tool_losses(state,proof,updates)
         updates=weighted_nets_after_equipment(state,proof,updates)
         updates=_inventory_conditions(state,updates)
         updates.setdefault('magic_modifiers',consume_magic_modifiers(state.magic_modifiers,proof))
@@ -746,6 +838,49 @@ def project_pc_step(state, proof):
         elif 'pending_actor_id' not in updates:
             updates['pending_actor_id'] = pc_actor
         return replace(state,history=(*state.history,proof),**updates)
+    from towr.domain.pc_musician_effect_models import PcMusicianActionProof, PcMusicianSignalProof
+    from towr.domain.pc_musician_tactics import PcMusicianIntentProof,expected_musician_intent
+    from towr.domain.pc_musician_equipment_models import PcMusicianEquipmentProof,project_musician_equipment
+    from towr.domain.pc_musician_tactics import committed_musician_intent
+    if type(proof) is PcMusicianEquipmentProof:
+        _ready(state)
+        intent=committed_musician_intent(state,proof.actor_id)
+        if intent is not None and intent.choice.music_pickup:
+            raise ValueError('dropped music gear needs its paid standard Recover')
+        item=None if intent is None else intent.choice.music_item_id
+        if state.round_state.active_turn.action_slots:
+            raise ValueError('incidental music gear must precede its committed ordinary action')
+        return finish(**project_musician_equipment(state,proof,item))
+    from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof,project_pc_musician_recover
+    if type(proof) is PcMusicianRecoverProof:
+        _ready(state)
+        return finish(**project_pc_musician_recover(state,proof))
+    if type(proof) is PcMusicianIntentProof:
+        _ready(state)
+        expected=expected_musician_intent(state)
+        if expected is None or proof!=expected:
+            raise ValueError('music intent changed its automatic action, instrument or pre-price choice')
+        return finish()
+    if type(proof) is PcMusicianActionProof:
+        _ready(state)
+        from towr.domain.pc_battlefield_musician_models import project_pc_musician_action
+        return finish(**project_pc_musician_action(state,proof))
+    if type(proof) is PcMusicianSignalProof:
+        _ready(state)
+        from towr.domain.pc_battlefield_musician_models import build_pc_musician_signal
+        from towr.rules.battlefield_musician_resolution import issue_battlefield_musician_signal
+        request=build_pc_musician_signal(state,proof.result.source_request.kind)
+        if request is None or proof.result!=issue_battlefield_musician_signal(request):
+            raise ValueError('music signal changed its actual instrument, source turn or hearing audience')
+        actor=request.source.actor_id
+        if actor in state.source.pc_activation_order:
+            member=state.participant(actor)
+            injury=member.injury
+            from towr.domain.pc_weapon_inventory import pc_hand
+            for hand in request.source.tool_use.used_hands:
+                injury=critical_for_incidental_hand_use(replace(member,injury=injury),pc_hand(hand))
+            return finish(party=_party_update(state,actor,injury=injury))
+        return finish()
     if type(proof) is PcShieldApproachProof:
         _same(proof, shield_approach, 'Shield approach changed its selected physical source')
         return finish(**pc_shield_approach_updates(state, proof))
@@ -913,12 +1048,16 @@ def project_pc_step(state, proof):
         turn = combat.active_turn
         if turn is not None and turn.action_slots:
             from towr.domain.pc_duellist_models import build_pc_duellist_second_action
-            request = build_pc_npc_extra_attack_slot(state) or build_pc_duellist_second_action(state)
+            from towr.domain.pc_rapid_reload_models import rapid_reload_options
+            rapid_options = rapid_reload_options(state)
+            request = next((option for option in rapid_options
+                if option.rapid_reload == proof.slot.rapid_reload), None) if proof.slot.rapid_reload is not None else (
+                build_pc_npc_extra_attack_slot(state) or build_pc_duellist_second_action(state))
             if request is None:
                 raise ValueError('no second Attack is granted by this source/policy')
             slot = CombatActionSlot(2,request.declaration,request.grant,request.grant_rule_id,
                 enduring_strength=request.enduring_strength,crown_of_antlers=request.crown_of_antlers,
-                duellist_blades=request.duellist_blades)
+                duellist_blades=request.duellist_blades,rapid_reload=request.rapid_reload)
             expected = replace(combat,active_turn=replace(turn,action_slots=(*turn.action_slots,slot)))
             _same((proof.request_id,proof.state,proof.slot,proof.applied_rule_ids),
                 (request.id,expected,slot,('RULE-COMBAT-002:action-budget',request.grant_rule_id)),
@@ -933,27 +1072,35 @@ def project_pc_step(state, proof):
         _same((proof.request_id,proof.state,proof.slot),(pc_melee_action_id(state,turn.actor_id)+':reserve',expected,slot),
             'PC reservation differs from the selected standard action')
         return finish(round_state=expected)
-    if type(proof) is PcDemigryphStrikeProof:
+    if type(proof) in (PcDemigryphStrikeProof,PcImmediateStrikeProof):
         _ready(state)
-        if demigryph_strike is None:
+        immediate=type(proof) is PcImmediateStrikeProof
+        selected=bash_strike if immediate else demigryph_strike
+        if selected is None:
             raise ValueError('no actual unconsumed Demigryph strike is available')
-        expected,protection=demigryph_strike
+        expected,protection=selected
         from towr.domain.pc_weapon_intent_models import build_pc_explicit_attack_weapon_intent,weapon_use_hand
-        _same(proof.weapon_intent,build_pc_explicit_attack_weapon_intent(state,expected.actor_id,
-            expected.target_id,expected.id,mount_attack=True),'Demigryph changed its pre-roll weapon Protection intent')
+        intent=(expected.weapon_intent if immediate else build_pc_explicit_attack_weapon_intent(state,
+            expected.actor_id,expected.target_id,expected.id,mount_attack=True))
+        _same(proof.weapon_intent,intent,'free strike changed its pre-roll physical weapon intent')
+        if immediate:
+            _same(proof.help_applications,pc_attack_help_applications(state,expected.kernel_request.attack,
+                weapon_intent=intent),'free strike Help changed its exact Test/item source')
+            _same(proof.npc_help_applications,pc_npc_attack_help_applications(state,expected.kernel_request.attack),
+                'immediate strike NPC Help changed its intended Test source')
         _same(proof.request,expected,'Demigryph strike changed its committed primary source or current target')
         replace(proof)
         _same(proof.protection.source_request,protection,'Demigryph Protection changed its actual equipment/Skill')
         _same(proof.protection.attack,expected.kernel_request.attack,'Demigryph Protection changed its prepared Attack')
         result=proof.resolution
-        pc_test=(expected.kernel_request.attack.attacker_test if expected.actor_id==pc_actor
-            else expected.kernel_request.attack.defender_test)
+        pc_test=(None if pc_actor is None else expected.kernel_request.attack.attacker_test
+            if expected.actor_id==pc_actor else expected.kernel_request.attack.defender_test)
         effective_attack=expected.kernel_request.attack
         if pc_test is None:
             if proof.fate_decline is not None or proof.glorious is not None:
                 raise ValueError('Defenceless Protection cannot invent a Demigryph Test/Fate window')
-            pc_fate=member.fate
-            pc_injury=member.injury
+            pc_fate=None if member is None else member.fate
+            pc_injury=None if member is None else member.injury
         else:
             actual=(result.attack.attacker_test if expected.actor_id==pc_actor else result.attack.defender_test)
             skill=Skill.MELEE if expected.actor_id==pc_actor else protection.selected_skill
@@ -963,14 +1110,24 @@ def project_pc_step(state, proof):
                 **({'attacker_test':effective_test} if expected.actor_id==pc_actor else {'defender_test':effective_test}))
             # The mount attacks without using the rider's hand. A PC defending
             # against it still incurs the real hand consequences of that Defence.
-            caused=(member.injury if expected.actor_id==pc_actor else critical_for_hand(member,
-                weapon_use_hand(proof.weapon_intent.protection_use)))
+            caused=((critical_for_action(member,CombatActionKind.ATTACK,
+                used_hand=weapon_use_hand(intent.attack_use)) if immediate else member.injury)
+                if expected.actor_id==pc_actor else critical_for_hand(member,weapon_use_hand(intent.protection_use)))
             pc_injury=pc_after_test(state,pc_actor,caused)
         _canonical_attack(effective_attack,result.attack)
         _ordinary_resolution(expected.kernel_request,result,state=state,action_request=expected)
         if result.request_id!=expected.kernel_request.id:
             raise ValueError('Demigryph result changed its actual K1 source')
-        return finish(**_kernel_impact_updates(state,expected,result,pc_actor,pc_fate,pc_injury))
+        updates=_kernel_impact_updates(state,expected,result,pc_actor,pc_fate,pc_injury,
+            mount_attack=not immediate)
+        if immediate:
+            from towr.domain.pc_magic_weapon_models import magic_weapon_attack_updates
+            from towr.domain.pc_armour_bane_models import build_armour_bane_application,armour_bane_attack_updates
+            _same(proof.armour_bane,build_armour_bane_application(state,expected,proof.execution,intent.attack_use),
+                'immediate Armour Bane changed its actual acquisition/WeaponUse/HIT')
+            updates=magic_weapon_attack_updates(state,expected,proof.execution,intent,proof.magic_weapon,updates)
+            updates=armour_bane_attack_updates(state,proof.armour_bane,updates)
+        return finish(**updates)
     if isinstance(proof,PcAttackProof):
         _ready(state)
         turn = combat.active_turn
@@ -991,7 +1148,7 @@ def project_pc_step(state, proof):
         _same(proof.npc_glorious_source, pc_bestigor_glorious_source(state, expected.actor_id),
             'Bestigor Glorious changed its actual first-Wound source or next Attack')
         _same(proof.help_applications,pc_attack_help_applications(state,expected.kernel_request.attack,
-            mount_attack=mount_attack is not None),
+            mount_attack=mount_attack is not None,weapon_intent=weapon_intent),
             'Attack Help applications changed their exact intended-Test source/prefix')
         _same(proof.npc_help_applications,pc_npc_attack_help_applications(state,expected.kernel_request.attack),
             'NPC Help applications changed their exact intended-Test source/prefix')
@@ -1007,12 +1164,12 @@ def project_pc_step(state, proof):
             (expected.id,combat,expected.actor_id,expected.target_id,expected.slot_index),'PC Attack receipt is detached')
         result = execution.resolution
         _same(execution.applied_rule_ids,('RULE-COMBAT-004:attack-action-execution',),'Attack action rule trace changed')
-        pc_test = (expected.kernel_request.attack.attacker_test if expected.actor_id == pc_actor
-            else expected.kernel_request.attack.defender_test)
+        pc_test = (None if pc_actor is None else expected.kernel_request.attack.attacker_test
+            if expected.actor_id == pc_actor else expected.kernel_request.attack.defender_test)
         if pc_test is None:
             if proof.fate_decline is not None or proof.glorious is not None:
                 raise ValueError('Defenceless Protection cannot invent a Test/Fate window')
-            pc_fate = member.fate
+            pc_fate = None if member is None else member.fate
             effective_attack = expected.kernel_request.attack
         else:
             actual_test = result.attack.attacker_test if expected.actor_id == pc_actor else result.attack.defender_test
@@ -1038,8 +1195,12 @@ def project_pc_step(state, proof):
         _ordinary_resolution(expected.kernel_request,result,state=state,action_request=expected)
         if result.request_id != expected.kernel_request.id:
             raise ValueError('PC Attack kernel result changed its source ID')
+        from towr.domain.pc_armour_bane_models import build_armour_bane_application,armour_bane_attack_updates
+        _same(proof.armour_bane,build_armour_bane_application(state,expected,execution,
+            weapon_intent.attack_use if mount_attack is None else None),
+            'Armour Bane changed its actual successful Attack, acquisition or effective item sources')
         if pc_test is None:
-            pc_injury = member.injury
+            pc_injury = None if member is None else member.injury
         else:
             attack_hand=weapon_use_hand(weapon_intent.attack_use)
             caused = (critical_for_action(member,CombatActionKind.ATTACK,
@@ -1047,7 +1208,8 @@ def project_pc_step(state, proof):
                 if expected.actor_id == pc_actor else critical_for_hand(member,
                     weapon_use_hand(weapon_intent.protection_use)))
             pc_injury = pc_after_test(state,pc_actor,caused)
-        updates = _kernel_impact_updates(state,expected,result,pc_actor,pc_fate,pc_injury)
+        updates = _kernel_impact_updates(state,expected,result,pc_actor,pc_fate,pc_injury,
+            mount_attack=proof.mount_attack is not None)
         updates["enemies"] = spend_pc_npc_net(state,updates["enemies"],expected)
         if expected_shot is not None:
             updates["party"] = tuple(replace_pc_member(item,ranged=expected_shot.execution.weapon_state)
@@ -1060,6 +1222,7 @@ def project_pc_step(state, proof):
         updates=throwing_inventory_updates(state,expected,execution,weapon_intent.attack_use,proof.throwing_inventory,updates)
         from towr.domain.pc_magic_weapon_models import magic_weapon_attack_updates
         updates=magic_weapon_attack_updates(state,expected,execution,weapon_intent,proof.magic_weapon,updates)
+        updates=armour_bane_attack_updates(state,proof.armour_bane,updates)
         return finish(round_state=execution.state,**updates,**net_updates)
     if isinstance(proof,PcNpcHelpProof):
         from towr.domain.automatic_help_models import expected_automatic_help_action
@@ -1075,32 +1238,52 @@ def project_pc_step(state, proof):
         return finish(round_state=canonical.round_state)
     if isinstance(proof,PcHelpProof):
         from towr.domain.help_models import _expected_help_execution
+        from towr.domain.pc_allies_in_arms_models import build_allies_in_arms_application,allies_in_arms_updates
+        from towr.domain.pc_weapon_intent_models import weapon_use_hand
         _ready(state)
         turn = combat.active_turn
         if (turn is None or len(turn.action_slots) != 1 or turn.action_slots[0].executed
                 or pc_melee_selected_action(state) is not CombatActionKind.HELP):
             raise ValueError('Help must consume its selected unused standard slot once')
-        expected = build_pc_help_action(state)
-        from towr.domain.pc_help_models import pc_help_weapon_use
-        from towr.domain.pc_weapon_intent_models import weapon_use_hand
-        weapon_use = pc_help_weapon_use(state)
-        _same(proof.weapon_use,weapon_use,'Help changed its pre-price actual weapon use')
-        _same(proof.request,expected,'Help changed its current actor/ally/Test/action source')
-        effective,fate = validate_pc_test_fate(state,pc_actor,expected.help_skill,
-            expected.help_test,proof.execution.help_test_result,proof.fate_decline,proof.glorious)
-        canonical = _expected_help_execution(replace(expected,help_test=effective),proof.execution.help_test_result)
-        _same(proof.execution,canonical,'Help execution changed its exact bonus/receipt/clock/Test source')
-        from towr.domain.pc_help_models import pc_help_beneficiary_weapon,pc_selected_help_policy
-        _same(proof.beneficiary_weapon_item_id,pc_help_beneficiary_weapon(state,pc_selected_help_policy(state)),
-            'Help changed the concrete item of its promised Test')
-        from towr.domain.pc_ranged_models import complete_pc_ranged_help
-        use=complete_pc_ranged_help(state,expected,replace(expected,help_test=effective),canonical)
-        _same(proof.ranged_use,use,'Shooting Help changed its actual weapon/Test/bonus/Reload cycle')
-        injury = pc_after_test(state,pc_actor,critical_for_action(member,CombatActionKind.HELP,
-            used_hand=weapon_use_hand(weapon_use)))
-        return finish(round_state=canonical.round_state,
-            party=_party_update(state,pc_actor,injury=injury,fate=fate,
+        actor=turn.actor_id
+        if actor in state.source.enemy_activation_order:
+            from towr.domain.pc_npc_normal_help_models import (
+                build_npc_normal_help_action,npc_help_weapon_use,npc_normal_help_choice,complete_npc_ranged_help,
+            )
+            expected=build_npc_normal_help_action(state)
+            weapon_use=npc_help_weapon_use(state,actor,expected.help_skill)
+            _same(proof.fate_decline,None,'ordinary NPC Help cannot spend or decline PC Fate')
+            _same(proof.glorious,None,'ordinary NPC Help cannot invent a Fate proof')
+            _test_result(expected.help_test,proof.execution.help_test_result)
+            canonical=_expected_help_execution(expected,proof.execution.help_test_result)
+            item=npc_normal_help_choice(state).beneficiary_weapon_item_id
+            use=complete_npc_ranged_help(state,expected,canonical)
+            updates={}
+            if use is not None:
+                updates['enemies']=npc_ranged_inventory_update_enemies(state.enemies,actor,use.weapon_state)
+        else:
+            from towr.domain.pc_help_models import pc_help_weapon_use,pc_help_beneficiary_weapon,pc_selected_help_policy
+            from towr.domain.pc_ranged_models import complete_pc_ranged_help
+            expected=build_pc_help_action(state)
+            weapon_use=pc_help_weapon_use(state)
+            effective,fate=validate_pc_test_fate(state,actor,expected.help_skill,
+                expected.help_test,proof.execution.help_test_result,proof.fate_decline,proof.glorious)
+            canonical=_expected_help_execution(replace(expected,help_test=effective),proof.execution.help_test_result)
+            item=pc_help_beneficiary_weapon(state,pc_selected_help_policy(state))
+            use=complete_pc_ranged_help(state,expected,replace(expected,help_test=effective),canonical)
+            injury=pc_after_test(state,actor,critical_for_action(state.participant(actor),CombatActionKind.HELP,
+                used_hand=weapon_use_hand(weapon_use)))
+            updates=dict(party=_party_update(state,actor,injury=injury,fate=fate,
                 **({} if use is None else {'ranged':use.weapon_state})))
+        _same(proof.request,expected,'Help changed its current actor/ally/Test/action source')
+        _same(proof.weapon_use,weapon_use,'Help changed its pre-price actual weapon use')
+        _same(proof.execution,canonical,'Help execution changed its exact bonus/receipt/clock/Test source')
+        _same(proof.beneficiary_weapon_item_id,item,'Help changed the concrete item of its promised Test')
+        _same(proof.ranged_use,use,'Shooting Help changed its actual weapon/Test/bonus/Reload cycle')
+        application=build_allies_in_arms_application(state,canonical)
+        _same(proof.allies_in_arms,application,'Allies in Arms changed its actual completed Help, acquisition or removable target')
+        updates=allies_in_arms_updates(state,application,updates)
+        return finish(round_state=canonical.round_state,**updates)
     if isinstance(proof,PcWoundCompletionProof):
         pending = state.pending_wound
         if pending is None:
@@ -1115,6 +1298,15 @@ def project_pc_step(state, proof):
             replace(proof.completion.daily_registration.source_request)
             replace(proof.completion.daily_registration)
         _same(proof.completion.source_request,expected,'Near Miss completion differs from the current actual roll/history')
+        if not pending.wound_result.wound_accepted:
+            if (proof.completion.outcome is not CharacterWoundLifecycleOutcome.NEGATED
+                    or proof.completion.state != member.injury
+                    or proof.completion.daily_wounds != member.daily_wounds
+                    or any(value is not None for value in (proof.completion.fate_burn,
+                        proof.completion.near_miss_application, proof.completion.daily_registration,
+                        proof.completion.wound_effect))):
+                raise ValueError('an owned non-Fate negation cannot apply Wound effects or spend Fate')
+            return finish(pending_wound=None)
         if expected.near_miss is not None:
             if proof.completion.outcome is not CharacterWoundLifecycleOutcome.NEAR_MISS:
                 raise ValueError('the selected strategy must negate this Wound with Near Miss')
@@ -1171,9 +1363,11 @@ def project_pc_step(state, proof):
             for e in injury.active_wound_effects if isinstance(e,WoundConditionEffect)
             and e.duration is WoundEffectDuration.END_OF_NEXT_TURN and e not in member.injury.active_wound_effects)
         updated_combat = combat
-        active_wizard = (combat.active_turn is not None and combat.active_turn.actor_id == pc_actor
-            and scenario.participant(pc_actor).wizard is not None)
-        if injury.dead and not active_wizard and pc_actor not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
+        # An own-turn fatal consequence still owes the real end phase.  Keep
+        # its executed slot/active turn until TurnEnd closes that clock; only
+        # participants dying outside their own turn are immediately excluded.
+        active_pc = combat.active_turn is not None and combat.active_turn.actor_id == pc_actor
+        if injury.dead and not active_pc and pc_actor not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
             updated_combat = replace(combat,excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,pc_actor))
         return finish(round_state=updated_combat,
             party=_party_update(state,pc_actor,injury=injury,daily_wounds=proof.completion.daily_wounds,
@@ -1290,12 +1484,15 @@ def project_pc_step(state, proof):
             raise ValueError('selected Feel No Pain must replace this miss Staggered')
         if state.pending_wound is not None or not state.pending or state.pending[0] != proof.source:
             raise ValueError('miss Staggered is detached from its pending Attack')
-        actor = combat.active_turn.actor_id
+        from towr.domain.pc_companion_attack_models import kernel_condition_actor
+        actor = kernel_condition_actor(state, latest_pc_kernel_attack(state))
         if actor == pc_actor:
             injury = replace(member.injury,conditions=member.injury.conditions.with_condition(Condition.STAGGERED))
             return finish(party=_party_update(state,pc_actor,injury=injury),pending=state.pending[1:])
-        old = state.enemy(actor).state.injury
-        return finish(enemies=_enemy_update(state,actor,replace(old,conditions=old.conditions.with_condition(Condition.STAGGERED))),pending=state.pending[1:])
+        from towr.domain.pc_actor_models import pc_actor_injury, pc_actor_npc_update
+        old = pc_actor_injury(state,actor)
+        return finish(**pc_actor_npc_update(state,actor,
+            injury=replace(old,conditions=old.conditions.with_condition(Condition.STAGGERED))),pending=state.pending[1:])
     if isinstance(proof,PcMinionStaggerDefeatProof):
         if type(proof.source) is not MinionStaggerDefeatCause:
             raise TypeError('fleeing defeat requires its exact typed cause')
@@ -1305,16 +1502,18 @@ def project_pc_step(state, proof):
         attack = latest_pc_kernel_attack(state,
             kernel_request_id=proof.source.source_id.removesuffix(':minion-stagger-defeat'))
         defeat = pc_kernel_resolution(attack).minion_stagger_defeat
+        from towr.domain.pc_actor_models import pc_actor_npc_snapshot, pc_actor_npc_update, pc_companion
         if (defeat is None or defeat.cause != proof.source or attack.request.target_id != proof.source.target_id
-                or state.enemy(proof.source.target_id).state.injury != defeat.state):
+                or pc_actor_npc_snapshot(state,proof.source.target_id).state.injury != defeat.state):
             raise ValueError('fleeing defeat lacks its actual Attack/target/cause')
         target = proof.source.target_id
-        enemy = state.enemy(target)
+        enemy = pc_actor_npc_snapshot(state,target)
         dropped = replace(enemy,state=replace(enemy.state,wields_weapon=False,available_attack_ids=()))
         updated = combat
-        if target not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids):
+        if (target in tuple(p.entity_id for p in combat.participants)
+                and target not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids)):
             updated = replace(combat,excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,target))
-        return finish(enemies=tuple(dropped if e.state.actor_id==target else e for e in state.enemies),
+        return finish(**pc_actor_npc_update(state,target,snapshot=dropped),
             round_state=updated,pending=state.pending[1:])
     if isinstance(proof,PcProfileWoundProof):
         if (type(proof.source) is not ProfileStateChangeRequest
@@ -1330,6 +1529,20 @@ def project_pc_step(state, proof):
         profile_wound=pc_kernel_resolution(attack).profile_wound
         if target == pc_actor or profile_wound is None or proof.source != profile_wound.state_change:
             raise ValueError('profile Wound acknowledgement requires its actual NPC Attack')
+        from towr.domain.pc_actor_models import pc_actor_npc_snapshot, pc_actor_npc_update, pc_companion
+        companion = pc_companion(state,target)
+        if companion is not None:
+            from towr.domain.pc_magic_weapon_models import pc_profile_wound_decision
+            _same(proof.decision,pc_profile_wound_decision(state,attack) if proof.source.defeated else None,
+                'companion defeat cannot invent a caller/GM decision or omit mandatory death')
+            updated = combat
+            if (proof.source.defeated and target in tuple(p.entity_id for p in combat.participants)
+                    and target not in (*combat.completed_turn_entity_ids,*combat.excluded_turn_entity_ids)):
+                updated = replace(combat,excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids,target))
+            from towr.domain.pc_companion_effect_models import companion_profile_wound_injury
+            injury = companion_profile_wound_injury(state,target,proof.source)
+            return finish(round_state=updated,pending=state.pending[1:],
+                **pc_actor_npc_update(state,target,injury=injury))
         if not proof.source.defeated:
             if proof.decision is not None:
                 raise ValueError('a living NPC cannot receive a defeat disposition')
@@ -1371,15 +1584,19 @@ def project_pc_step(state, proof):
         _ready(state)
         if pc_melee_selected_action(state) is not CombatActionKind.RECOVER:
             raise ValueError('battlefield NPC Recover must be its actual selected action')
-        request = build_pc_battlefield_npc_recover(state)
+        from towr.domain.pc_actor_models import pc_companion, pc_actor_injury, pc_actor_npc_update
+        from towr.domain.pc_companion_turn_models import build_companion_recover
+        actor = state.round_state.active_turn.actor_id
+        request = (build_companion_recover(state) if pc_companion(state, actor) is not None
+            else build_pc_battlefield_npc_recover(state))
         from towr.domain.pc_ally_recover_models import expected_pc_standard_recover
         canonical = expected_pc_standard_recover(request)
-        before = state.enemy(request.actor_id).state.injury
+        before = pc_actor_injury(state, request.actor_id)
         expected = PcBattlefieldRecoverProof(request,canonical,before,
             battlefield_recovered_injury(before,canonical))
         _same(proof,expected,'battlefield NPC Recover changed its full source or standard benefits')
         return finish(round_state=canonical.round_state,
-            enemies=_enemy_update(state,request.actor_id,expected.injury))
+            **pc_actor_npc_update(state,request.actor_id,injury=expected.injury))
     if type(proof) is PcNpcRangedReloadProof:
         _ready(state)
         actor = combat.active_turn.actor_id
@@ -1445,10 +1662,18 @@ def project_pc_step(state, proof):
             **pc_shield_pickup_updates(state,canonical,proof.pc_shield_pickup))
     if isinstance(proof,(PcTurnEndProof,PcIncapacitatedTurnEndProof)):
         from towr.domain.pc_duellist_models import build_pc_duellist_second_action
-        if build_pc_npc_extra_attack_slot(state) is not None or build_pc_duellist_second_action(state) is not None:
+        from towr.domain.pc_rapid_reload_models import build_pc_rapid_reload_second_action
+        if (build_pc_npc_extra_attack_slot(state) is not None or build_pc_duellist_second_action(state) is not None
+                or build_pc_rapid_reload_second_action(state) is not None):
             raise ValueError('selected NPC policy must execute its available second Attack before TurnEnd')
         from towr.domain.pc_heavy_turn_projection import project_heavy_turn_end
         return project_heavy_turn_end(state,proof,finish)
+    from towr.domain.pc_companion_turn_models import PcCompanionWaitProof, expected_companion_wait
+    if type(proof) is PcCompanionWaitProof:
+        _ready(state)
+        expected = expected_companion_wait(state)
+        _same(proof, expected, 'companion wait changed its actual policy, turn or recover availability')
+        return finish(round_state=proof.result.state)
     if isinstance(proof,CombatRoundAdvanceResult):
         validate_pc_melee_combat_shape(proof.state)
         _same(proof.applied_rule_ids,('RULE-COMBAT-001:rounds-sides-turns',),'round-advance rule trace changed')

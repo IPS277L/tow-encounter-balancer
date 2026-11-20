@@ -7,6 +7,10 @@ from dataclasses import asdict, replace
 from functools import partial
 
 from towr.adapters._json_common import build_value, resilience_document
+from towr.adapters._talent_json import (
+    parse_acquired_talents, acquired_talents_document,
+    parse_talent_owner_facts, talent_owner_facts_document,
+)
 from towr.adapters.magic_json_errors import MagicInputError, MagicSimulationInputError
 from towr.adapters.ranged_json_errors import RangedInputErrorCode as Code
 from towr.domain.attack_models import DamageProfile, ResilienceProfile
@@ -107,6 +111,9 @@ def _parse_scenario(data, round_budget, path_prefix, error_type, schema_version)
         path = f'{path_prefix}/definitions/{index}'
         if raw['id'] in definitions:
             raise error_type(Code.INVALID_INPUT, 'duplicate definition ID', path=path + '/id')
+        talents = parse_acquired_talents(raw.get('talents', []), path=path+'/talents', error_type=error_type)
+        talent_facts = (None if raw.get('talent_facts') is None else parse_talent_owner_facts(
+            raw['talent_facts'], path=path+'/talent_facts', error_type=error_type))
         try:
             definition = NpcDefinition(raw['id'], raw['source_rule_id'], TargetInjuryPolicy(raw['injury_policy']),
                 raw['wound_limit'], ResilienceProfile(**raw['resilience']),
@@ -114,7 +121,7 @@ def _parse_scenario(data, round_budget, path_prefix, error_type, schema_version)
                     InlineProfile(a['dice'], a['threshold']), DamageProfile(a['damage']),
                     Range(a['range_min']), Range(a['range_max']), Hands(a['hands'])) for a in raw['attacks']),
                 tuple(NpcProtectionProfile(p['source_rule_id'], Skill(p['skill']), InlineProfile(p['dice'], p['threshold']))
-                      for p in raw['protection']))
+                      for p in raw['protection']), talents=talents, talent_facts=talent_facts)
         except (TypeError, ValueError) as error:
             raise error_type(Code.INVALID_INPUT, str(error), path=path) from error
         definitions[definition.id] = definition
@@ -321,7 +328,10 @@ def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, .
                 **_profile_document(a.test_profile), 'damage': a.damage.base, 'range_min': a.range_min.value,
                 'range_max': a.range_max.value, 'hands': a.hands.value} for a in d.attacks],
             'protection': [{'source_rule_id': p.source_rule_id, 'skill': p.skill.value,
-                **_profile_document(p.test_profile)} for p in d.protection]}
+                **_profile_document(p.test_profile)} for p in d.protection],
+            **({'talents': acquired_talents_document(d.talents)} if d.talents else {}),
+            **({'talent_facts': talent_owner_facts_document(d.talent_facts)}
+                if d.talent_facts is not None else {})}
             for d in (definitions[identifier] for identifier in definition_order)],
         'actors': [{'id': p.state.actor_id, 'definition_id': p.definition.id, 'side': p.state.side.value}
             for p in state.roster.participants],
@@ -358,7 +368,9 @@ def scenario_document(scenario: NpcMagicScenario, definition_order: tuple[str, .
 def validate_scenario_wire_permissions(scenario: NpcMagicScenario, schema_version: str) -> None:
     """Admit original permissions before projecting definitions or result catalogs."""
     _require_schema_version(schema_version)
+    from towr.domain.talent_actor_models import npc_definition_acquired_talents
     for participant in scenario.initial.roster.participants:
+        npc_definition_acquired_talents(participant.definition)
         if (participant.definition.resilience.armoured is not None
                 or participant.state.current_resilience.armoured is not None):
             raise ValueError('bounded Magic JSON does not support explicit armoured metadata')

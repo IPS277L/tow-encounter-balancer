@@ -38,7 +38,10 @@ def resolve_casting_test(
 
 def _complete_casting_test(request: CastingTestRequest, test) -> CastingTestResult:
     """Complete a guarded Casting Test after its actual Fate window, no RNG."""
-    latest_successes = test.successes
+    from towr.domain.honour_bound_models import validate_honour_bound_test_source
+    guarded = replace(request.test,reroll_locks=(*request.test.reroll_locks,rule_of_nine_reroll_lock()))
+    validate_honour_bound_test_source(guarded,test,actor_id=request.caster_id)
+    latest_successes = test.effective_successes
     state = replace(
         request.state,
         casting_successes=(

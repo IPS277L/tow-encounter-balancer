@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from towr.domain.honour_bound_models import HonourBoundOutcomeGrant
 
 
 class Characteristic(str, Enum):
@@ -341,14 +345,40 @@ class RollTrace:
 @dataclass(frozen=True, slots=True)
 class TestResult:
     trace: RollTrace
+    honour_bound: HonourBoundOutcomeGrant | None = field(default=None, kw_only=True)
+
+    def __post_init__(self):
+        if self.honour_bound is not None:
+            from dataclasses import fields, replace
+            from towr.domain.honour_bound_models import HonourBoundOutcomeGrant
+            if type(self.honour_bound) is not HonourBoundOutcomeGrant:
+                raise TypeError('a Test outcome override requires its exact Honour Bound grant')
+            if (type(self.honour_bound.maximum_successes) is not int
+                    or replace(self.honour_bound) != self.honour_bound):
+                raise ValueError('cached Honour Bound maximum differs from its actual Test source')
+            raw = self.honour_bound.raw_test.trace
+            if (type(self.trace) is not RollTrace
+                    or any(type(getattr(self.trace,item.name)) is not type(getattr(raw,item.name))
+                        for item in fields(RollTrace))
+                    or any(type(value) is not int for value in (*self.trace.initial_values,*self.trace.final_values))
+                    or any(type(value) is not RerollTrace
+                        or any(type(getattr(value,name)) is not int for name in ('index','original','replacement'))
+                        for value in self.trace.rerolls)
+                    or any(type(value) is not str for value in self.trace.applied_rule_ids)
+                    or self.trace != raw):
+                raise ValueError('Honour Bound cannot rewrite or replace the actual raw Test trace')
 
     @property
     def successes(self) -> int:
         return self.trace.successes
 
     @property
+    def effective_successes(self) -> int:
+        return self.successes if self.honour_bound is None else self.honour_bound.maximum_successes
+
+    @property
     def succeeded(self) -> bool:
-        return self.successes > 0
+        return self.honour_bound is not None or self.effective_successes > 0
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,4 +1,5 @@
 """Generated ranged facts, legal conditional proposals and full-source derivation."""
+from tests.support.talent_sources import paid_talent
 from tests.support.generated_weapon_sources import initial_generated_weapons
 from tests.support.armour_fixtures import light_loadout
 from towr.domain.armour_models import BodyArmour, ShieldKind
@@ -11,7 +12,7 @@ from tests.support.pc_tactics_fixtures import automatic_source
 from towr.application.dynamic_encounter import NpcSearchSpace, automatic_npc_search_space
 from towr.domain.generated_npc_models import (
     GeneratedNpc, GeneratedWeapon, GeneratedRangedFacts, GeneratedAbility,
-    GeneratedTalent, GENERATED_RANGED_WEAPONS, validate_generated_definition,
+    TalentId, GENERATED_RANGED_WEAPONS, validate_generated_definition,
 )
 from towr.domain.test_models import Skill, InlineProfile
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
@@ -157,13 +158,13 @@ class GeneratedRangedSearchTests(unittest.TestCase):
         self.assertIsNone(initial.ranged)
 
     def test_retained_talent_requirement_and_complete_source_are_not_repaired(self):
-        source=space(strength=(3,4),allowed_talents=(GeneratedTalent.WILD_ATTACK,))
-        initial=replace(source.sample(Random(2)),strength=4,talents=(GeneratedTalent.WILD_ATTACK,))
+        source=space(strength=(3,4),allowed_talents=(TalentId.WILD_ATTACK,))
+        initial=replace(source.sample(Random(2)),strength=4,talents=(paid_talent(TalentId.WILD_ATTACK),))
         rng=Random(24)
         for _ in range(60):
             initial=source.mutate(initial,rng)
             self.assertTrue(source.contains(initial))
-            if GeneratedTalent.WILD_ATTACK in initial.talents:
+            if TalentId.WILD_ATTACK in initial.talents:
                 self.assertGreaterEqual(initial.strength,4)
         forged=deepcopy(npc())
         object.__setattr__(forged.ranged,'shooting',True)

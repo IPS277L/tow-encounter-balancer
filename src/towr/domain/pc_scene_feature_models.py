@@ -102,12 +102,12 @@ def scene_attack_visibility(state,actor,target,skill):
     _id(actor);_id(target)
     if type(skill) is not Skill:
         raise TypeError('scene attack visibility requires the actual typed Skill')
-    known=(*state.source.pc_activation_order,*state.source.enemy_activation_order)
-    if actor not in known or target not in known or actor==target:
+    from towr.domain.pc_actor_models import pc_actor_side, pc_actor_injury
+    pc_actor_side(state, actor); pc_actor_side(state, target)
+    if actor==target:
         raise ValueError('scene attack visibility requires two actual encounter actors')
     ranged=skill in (Skill.SHOOTING,Skill.THROWING)
-    conditions=(state.participant(actor).injury.conditions if actor in state.source.pc_activation_order
-        else state.enemy(actor).state.injury.conditions)
+    conditions=pc_actor_injury(state, actor).conditions
     visible=not (ranged and conditions.has(Condition.BLINDED))
     zone=None;cover=concealment=False
     spec=state.source.battlefield
@@ -136,14 +136,14 @@ def difficult_terrain_crossed(state,actor,before,path,*,moved,move_carefully=Fal
     The caller owns its movement proof and the ensuing K1 Athletics Test.
     """
     from towr.domain.pc_battlefield_models import PcBattlefieldState,battlefield_is_midair
-    from towr.domain.pc_mount_models import mounted_can_fly
+    from towr.domain.pc_mount_models import actor_can_fly as mounted_can_fly
     from towr.domain.turn_models import CombatActionKind,ManoeuvreKind
     _id(actor)
     if type(before) is not PcBattlefieldState:
         raise TypeError('terrain crossing requires the frozen actual battlefield')
     replace(before)
-    if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
-        raise ValueError('terrain crossing requires an actual actor')
+    from towr.domain.pc_actor_models import pc_actor_side
+    pc_actor_side(state, actor)
     for flag in (moved,move_carefully,flying):
         if type(flag) is not bool:
             raise TypeError('terrain crossing uses exact movement facts')

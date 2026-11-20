@@ -138,13 +138,8 @@ def _actual_wounds(wound, profile_request):
     replace(profile_request.state)
     replace(wound)
     replace(wound.state)
-    from towr.rules.injury_resolution import resolve_profile_wound
-    expected = resolve_profile_wound(profile_request)
-    if (wound != expected or type(wound.wounds_inflicted) is not int
-            or type(wound.wounds_requested) is not int):
-        raise ValueError('Scarab Profile Wound differs from its actual deterministic source')
-    if type(wound.state) is not type(expected.state) or type(wound.state_change) is not type(expected.state_change):
-        raise TypeError('Scarab Profile Wound requires exact injury/state-change families')
+    from towr.domain.injury_models import validate_profile_wound_result_provenance
+    validate_profile_wound_result_provenance(profile_request, wound)
     if (type(wound.state_change.previous_wounds) is not int
             or type(wound.state_change.current_wounds) is not int
             or type(wound.state_change.defeated) is not bool

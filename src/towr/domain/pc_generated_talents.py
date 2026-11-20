@@ -5,12 +5,14 @@ The selected stance trades a genuinely available new Staggered application.
 """
 from __future__ import annotations
 
+from towr.domain.pc_demigryph_models import pc_kernel_attack_types
+
 from dataclasses import dataclass,field,replace
 from typing import TYPE_CHECKING
 
 from towr.domain.attack_models import AttackOutcome
 from towr.domain.condition_models import Condition,ConditionState
-from towr.domain.generated_npc_models import GeneratedTalent
+from towr.domain.generated_npc_models import TalentId
 from towr.domain.resolution_models import AttackerStaggerRequest
 from towr.domain.test_models import QualityModifier,TestQuality,Skill
 from towr.domain.turn_models import CombatActionKind
@@ -92,25 +94,29 @@ class PcDefensiveStanceProof:
         replace(self.source)
 
 
-def has_generated_talent(definition: NpcDefinition,talent: GeneratedTalent) -> bool:
+def has_generated_talent(definition: NpcDefinition,talent: TalentId) -> bool:
     components = definition.generated_components
-    return components is not None and talent in components.talents
+    from towr.domain.talent_models import has_talent
+    return components is not None and has_talent(components.talents,talent)
 
 
 def wild_attack_available(definition: NpcDefinition,conditions: ConditionState) -> bool:
-    return (has_generated_talent(definition,GeneratedTalent.WILD_ATTACK)
+    return (has_generated_talent(definition,TalentId.WILD_ATTACK)
         and not conditions.has(Condition.STAGGERED) and not conditions.has(Condition.DRAINED))
 
 
-def actor_has_combat_talent(state: PcMeleeState,actor_id: str,talent: GeneratedTalent) -> bool:
-    if actor_id in state.source.pc_activation_order:
-        return any(fact.talent is talent for fact in state.source.participant(actor_id).combat_talents)
-    return has_generated_talent(state.enemy(actor_id).definition,talent)
+def actor_has_combat_talent(state: PcMeleeState,actor_id: str,talent: TalentId) -> bool:
+    from towr.domain.talent_actor_models import actor_has_talent
+    return actor_has_talent(state,actor_id,talent)
 
 
 def actor_conditions(state: PcMeleeState,actor_id: str) -> ConditionState:
-    return (state.participant(actor_id).injury.conditions if actor_id in state.source.pc_activation_order
-        else state.enemy(actor_id).state.injury.conditions)
+    if actor_id in state.source.pc_activation_order:
+        return state.participant(actor_id).injury.conditions
+    if actor_id in state.source.enemy_activation_order:
+        return state.enemy(actor_id).state.injury.conditions
+    from towr.domain.pc_actor_models import pc_actor_injury
+    return pc_actor_injury(state,actor_id).conditions
 
 
 def actor_stagger_removable(state: PcMeleeState,actor_id: str) -> bool:
@@ -120,7 +126,8 @@ def actor_stagger_removable(state: PcMeleeState,actor_id: str) -> bool:
         from towr.domain.pc_heavy_wound_models import has_ongoing_condition
         member=state.participant(actor_id)
         return not member.injury.dead and not has_ongoing_condition(member.injury,Condition.STAGGERED)
-    return not state.enemy(actor_id).state.injury.defeated
+    from towr.domain.pc_actor_models import pc_actor_npc_snapshot
+    return not pc_actor_npc_snapshot(state,actor_id).state.injury.defeated
 
 
 def pending_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
@@ -129,10 +136,17 @@ def pending_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
     turn = state.round_state.active_turn
     if turn is None:
         return None
-    if not actor_has_combat_talent(state,turn.actor_id,GeneratedTalent.WILD_ATTACK):
+    if not actor_has_combat_talent(state,turn.actor_id,TalentId.WILD_ATTACK):
         return None
-    action_id = pc_melee_action_id(state,turn.actor_id)
+    from towr.domain.pc_bash_attack_models import pending_bash_decision
+    from towr.domain.pc_immediate_attack_models import PcImmediateStrikeProof
+    bash = pending_bash_decision(state)
+    action_id = (bash.grant.id if bash is not None and bash.grant.actor_id == turn.actor_id
+        else pc_melee_action_id(state,turn.actor_id))
     for proof in reversed(state.history):
+        if (type(proof) is PcImmediateStrikeProof and proof.request.actor_id == turn.actor_id
+                and proof.request.id == action_id):
+            return None
         if (type(proof) is PcAttackProof and proof.request.actor_id == turn.actor_id
                 and proof.request.id == action_id+':execute'):
             return None
@@ -146,6 +160,10 @@ def pending_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
 
 
 def expected_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
+    from towr.domain.pc_bash_wild_attack import expected_bash_wild_attack
+    bash = expected_bash_wild_attack(state)
+    if bash is not None:
+        return bash
     from towr.domain.pc_melee_result_models import pc_melee_action_id
     turn = state.round_state.active_turn
     if (turn is None
@@ -157,7 +175,7 @@ def expected_wild_attack(state: PcMeleeState) -> PcWildAttackProof | None:
         member=state.participant(turn.actor_id)
         conditions=member.injury.conditions
         if (member.injury.dead or not state.live_enemies
-                or not actor_has_combat_talent(state,turn.actor_id,GeneratedTalent.WILD_ATTACK)
+                or not actor_has_combat_talent(state,turn.actor_id,TalentId.WILD_ATTACK)
                 or conditions.has(Condition.STAGGERED) or conditions.has(Condition.DRAINED)):
             return None
         from towr.domain.pc_tactical_models import select_pc_tactic
@@ -207,19 +225,22 @@ def expected_defensive_stance(state: PcMeleeState) -> PcDefensiveStanceProof | N
         return None
     pending = state.pending[0]
     attack = next((proof for proof in reversed(state.history)
-        if type(proof) in (PcAttackProof,PcDemigryphStrikeProof)
+        if type(proof) in pc_kernel_attack_types()
         and proof.request.kernel_request.attack.id == pending.attack_id),None)
     if attack is None:
         return None
     defender=attack.request.target_id
     request = attack.protection.source_request
     result = pc_kernel_resolution(attack).attack
-    if (not actor_has_combat_talent(state,defender,GeneratedTalent.DEFENSIVE_STANCE)
+    from towr.domain.pc_companion_attack_models import kernel_condition_actor
+    condition_actor=kernel_condition_actor(state,attack)
+    from towr.domain.attack_models import defender_won_attack_opposition
+    if (not actor_has_combat_talent(state,defender,TalentId.DEFENSIVE_STANCE)
             or not actor_stagger_removable(state,defender)
             or request.attack_skill is not Skill.MELEE or request.selected_skill is not Skill.DEFENCE
             or result.outcome is not AttackOutcome.MISS or result.defender_test is None
-            or result.defender_test.successes <= result.attacker_test.successes
+            or not defender_won_attack_opposition(attack.request.kernel_request.attack,result)
             or attack.request.kernel_request.attack.attacker_is_staggered
-            or actor_conditions(state,attack.request.actor_id).has(Condition.STAGGERED)):
+            or actor_conditions(state,condition_actor).has(Condition.STAGGERED)):
         return None
     return PcDefensiveStanceProof(defender,attack.request.actor_id,pending)

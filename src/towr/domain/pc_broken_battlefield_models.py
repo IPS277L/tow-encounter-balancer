@@ -5,6 +5,8 @@ not count as enemies. Reaching safety is not an exit, defeat or recovery from
 Broken; the fixed policy then uses standard Recover, without invented Willpower.
 """
 from __future__ import annotations
+from towr.domain.pc_acrobatic_models import actor_acrobatic_source
+from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
 
 from collections import deque
 from dataclasses import dataclass
@@ -71,12 +73,12 @@ def _actor(state):
     turn=state.round_state.active_turn
     if turn is None:return None
     actor=turn.actor_id
-    if actor in state.source.pc_activation_order:
-        if state.participant(actor).injury.dead:return None
-    elif actor in state.source.enemy_activation_order:
-        if state.enemy(actor).state.injury.defeated or actor in state.exited_npc_ids:return None
-    else:raise ValueError('Broken turn requires an actual combat actor')
-    if not _conditions(state,actor).has(Condition.BROKEN):return None
+    from towr.domain.pc_actor_models import pc_actor_side,pc_actor_injury,pc_active_actor_ids
+    side=pc_actor_side(state,actor)
+    if turn.side is not side:
+        raise ValueError('Broken turn differs from the actual actor side')
+    if actor not in pc_active_actor_ids(state,side):return None
+    if not pc_actor_injury(state,actor).conditions.has(Condition.BROKEN):return None
     return actor
 
 
@@ -163,7 +165,7 @@ def build_pc_broken_run(state):
     terrain=terrain_test_required_for_route(state,actor,path)
     return RunActionExecutionRequest(pc_melee_action_id(state,actor)+':broken:run',state.round_state,
         state.battlefield.spatial,actor,len(turn.action_slots),pc_battlefield_actor_speed(state,actor),
-        _conditions(state,actor),path[0],crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain)
+        _conditions(state,actor),path[0],crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain,acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,(path[0],)))
 
 
 def expected_pc_broken_battlefield_step(state):
@@ -182,7 +184,7 @@ def expected_pc_broken_battlefield_step(state):
         terrain=terrain_test_required_for_route(state,actor,path)
         request=FreeMovementRequest(pc_melee_action_id(state,actor)+':broken:move',state.round_state,
             before.spatial,actor,pc_battlefield_actor_speed(state,actor),_conditions(state,actor),path,
-            crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain)
+            crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain,acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,path))
         result=resolve_free_movement(request)
         after=with_actor_placement(before,actor,request.destination_zone_id)
         from dataclasses import replace

@@ -179,6 +179,10 @@ def _held_pc_ranged(state: PcMeleeState, actor: str, *, loaded: bool) -> FreeRel
 def pc_repeater_bonus_selected(state: PcMeleeState, actor: str) -> bool:
     """Choose the actual item's mode before its Test, independently of source order."""
     from towr.domain.pc_melee_models import PcMeleePolicy, PcMeleeWeapon
+    from towr.domain.pc_rapid_reload_models import pending_rapid_reload
+    rapid = pending_rapid_reload(state)
+    if rapid is not None and rapid.actor_id == actor:
+        return rapid.ranged_bonus
     member=state.participant(actor)
     source=state.source.participant(actor)
     item=member.weapon_inventory.active
@@ -346,7 +350,7 @@ def build_pc_ranged_reload(state: PcMeleeState) -> ReloadActionExecutionRequest:
     assert type(weapon) is ReloadableWeaponState
     member = state.participant(actor)
     from towr.domain.weapon_inventory_models import WeaponItemLocation
-    if (len(usable_hands(member)) != 2 or (member.shield is not None
+    if (member.tool_inventory.occupied_hands or len(usable_hands(member)) != 2 or (member.shield is not None
             and member.shield.location is not PcShieldLocation.DROPPED)
             or any(item.location is WeaponItemLocation.HELD and item.id!=weapon.weapon_instance_id
                 for item in member.weapon_inventory.items)):

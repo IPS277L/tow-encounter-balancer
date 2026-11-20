@@ -103,6 +103,7 @@ class PcDismountProof:
     state: PcMountedState
     source_injury: CharacterInjuryState | ProfileInjuryState
     brawn_drag: BrawnDisplacementRequest | None = field(default=None, kw_only=True)
+    mount_injury: ProfileInjuryState | None = field(default=None, kw_only=True)
 
     def __post_init__(self):
         _identifier(self.actor_id, 'dismounted actor')
@@ -120,7 +121,15 @@ class PcDismountProof:
         if type(self.source_injury) not in (CharacterInjuryState, ProfileInjuryState):
             raise TypeError('dismount requires its exact actual typed injury witness')
         replace(self.source_injury)
-        if self.brawn_drag is not None:
+        if self.mount_injury is not None:
+            if type(self.mount_injury) is not ProfileInjuryState:
+                raise TypeError('incapacitated mount requires its own exact profile injury witness')
+            replace(self.mount_injury)
+            if self.brawn_drag is not None or not (self.mount_injury.defeated
+                    or any(self.mount_injury.conditions.has(condition)
+                        for condition in (Condition.PRONE, Condition.DEFENCELESS))):
+                raise ValueError('body-driven dismount requires actual mount incapacity')
+        elif self.brawn_drag is not None:
             if type(self.brawn_drag) is not BrawnDisplacementRequest:
                 raise TypeError('dragged dismount requires its exact actual Brawn consequence')
             replace(self.brawn_drag)
@@ -153,7 +162,11 @@ def initial_pc_mounts(source: PcMeleeScenario) -> tuple[PcMountedState, ...]:
 
 def _known_actor(source, actor):
     _identifier(actor, 'mount query actor')
-    if actor not in (*source.pc_activation_order, *source.enemy_activation_order):
+    if actor in (*source.pc_activation_order, *source.enemy_activation_order):
+        return
+    from towr.domain.pc_companion_models import mount_companion_actor_id
+    companions = tuple(mount_companion_actor_id(row.actor_id) for row in initial_pc_mounts(source))
+    if actor not in (*source.pc_activation_order, *source.enemy_activation_order, *companions):
         raise ValueError('mount query actor must belong to the encounter source')
 
 
@@ -164,6 +177,8 @@ def _mounted_entry(state, actor):
 
 def _rider_source(state, actor):
     _known_actor(state.source, actor)
+    if actor not in (*state.source.pc_activation_order, *state.source.enemy_activation_order):
+        return None
     return (state.source.participant(actor) if actor in state.source.pc_activation_order
         else state.enemy(actor).definition.generated_components)
 
@@ -180,6 +195,12 @@ def _active_mount(state, actor):
     replace(member)
     if member.mount is not mount:
         raise ValueError('mount state differs from the rider source component')
+    body = next((row for row in state.companions if row.rider_id == actor), None)
+    if body is not None:
+        injury = body.snapshot.state.injury
+        if injury.defeated or any(injury.conditions.has(condition)
+                for condition in (Condition.PRONE, Condition.DEFENCELESS)):
+            return None
     return member.mount if member.mounted else None
 
 
@@ -232,7 +253,23 @@ def mounted_test_modifiers(state: PcMeleeState, actor: str, skill: Skill,
 
 def mounted_can_fly(state: PcMeleeState, actor: str) -> bool:
     """Actual current Fly capability, distinct from permission for a move."""
-    return _active_mount(state, actor) is CombatMount.PEGASUS
+    if _active_mount(state, actor) is not CombatMount.PEGASUS:
+        return False
+    from towr.domain.pc_actor_models import pc_companion
+    from towr.domain.pc_companion_models import mount_companion_actor_id
+    row = pc_companion(state, mount_companion_actor_id(actor))
+    # A remounted Pegasus retains its own W1 flight loss (GM176).
+    return row is None or (not row.snapshot.state.injury.defeated and row.snapshot.state.injury.wounds == 0)
+
+
+def actor_can_fly(state, actor):
+    from towr.domain.pc_actor_models import pc_companion
+    row = pc_companion(state, actor)
+    if row is None:
+        return mounted_can_fly(state, actor)
+    mount = next(mount for mount in state.mounts if mount.actor_id == row.rider_id)
+    return (mount.mount is CombatMount.PEGASUS and not row.snapshot.state.injury.defeated
+        and row.snapshot.state.injury.wounds == 0)
 
 
 def mounted_give_ground_broken(state: PcMeleeState, actor: str, attack_skill: Skill) -> bool:
@@ -316,6 +353,14 @@ def expected_pc_dismount(state: PcMeleeState) -> PcDismountProof | None:
             index = len(state.history)
             return PcDismountProof(member.actor_id, _source_id(state.source, member.actor_id, index),
                 index, member, replace(member, mounted=False), injury)
+        body = next((row for row in state.companions if row.rider_id == member.actor_id), None)
+        if member.mounted and body is not None:
+            own = body.snapshot.state.injury
+            if own.defeated or any(own.conditions.has(condition)
+                    for condition in (Condition.PRONE, Condition.DEFENCELESS)):
+                index = len(state.history)
+                return PcDismountProof(member.actor_id, _source_id(state.source, member.actor_id, index),
+                    index, member, replace(member, mounted=False), injury, mount_injury=own)
     return None
 
 
@@ -338,6 +383,22 @@ def validate_pc_mounts(state: PcMeleeState) -> None:
         replace(member)
     bank = initial_pc_mounts(state.source)
     for index, proof in enumerate(state.history):
+        from towr.domain.pc_companion_departure_models import PcCompanionDepartureProof
+        if type(proof) is PcCompanionDepartureProof:
+            replace(proof)
+            previous=next((row for row in bank if row.actor_id==proof.rider_id),None)
+            if index != proof.history_index or previous != proof.previous_mount:
+                raise ValueError('companion departure changed its actual mount prefix')
+            bank=tuple(proof.mount if row.actor_id==proof.rider_id else row for row in bank)
+            continue
+        from towr.domain.pc_back_in_saddle_models import BACK_IN_SADDLE_REMOUNT_PROOFS
+        if type(proof) in BACK_IN_SADDLE_REMOUNT_PROOFS:
+            replace(proof)
+            previous = next((row for row in bank if row.actor_id == proof.actor_id), None)
+            if index != proof.history_index or previous != proof.previous_mount:
+                raise ValueError('remount differs from its actual source-bound detached mount prefix')
+            bank = tuple(proof.mount if row.actor_id == proof.actor_id else row for row in bank)
+            continue
         if type(proof) is not PcDismountProof:
             continue
         replace(proof)

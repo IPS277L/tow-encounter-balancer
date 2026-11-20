@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -186,12 +186,23 @@ class MiscastEffectTarget:
     target_id: str
     policy: TargetInjuryPolicy
     state: TargetInjuryState
+    wound_negation_options: tuple[WoundNegationOption, ...] = field(default=(), kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_non_empty_string(self.target_id, "target_id")
         if not isinstance(self.policy, TargetInjuryPolicy):
             raise TypeError("policy must be a TargetInjuryPolicy")
         _validate_policy_state(self.policy, self.state)
+        options = tuple(self.wound_negation_options)
+        if any(type(option) is not WoundNegationOption for option in options):
+            raise TypeError('Miscast profile Wound negation requires typed options')
+        if options and self.policy in (TargetInjuryPolicy.PLAYER, TargetInjuryPolicy.CHAMPION):
+            raise ValueError('fixed character Miscast Wounds retain their lifecycle decision window')
+        for option in options:
+            replace(option)
+        if len({option.rule_id for option in options}) != len(options):
+            raise ValueError('Miscast target Wound negation options cannot repeat')
+        object.__setattr__(self, 'wound_negation_options', options)
 
 
 @dataclass(frozen=True, slots=True)
@@ -627,9 +638,7 @@ class MiscastInternalDamageRequest:
             raise ValueError(
                 "a character cannot receive additional profile Wounds"
             )
-        if not character_policy and (
-            wound_dice_modifiers or wound_negation_options
-        ):
+        if not character_policy and wound_dice_modifiers:
             raise ValueError(
                 "a profile NPC cannot use Wounds Table modifiers or negation"
             )
@@ -708,6 +717,7 @@ class MiscastEarsRingingTargetResult:
     fixed_character_wound_completion: (
         FixedCharacterWoundLifecycleCompletionResult | None
     ) = None
+    consume_wound_negation: ConsumeWoundNegationRequest | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)

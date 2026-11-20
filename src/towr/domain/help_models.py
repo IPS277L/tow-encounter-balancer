@@ -162,7 +162,7 @@ class HelpActionExecutionResult:
             beneficiary_test_id=source.beneficiary_test_id,
             help_skill=source.help_skill,
             beneficiary_skill=source.beneficiary_skill,
-            bonus_dice=self.help_test_result.successes,
+            bonus_dice=self.help_test_result.effective_successes,
             different_skill_approved_by_gm=(
                 source.different_skill_approved_by_gm
             ),
@@ -332,6 +332,8 @@ def _expected_help_execution(
         raise TypeError("completed Help successes must be an integer")
     if help_test_result.successes < 0:
         raise ValueError("completed Help successes must be nonnegative")
+    from towr.domain.honour_bound_models import validate_honour_bound_test_source
+    validate_honour_bound_test_source(request.help_test,help_test_result,actor_id=request.actor_id)
     turn = request.round_state.active_turn
     assert turn is not None
     slot = turn.action_slots[request.slot_index - 1]
@@ -344,7 +346,7 @@ def _expected_help_execution(
         beneficiary_test_id=request.beneficiary_test_id,
         help_skill=request.help_skill,
         beneficiary_skill=request.beneficiary_skill,
-        bonus_dice=help_test_result.successes,
+        bonus_dice=help_test_result.effective_successes,
         different_skill_approved_by_gm=(
             request.different_skill_approved_by_gm
         ),

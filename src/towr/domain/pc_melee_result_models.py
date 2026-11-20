@@ -1,12 +1,25 @@
 """Source-bound journal for the bounded PC melee encounter (ADR-0065)."""
 from __future__ import annotations
+
+from towr.domain.pc_demigryph_models import pc_kernel_attack_types
 from towr.domain.pc_combat_equipment_models import validate_pc_weapon_inventory
-from towr.domain.weapon_inventory_models import WeaponInventoryState, WeaponItemLocation
+from towr.domain.weapon_inventory_models import WeaponInventoryState, WeaponItemLocation, WeaponGrip
+from towr.domain.tool_inventory_models import ToolInventoryState, ToolInventoryTransition, initial_tool_inventory
+from towr.domain.pc_musician_effect_models import PcMusicianActionProof, PcMusicianSignalProof
+from towr.domain.pc_musician_tactics import PcMusicianIntentProof
+from towr.domain.pc_musician_equipment_models import PcMusicianEquipmentProof
+from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
+from towr.domain.pc_oath_models import (
+    PcOathActor, PcLadyPrayerProof, PcOathNegationAckProof, initial_pc_oaths, lady_prayer_selected,
+)
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 from towr.domain.pc_weapon_inventory import PcWeaponSwapProof,initial_pc_weapon_inventory
 from towr.domain.pc_npc_weapon_inventory import PcNpcWeaponEquipProof
 from towr.domain.pc_weapon_intent_models import PcAttackWeaponIntent, build_pc_attack_weapon_intent, weapon_use_hand
 from towr.domain.weapon_use_models import WeaponUse, WeaponProtectionUse
+from towr.domain.talent_armour_bane_models import ArmourBaneApplication
+from towr.domain.talent_allies_in_arms_models import AlliesInArmsApplication
+from towr.domain.pc_immediate_attack_models import PcBashDecisionProof,PcImmediateStrikeProof
 
 from towr.domain.potion_models import ConsumableItem, ConsumableKind
 from towr.domain.potion_recover_models import HealingPotionRecoverSource
@@ -19,6 +32,12 @@ from towr.domain.pc_generated_talents import (PcWildAttackProof,PcDefensiveStanc
     expected_wild_attack,pending_wild_attack,generated_attack_quality)
 
 from dataclasses import dataclass, field, fields, is_dataclass, replace
+from towr.domain.pc_companion_models import PcMountCompanionState
+from towr.domain.pc_mount_retention_models import PcMountRetentionProof
+from towr.domain.pc_companion_turn_models import PcCompanionWaitProof
+from towr.domain.pc_companion_departure_models import PcCompanionDepartureProof
+from towr.domain.pc_companion_landing_models import PcCompanionLandingProof
+from towr.domain.pc_back_in_saddle_models import PcBackInSaddleMoveProof,PcBackInSaddleRecoverProof
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -113,7 +132,7 @@ from towr.domain.pc_aim_models import (PcAimProof, PcAimSecondActionProof, PcAim
 from towr.domain.pc_npc_aim_models import (PcNpcAimProof,PcNpcAimConsumptionProof,
     validate_pc_npc_aim_history,expected_npc_aim_consumption,npc_needs_aim)
 from towr.domain.pc_blunderbuss_models import (PcBlunderbussNearbyProof, PcBlunderbussSnapshot,
-    PcBlunderbussTargetProof,PcBlunderbussProfileProof,PcBlunderbussEndProof,
+    PcBlunderbussTargetProof,PcBlunderbussProfileProof,PcBlunderbussEndProof,PcBlunderbussMinionDefeatProof,
     current_pc_blunderbuss_wave,pc_blunderbuss_pending_npc_target,validate_pc_blunderbuss_history)
 from towr.domain.pc_net_models import (PcNetConditionSource, PcNpcNetDrawProof,
     net_condition_sources_from_attack, selected_pc_npc_net_attack, expected_pc_npc_net_draw)
@@ -249,8 +268,12 @@ class PcMeleeParticipantState:
     potions: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
     enhancements: tuple[str, ...] = field(default=(), kw_only=True)
     magic: WizardMagicState | None = field(default=None, kw_only=True)
+    tool_inventory: ToolInventoryState = field(default_factory=ToolInventoryState, kw_only=True)
 
     def __post_init__(self):
+        if type(self.tool_inventory) is not ToolInventoryState:
+            raise TypeError('PC tools require their actual typed physical inventory')
+        replace(self.tool_inventory)
         if self.magic is not None:
             if type(self.magic) is not WizardMagicState:
                 raise TypeError('PC magic must retain its typed runtime')
@@ -357,6 +380,7 @@ class PcMeleeState:
     pending_wound: CharacterWoundLifecycleRollResult | None = None
     pending_actor_id: str | None = None
     history: tuple[PcMeleeProof, ...] = field(default=(), repr=False)
+    oaths: tuple[PcOathActor, ...] = field(default=(), kw_only=True)
     magic_pending: PcMagicPending | None = field(default=None,kw_only=True)
     magic_modifiers: tuple[PcMagicModifier, ...] = field(default=(),kw_only=True)
     magic_notes: tuple[PcMagicTask, ...] = field(default=(),kw_only=True)
@@ -364,6 +388,7 @@ class PcMeleeState:
     approached_npc_ids: tuple[str, ...] = field(default=(),kw_only=True)
     battlefield: PcBattlefieldState | None = field(default=None,kw_only=True)
     mounts: tuple[PcMountedState, ...] = field(default=(),kw_only=True)
+    companions: tuple[PcMountCompanionState, ...] = field(default=(),kw_only=True)
     weighted_nets: tuple[PcWeightedNetState, ...] = field(default=(),kw_only=True)
     npc_shields: tuple[PcNpcShieldState, ...] = field(default=(),kw_only=True)
     briarroot_bindings: tuple[PcBriarrootBinding, ...] = field(default=(),kw_only=True)
@@ -372,6 +397,12 @@ class PcMeleeState:
     def __post_init__(self):
         if not isinstance(self.source, PcMeleeScenario) or not isinstance(self.round_state, CombatRoundState):
             raise TypeError('PC owner requires source scenario and combat clock')
+        if type(self.oaths) is not tuple or any(type(row) is not PcOathActor for row in self.oaths):
+            raise TypeError('native oath owners require their exact immutable actor bank')
+        for row in self.oaths:
+            replace(row)
+        if len({row.actor_id for row in self.oaths}) != len(self.oaths):
+            raise ValueError('native oath actor cannot repeat its resource bank')
         if self.magic_pending is not None:
             if type(self.magic_pending) is not PcMagicPending:
                 raise TypeError('PC pending magic must be typed')
@@ -390,9 +421,13 @@ class PcMeleeState:
         validate_pc_approaches(self)
         validate_pc_battlefield_history(self)
         validate_pc_mounts(self)
+        from towr.domain.pc_mount_companion_owner import validate_pc_companions
+        validate_pc_companions(self)
         validate_weighted_net_bank(self)
         validate_npc_shields(self)
         validate_pc_shields(self)
+        from towr.domain.pc_tool_models import validate_native_tools
+        validate_native_tools(self)
         validate_briarroot_bindings(self)
         validate_briarroot_dropped_weapons(self)
         exits = tuple(proof for proof in self.history if type(proof) is PcNpcExitProof)
@@ -413,7 +448,7 @@ class PcMeleeState:
                 and any(item.kind is WeaponKind.SCARAB_KNIFE
                     for item in enemy.definition.generated_components.weapons) for enemy in self.source.enemies)
         hit_causes = (tuple(cause for proof in self.history
-            if type(proof) in (PcAttackProof,PcDemigryphStrikeProof) and proof.request.target_id in self.source.pc_activation_order
+            if type(proof) in pc_kernel_attack_types() and proof.request.target_id in self.source.pc_activation_order
             for cause in hit_condition_sources_from_attack(proof.request,pc_kernel_resolution(proof)))
             if has_hit_effects else ())
         for member, source in zip(self.party, self.source.party):
@@ -439,7 +474,13 @@ class PcMeleeState:
                 raise ValueError('Net bank differs from actual successful throws')
             validate_pc_melee_source_types(member.net_condition_sources,expected_net_sources)
             draws = tuple(p for p in self.history if isinstance(p,PcBackupWeaponDrawProof) and p.actor_id==member.actor_id)
-            if (source.combat_equipment is None or source.policy is not PcMeleePolicy.AUTOMATIC_COMBAT) and (len(draws)>1 or member.using_backup_weapon != bool(draws)
+            from towr.domain.pc_weapon_inventory import PcWeaponSwapProof
+            bash_swaps=tuple(p for p in self.history if type(p) is PcWeaponSwapProof
+                and p.actor_id==member.actor_id and p.intent.reason=='bash_immediate')
+            # A granted strike can genuinely draw another physical weapon even
+            # under a fixed ordinary policy. Its typed equip receipt owns that
+            # transition; the legacy single-backup path still requires its draw.
+            if not bash_swaps and (source.combat_equipment is None or source.policy is not PcMeleePolicy.AUTOMATIC_COMBAT) and (len(draws)>1 or member.using_backup_weapon != bool(draws)
                     or member.using_backup_weapon and source.backup_weapon_policy is None):
                 raise ValueError('backup activation must preserve its single actual draw receipt')
             active_weapon = pc_active_weapon(self,member.actor_id)
@@ -450,7 +491,7 @@ class PcMeleeState:
                 raise ValueError('held weapon grip must preserve its one/two-handed source')
             expected_fate = source.fate
             for proof in self.history:
-                glorious = (proof.glorious if isinstance(proof,(PcAttackProof,PcDemigryphStrikeProof,PcFallingProof,PcWeaponHazardProof,PcExtinguishProof,PcTerrainTraversalProof,PcHammerRetrievalProof,PcEnduranceProof,PcHelpProof,PcRangedReloadProof,PcCastingProof,PcBattlefieldChargeProof,PcBattlefieldRunProof,PcNetReleaseProof,PcBriarrootReleaseProof)) else
+                glorious = (proof.glorious if isinstance(proof,(PcMusicianActionProof,PcAttackProof,PcDemigryphStrikeProof,PcImmediateStrikeProof,PcFallingProof,PcWeaponHazardProof,PcExtinguishProof,PcTerrainTraversalProof,PcHammerRetrievalProof,PcEnduranceProof,PcHelpProof,PcRangedReloadProof,PcCastingProof,PcBattlefieldChargeProof,PcBattlefieldRunProof,PcNetReleaseProof,PcBriarrootReleaseProof)) else
                     proof.critical.glorious if isinstance(proof,(PcTurnEndProof,PcIncapacitatedTurnEndProof))
                     and proof.critical is not None else None)
                 if glorious is not None and glorious.previous_state.actor_id == member.actor_id:
@@ -467,6 +508,9 @@ class PcMeleeState:
                         if burn.previous_state != expected_fate:
                             raise ValueError('PC Fate burns must extend the actual resource history')
                         expected_fate = burn.state
+                if self.oaths:
+                    from towr.domain.pc_oath_models import honour_fate_after_proof
+                    expected_fate = honour_fate_after_proof(self, member.actor_id, expected_fate, proof)
             if member.fate != expected_fate or member.daily_wounds.day_id != self.source.day_id:
                 raise ValueError('PC owner cannot replace Fate or daily source')
         if (not all(isinstance(e, NpcParticipantSnapshot) for e in self.enemies)
@@ -483,12 +527,16 @@ class PcMeleeState:
             if self.pending_actor_id not in self.source.pc_activation_order:
                 wave = current_warped_form(self)
                 target = next((p for p in reversed(self.history) if type(p) is PcWarpedFormTargetProof), None)
+                from towr.domain.pc_actor_models import pc_companion
                 warped = not (wave is None or target is None or target.activation_id != wave.activation_id
                         or target.request.target_id != self.pending_actor_id
-                        or self.pending_actor_id not in self.source.enemy_activation_order
+                        or (self.pending_actor_id not in self.source.enemy_activation_order
+                            and pc_companion(self,self.pending_actor_id) is None)
                         or self.pending_wound is not None
                         or self.pending != target.result.follow_ups)
-                if not warped and pc_blunderbuss_pending_npc_target(self) is None:
+                from towr.domain.pc_companion_attack_models import companion_attack_pending_owner
+                if (not warped and pc_blunderbuss_pending_npc_target(self) is None
+                        and companion_attack_pending_owner(self) != self.pending_actor_id):
                     from towr.domain.pc_give_ground_models import pc_give_ground_pending_actor
                     from towr.domain.pc_brawn_displacement_models import brawn_displacement_pending_actor
                     if (pc_give_ground_pending_actor(self)!=self.pending_actor_id
@@ -534,14 +582,13 @@ class PcMeleeState:
 
 
 def pc_melee_round_participants(state: PcMeleeState) -> tuple[CombatTurnParticipant, ...]:
-    return (*(CombatTurnParticipant(actor, CombatSide.PLAYERS_AND_ALLIES)
-              for actor in state.source.pc_activation_order if not state.participant(actor).injury.dead),
-            *(CombatTurnParticipant(actor, CombatSide.OPPOSITION)
-              for actor in state.source.enemy_activation_order
-              if not state.enemy(actor).state.injury.defeated and actor not in state.exited_npc_ids))
+    from towr.domain.pc_actor_models import pc_active_actor_ids, pc_actor_side
+    return tuple(CombatTurnParticipant(actor, pc_actor_side(state, actor))
+        for actor in pc_active_actor_ids(state))
 
 
 def initial_pc_melee_state(source: PcMeleeScenario) -> PcMeleeState:
+    from towr.domain.pc_mount_companion_owner import initial_pc_companions
     validate_pc_melee_scenario_admission(source)
     participants = (*(CombatTurnParticipant(actor, CombatSide.PLAYERS_AND_ALLIES) for actor in source.pc_activation_order),
         *(CombatTurnParticipant(actor, CombatSide.OPPOSITION) for actor in source.enemy_activation_order))
@@ -550,10 +597,12 @@ def initial_pc_melee_state(source: PcMeleeScenario) -> PcMeleeState:
     party = tuple(PcMeleeParticipantState(member.actor_id, initial_pc_inventory_injury(member,initial_pc_weapon_inventory(member),
         initial_pc_armour_injury(member)), initial_pc_weapon_inventory(member),
         member.fate, DailyWoundState(source.day_id, member.actor_id),shield=initial_pc_shield(member.shield),
-        potions=member.consumables,
+        potions=member.consumables, tool_inventory=initial_tool_inventory(member.actor_id,member.pc.tools),
         magic=WizardMagicState() if member.wizard is not None else None) for member in source.party)
     return PcMeleeState(source, CombatRoundState(1, participants), party, initial_pc_npc_weapon_inventories(source),
+        oaths=initial_pc_oaths(source),
         mounts=initial_pc_mounts(source),
+        companions=initial_pc_companions(source),
         weighted_nets=initial_weighted_nets(source),
         npc_shields=initial_npc_shields(source),
         battlefield=(build_pc_battlefield(source.battlefield, source.pc_activation_order,
@@ -579,6 +628,7 @@ class PcAttackProof:
     throwing_inventory: PcThrowingInventoryReceipt | None = field(default=None,kw_only=True)
     weapon_area: PcWeaponAreaSnapshot | None = field(default=None,kw_only=True)
     magic_weapon: PcMagicWeaponAttackReceipt | None = field(default=None,kw_only=True)
+    armour_bane: ArmourBaneApplication | None = field(default=None,kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -596,6 +646,7 @@ class PcHelpProof:
     beneficiary_weapon_item_id: str | None = field(default=None,kw_only=True)
     ranged_use: PcRangedHelpUseProof | None = field(default=None,kw_only=True)
     weapon_use: WeaponUse | WeaponProtectionUse | None = field(kw_only=True)
+    allies_in_arms: AlliesInArmsApplication | None = field(default=None,kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -620,6 +671,7 @@ class PcHandDropProof:
     die: int
     hand: PcWeaponHand
     weighted_net_drops: tuple[PcNetDrop, ...] = field(default=(),kw_only=True)
+    tool_drops: tuple[ToolInventoryTransition, ...] = field(default=(),kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -629,6 +681,7 @@ class PcBodyConsequenceProof:
     side: PcWeaponHand | None
     count: int = 1
     weighted_net_drops: tuple[PcNetDrop, ...] = field(default=(),kw_only=True)
+    tool_drops: tuple[ToolInventoryTransition, ...] = field(default=(),kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -705,13 +758,13 @@ class PcTurnEndProof:
 PcMeleeProof = (
     PcScarabChargeProof | PcScarabHealingProof | PcTerrainTraversalProof | PcHammerRetrievalProof | PcGiveGroundProof | PcAfterGiveGroundProof | PcBrokenMoveProof | PcBrokenRunProof | PcBrokenBlockedProof | PcBrawnShoveProof |
     PcWeaponAreaConditionProof | PcWeaponAreaEndProof | PcWeaponHazardProof | PcWeaponHazardCompletionProof | PcExtinguishProof |
-    CombatTurnStartResult | CombatActionSlotResult | PcAttackProof | PcDemigryphIntentProof | PcDemigryphStrikeProof | PcFallingProof | PcFallingAcknowledgementProof | PcWoundCompletionProof | PcNpcBloodRageProof
+    CombatTurnStartResult | CombatActionSlotResult | PcAttackProof | PcDemigryphIntentProof | PcDemigryphStrikeProof | PcBashDecisionProof | PcImmediateStrikeProof | PcFallingProof | PcFallingAcknowledgementProof | PcWoundCompletionProof | PcNpcBloodRageProof
     | PcNpcRecoverProof | PcFlagellantMissWoundProof | PcWildAttackProof | PcDefensiveStanceProof
     | PcWarpedFormActivationProof | PcWarpedFormTargetProof | PcWarpedFormProfileProof
     | PcWarpedFormMinionDefeatProof | PcWarpedFormEndProof
     | PcEnduranceProof | PcHandDropProof | PcAttackerStaggerProof | PcProfileWoundProof
     | PcRecoverProof | PcPotionRecoverProof | PcCastingProof | PcMagicInterruptionProof | PcMiscastRollProof | PcWeaponSwapProof | PcNpcWeaponEquipProof
-    | PcMagicEffectProof | PcMagicCleanupProof
+    | PcMagicEffectProof | PcMagicCleanupProof | PcMusicianActionProof | PcMusicianSignalProof | PcMusicianIntentProof | PcMusicianEquipmentProof | PcMusicianRecoverProof
     | PcTurnEndProof | PcIncapacitatedTurnEndProof | PcBodyConsequenceProof | PcMinionStaggerDefeatProof | PcNpcHelpProof
     | PcWoundChoiceProof | PcHandSwapProof | PcBackupWeaponDrawProof | PcHelpProof | PcNpcExitProof | CombatRoundAdvanceResult
     | PcNpcDistractionExpiredProof
@@ -723,9 +776,9 @@ PcMeleeProof = (
     | PcBriarrootWeaponDropProof | PcBriarrootWeaponPickupProof | PcBriarrootWeaponApproachProof
     | PcBattlefieldMoveProof | PcBattlefieldRecoverProof
     | PcBattlefieldChargeProof | PcBattlefieldRunProof | PcBattlefieldCarefulProof
-    | PcBlunderbussTargetProof | PcBlunderbussProfileProof | PcBlunderbussEndProof
-    | PcDismountProof
-    | PcNetReleaseProof | PcNetPickupProof | PcNetApproachProof | PcNetIncidentalPickupProof
+    | PcBlunderbussTargetProof | PcBlunderbussProfileProof | PcBlunderbussEndProof | PcBlunderbussMinionDefeatProof
+    | PcDismountProof | PcMountRetentionProof | PcCompanionWaitProof | PcCompanionDepartureProof | PcCompanionLandingProof | PcBackInSaddleMoveProof | PcBackInSaddleRecoverProof
+    | PcNetReleaseProof | PcNetPickupProof | PcNetApproachProof | PcNetIncidentalPickupProof | PcLadyPrayerProof | PcOathNegationAckProof
 )
 
 
@@ -774,6 +827,12 @@ class PcMeleeScenarioResult:
         if not steps:
             raise ValueError('PC encounter cannot finish without an executed action')
         actual_stop = pc_melee_unsupported(current)
+        from towr.domain.pc_companion_departure_models import expected_companion_departure
+        if expected_companion_departure(current) is not None:
+            raise ValueError('terminal result skipped its confirmed rider-source companion departure')
+        from towr.domain.pc_companion_landing_models import expected_companion_landing
+        if expected_companion_landing(current) is not None:
+            raise ValueError('terminal result skipped its source-bound wounded Pegasus landing')
         from towr.domain.pc_magic_weapon_models import expected_scarab_charge
         if expected_scarab_charge(current) is not None:
             raise ValueError('terminal result skipped its actual Scarab Wound resource completion')
@@ -823,6 +882,9 @@ class PcMeleeScenarioResult:
         if self.unsupported != actual_stop:
             raise ValueError('PC unsupported result must preserve its actual pending source')
         active = current.round_state.active_turn
+        if (actual_stop is None and active is not None and active.actor_id in self.source.pc_activation_order
+                and current.participant(active.actor_id).injury.dead):
+            raise ValueError('terminal result skipped the active dead PC real turn end phase')
         if (actual_stop is None and active is not None and active.actor_id in self.source.enemy_activation_order
                 and current.enemy(active.actor_id).definition.id=='pc-book-npc:great_stag'
                 and active.action_slots and all(slot.executed for slot in active.action_slots)):
@@ -856,7 +918,7 @@ class PcMeleeScenarioResult:
 
     @property
     def executed_actions(self) -> int:
-        return sum(isinstance(step.proof, (PcAimProof, PcNpcAimProof, PcAttackProof, PcCastingProof, PcRecoverProof, PcExtinguishProof, PcPotionRecoverProof, PcScarabHealingProof, PcHammerRetrievalProof, PcHelpProof, PcNpcHelpProof, PcNpcRecoverProof, PcRangedReloadProof, PcNpcRangedReloadProof, PcBattlefieldRecoverProof,PcBattlefieldRunProof,PcBattlefieldCarefulProof,PcBrokenRunProof,PcNetReleaseProof,PcNetPickupProof,PcNpcShieldRecoverProof,PcBriarrootReleaseProof,PcBriarrootWeaponPickupProof))
+        return sum(isinstance(step.proof, (PcLadyPrayerProof, PcMusicianActionProof, PcMusicianRecoverProof, PcAimProof, PcNpcAimProof, PcAttackProof, PcCastingProof, PcRecoverProof, PcExtinguishProof, PcPotionRecoverProof, PcScarabHealingProof, PcHammerRetrievalProof, PcHelpProof, PcNpcHelpProof, PcNpcRecoverProof, PcRangedReloadProof, PcNpcRangedReloadProof, PcBattlefieldRecoverProof,PcBattlefieldRunProof,PcBattlefieldCarefulProof,PcBrokenRunProof,PcNetReleaseProof,PcNetPickupProof,PcNpcShieldRecoverProof,PcBriarrootReleaseProof,PcBriarrootWeaponPickupProof))
             or type(step.proof) is PcBattlefieldChargeProof and not step.proof.result.attack_allowed
             for step in self.steps)
 
@@ -960,8 +1022,11 @@ def pc_melee_unsupported(state: PcMeleeState) -> PcMeleeUnsupported | PcNpcBroke
     return wound_stop or pc_npc_broken_turn_unsupported(state) or pc_ranged_unsupported(state)
 
 
-def pc_melee_action_id(state: PcMeleeState, actor_id: str) -> str:
-    return f'{state.source.id}:r{state.round_state.round_number}:{actor_id}'
+def pc_melee_action_id(state: PcMeleeState, actor_id: str,*,round_number=None) -> str:
+    number=state.round_state.round_number if round_number is None else round_number
+    if type(number) is not int or number<1:
+        raise ValueError('an upcoming action needs its exact positive round number')
+    return f'{state.source.id}:r{number}:{actor_id}'
 
 
 def pc_melee_net_recovery(state):
@@ -986,6 +1051,9 @@ def pc_melee_net_recovery(state):
 def pc_melee_briarroot_recovery(state):
     """Break a selected restraint when the held ranged weapon needs separation."""
     if state.pending or state.pending_wound is not None or state.magic_pending is not None:
+        return None
+    from towr.domain.pc_musician_tactics import committed_musician_intent
+    if committed_musician_intent(state) is not None:
         return None
     turn=state.round_state.active_turn
     if turn is None or turn.action_slots and turn.action_slots[-1].executed:
@@ -1034,6 +1102,9 @@ def pc_melee_briarroot_weapon_drop(state):
 
 def pc_melee_briarroot_weapon_recovery(state):
     """Only a recoverable actual owned ground item can drive pickup positioning."""
+    from towr.domain.pc_musician_tactics import committed_musician_intent
+    if committed_musician_intent(state) is not None:
+        return None
     if state.pending or state.pending_wound is not None or state.magic_pending is not None:
         return None
     turn=state.round_state.active_turn
@@ -1059,6 +1130,16 @@ def pc_melee_selected_action(state: PcMeleeState) -> CombatActionKind:
         return CombatActionKind.MANOEUVRE
     if pc_broken_standard_recover_selected(state):
         return CombatActionKind.RECOVER
+    from towr.domain.pc_actor_models import pc_companion
+    if (state.round_state.active_turn is not None
+            and pc_companion(state, state.round_state.active_turn.actor_id) is not None):
+        return CombatActionKind.RECOVER
+    if lady_prayer_selected(state):
+        return CombatActionKind.IMPROVISE
+    from towr.domain.pc_musician_tactics import committed_musician_intent
+    committed_music=committed_musician_intent(state)
+    if committed_music is not None:
+        return committed_music.choice.action
     from towr.domain.pc_magic_weapon_models import pc_hammer_retrieval_selected
     if pc_hammer_retrieval_selected(state):
         return CombatActionKind.RECOVER
@@ -1068,6 +1149,17 @@ def pc_melee_selected_action(state: PcMeleeState) -> CombatActionKind:
     actor_id = turn.actor_id
     if turn.action_slots and not turn.action_slots[-1].executed:
         return turn.action_slots[-1].declaration.kind
+    from towr.domain.pc_back_in_saddle_models import available_remount
+    if available_remount(state, actor_id) is not None:
+        return CombatActionKind.RECOVER
+    from towr.domain.pc_musician_tactics import committed_musician_intent,npc_music_choice
+    music_intent=committed_musician_intent(state,actor_id)
+    if music_intent is not None:
+        return music_intent.choice.action
+    if actor_id in state.source.enemy_activation_order:
+        music=npc_music_choice(state,actor_id)
+        if music is not None:
+            return music.action
     if actor_id in state.source.pc_activation_order:
         member = state.participant(actor_id)
         from towr.domain.pc_melee_models import PcMeleePolicy
@@ -1092,6 +1184,9 @@ def pc_melee_selected_action(state: PcMeleeState) -> CombatActionKind:
             return CombatActionKind.AIM
     else:
         from towr.domain.pc_scarab_recover_models import selected_scarab_healing
+        from towr.domain.pc_oath_models import npc_oath_attack_blocked
+        if npc_oath_attack_blocked(state, actor_id):
+            return CombatActionKind.RECOVER
         if selected_scarab_healing(state) is not None:
             return CombatActionKind.RECOVER
         if pc_extinguish_selected(state):
@@ -1107,6 +1202,9 @@ def pc_melee_selected_action(state: PcMeleeState) -> CombatActionKind:
             return CombatActionKind.RECOVER
         from towr.domain.pc_npc_help_models import pc_npc_help_beneficiary
         if pc_npc_help_beneficiary(state) is not None:
+            return CombatActionKind.HELP
+        from towr.domain.pc_npc_normal_help_models import npc_normal_help_choice
+        if npc_normal_help_choice(state) is not None:
             return CombatActionKind.HELP
         if pc_battlefield_npc_recover_selected(state):
             return CombatActionKind.RECOVER
@@ -1124,6 +1222,9 @@ def pc_melee_selected_action(state: PcMeleeState) -> CombatActionKind:
 def pc_melee_action_declaration(state):
     actor = state.round_state.active_turn.actor_id
     kind = pc_melee_selected_action(state)
+    if lady_prayer_selected(state):
+        from towr.domain.talent_lady_prayer_models import lady_prayer_declaration
+        return lady_prayer_declaration()
     if kind is CombatActionKind.MANOEUVRE:
         from towr.domain.pc_broken_battlefield_models import pc_broken_run_selected
         if pc_broken_run_selected(state):
@@ -1135,6 +1236,13 @@ def pc_melee_action_declaration(state):
             manoeuvre=proposed_pc_battlefield_manoeuvre(state).kind
         return CombatActionDeclaration(kind,manoeuvre=manoeuvre)
     if kind is CombatActionKind.IMPROVISE:
+        from towr.domain.pc_musician_tactics import current_music_choice
+        music=current_music_choice(state)
+        if music is not None and not music.music_pickup:
+            from towr.domain.talent_battlefield_musician_models import BATTLEFIELD_MUSICIAN_RULE_ID
+            from towr.domain.turn_models import ImproviseKind
+            return CombatActionDeclaration(kind,improvise_kind=ImproviseKind.ABILITY,
+                improvise_approach_id=BATTLEFIELD_MUSICIAN_RULE_ID)
         if pc_is_casting_action(state):
             from towr.domain.turn_models import ImproviseKind
             from towr.domain.pc_magic_source_models import ELEMENTALISM_LORE_ID
@@ -1154,7 +1262,8 @@ def pc_is_casting_action(state):
         return False
     if source.policy is PcMeleePolicy.AUTOMATIC_COMBAT:
         from towr.domain.pc_tactical_models import select_pc_tactic
-        return not select_pc_tactic(state).ranged_reload
+        choice=select_pc_tactic(state)
+        return not choice.ranged_reload and choice.music_item_id is None
     return True
 
 
@@ -1175,11 +1284,10 @@ def _pc_recover_needed(member, *, unarmed_available=False):
 
 def pc_melee_next_actor(state: PcMeleeState) -> str:
     unavailable = (*state.round_state.completed_turn_entity_ids, *state.round_state.excluded_turn_entity_ids)
-    if state.round_state.next_side is CombatSide.PLAYERS_AND_ALLIES:
-        return next(actor for actor in state.source.pc_activation_order
-            if not state.participant(actor).injury.dead and actor not in unavailable)
-    return next(actor for actor in state.source.enemy_activation_order
-        if not state.enemy(actor).state.injury.defeated and actor not in state.exited_npc_ids and actor not in unavailable)
+    from towr.domain.pc_actor_models import pc_active_actor_ids
+    active = pc_active_actor_ids(state, state.round_state.next_side)
+    admitted = {row.entity_id for row in state.round_state.participants}
+    return next(actor for actor in active if actor in admitted and actor not in unavailable)
 
 
 _SELECT_WEAPON_USE = object()
@@ -1187,7 +1295,8 @@ _SELECT_WEAPON_USE = object()
 
 def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
              dice_modifiers: tuple[DiceModifier, ...] = (), *, oppose_attack: bool = False,
-             control_mount: bool = False, weapon_use=_SELECT_WEAPON_USE, incoming_attack_skill=None) -> TestRequest:
+             control_mount: bool = False, weapon_use=_SELECT_WEAPON_USE, incoming_attack_skill=None,
+             casting: bool = False) -> TestRequest:
     member = state.participant(actor_id)
     pc = pc_effective_definition(state, actor_id)
     if skill is Skill.WILLPOWER:
@@ -1195,6 +1304,8 @@ def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
         if wizard is None:
             raise ValueError('Willpower Casting requires its explicit Wizard facts')
         profile = wizard.willpower_profile
+    elif skill is Skill.LEADERSHIP:
+        profile=pc.leadership_profile
     elif skill in (Skill.THROWING,Skill.BRAWN):
         profile=pc.throwing_profile if skill is Skill.THROWING else pc.brawn_profile
     elif skill in (Skill.SHOOTING,Skill.DEXTERITY,Skill.AWARENESS):
@@ -1213,13 +1324,15 @@ def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
     if weapon_use is _SELECT_WEAPON_USE:
         weapon_use = None
         if skill is Skill.DEFENCE or skill is Skill.MELEE and oppose_attack:
-            weapon_use=pc_protection_weapon_use(member,skill,incoming_attack_skill)
+            weapon_use=pc_protection_weapon_use(member,skill,incoming_attack_skill,
+                talents=state.source.participant(actor_id).talents)
         elif skill is pc_attack_skill(state,actor_id):
             weapon_use=pc_attack_weapon_use(state,actor_id)
     weapon_modifiers=(() if weapon_use is None else weapon_test_modifiers(weapon_use,
         member.injury.conditions,against_charge=charge is not None and charge.target_id==actor_id,
         actor_mounted=pc_is_mounted(state,actor_id),
-        charging=charge is not None and charge.actor_id==actor_id and not oppose_attack).modifiers)
+        charging=charge is not None and charge.actor_id==actor_id and not oppose_attack,
+        talents=state.source.participant(actor_id).talents).modifiers)
     magic_dice,magic_qualities = magic_test_modifiers(state,actor_id,skill)
     from towr.domain.pc_armour_models import actor_armour_test_modifiers,actor_armour_quality_modifiers
     modifiers = (*dice_modifiers,*weapon_modifiers,*magic_dice,
@@ -1246,7 +1359,14 @@ def _pc_test(state: PcMeleeState, actor_id: str, test_id: str, skill: Skill,
     qualities.extend(QualityModifier(CRUSHED_RIB_TEST_RULE_ID, TestQuality.GRIM)
         for e in member.injury.active_wound_effects
         if isinstance(e, WoundRestrictionEffect) and e.restriction is WoundRestriction.NEXT_TEST_IS_GRIM)
-    return TestRequest(test_id, profile, modifiers, tuple(qualities))
+    from towr.domain.pc_oath_models import filter_honour_test, prepare_pc_honour_test
+    from towr.domain.weapon_catalog import WeaponKind
+    from towr.domain.weapon_use_models import WeaponUse
+    area_weapon = (not oppose_attack and type(weapon_use) is WeaponUse
+        and weapon_use.kind in (WeaponKind.BLASTING_CHARGE, WeaponKind.OIL_FLASK, WeaponKind.BLUNDERBUSS))
+    return prepare_pc_honour_test(state, actor_id,
+        filter_honour_test(TestRequest(test_id, profile, modifiers, tuple(qualities))),
+        rule_of_nine=casting, area_weapon=area_weapon)
 
 
 def pc_after_test(state: PcMeleeState, actor_id: str, injury=None) -> CharacterInjuryState:
@@ -1298,11 +1418,6 @@ def build_pc_melee_attack(state: PcMeleeState, *, weapon_intent=None) -> tuple[A
     if type(intent) is not PcAttackWeaponIntent or intent.actor_id != actor:
         raise ValueError('Attack requires its exact actor-owned weapon intent')
     target = intent.target_id
-    from towr.domain.pc_scene_feature_models import scene_attack_visibility
-    visibility=scene_attack_visibility(state,actor,target,intent.attack_skill)
-    if (intent.attack_use is not None and intent.attack_use.kind.value=='dragon_bow'
-            and not visibility.visible):
-        raise ValueError('Dragon Bow requires an actually visible target')
     # Preparation can precede reservation; actual execution still requires a slot.
     charge=current_pc_charge(state,actor)
     slot_index = len(turn.action_slots) or 1
@@ -1314,13 +1429,66 @@ def build_pc_melee_attack(state: PcMeleeState, *, weapon_intent=None) -> tuple[A
         return AttackActionExecutionRequest(action_id+':execute',state.round_state,actor,target,slot_index,
             kernel,charge_movement=charge),protection
     crown = turn.action_slots[-1].crown_of_antlers if turn.action_slots else None
+    action_id = pc_melee_action_id(state, actor) + (':attack2' if slot_index == 2 else '')
+    kernel,protection=prepare_pc_weapon_kernel(state,intent,action_id,charge=charge,crown=crown)
+    request = AttackActionExecutionRequest(action_id + ':execute',state.round_state,actor,target,slot_index,kernel,
+        charge_movement=charge)
+    if actor in state.source.pc_activation_order and intent.attack_skill is Skill.SHOOTING:
+        preparation = prepare_pc_ranged_shot(state,request)
+        if pc_conditioned_ranged_attack(state,actor,preparation)!=request:
+            raise ValueError('PC ranged preparation changed its complete canonical profile')
+    elif actor in state.source.enemy_activation_order and intent.attack_skill is Skill.SHOOTING:
+        from towr.domain.pc_npc_ranged_models import pc_conditioned_npc_ranged_attack
+        preparation = prepare_pc_npc_ranged_shot(state,request)
+        # Let K1 derive the printed Damage/Aim/range/nearby/Wound traits from
+        # their complete source. The Protection source must witness precisely
+        # the resulting Attack too; re-preparation then checks single use.
+        request = pc_conditioned_npc_ranged_attack(state,actor,preparation)
+        protection = replace(protection,attack=replace(request.kernel_request.attack,
+            defender_test=None))
+        if pc_conditioned_npc_ranged_attack(state,actor,
+                prepare_pc_npc_ranged_shot(state,request)) != request:
+            raise ValueError('NPC ranged preparation changed its full canonical printed profile')
+    return request, protection
+
+def prepare_pc_weapon_kernel(state: PcMeleeState,weapon_intent,action_id: str,*,charge=None,crown=None):
+    """Prepare a real physical strike without reserving/executing any action.
+
+    Ordinary Attack supplies its actual action/Charge source. An immediate
+    Talent strike supplies its own identifier and explicit physical implements.
+    No clock or inventory is changed by this preparation.
+    """
+    if type(weapon_intent) is not PcAttackWeaponIntent:
+        raise TypeError('physical strike requires its exact committed weapon intent')
+    intent=weapon_intent
+    replace(intent)
+    actor,target=intent.actor_id,intent.target_id
+    if type(action_id) is not str or not action_id.strip() or intent.action_id!=action_id:
+        raise ValueError('physical strike changed its committed action identifier')
+    if intent.mount_attack:
+        raise ValueError('natural mount strikes use their own preparation')
+    if charge is not None and charge!=current_pc_charge(state,actor):
+        raise ValueError('physical strike cannot inherit a completed or foreign Charge')
+    from towr.domain.pc_magic_weapon_models import actor_inventory
+    for use,owner in ((intent.attack_use,actor),(intent.protection_use,target)):
+        if use is not None and use.inventory!=actor_inventory(state,owner):
+            raise ValueError('physical strike changed its actual Attack/Protection inventory')
+    from towr.domain.pc_scene_feature_models import scene_attack_visibility
+    visibility=scene_attack_visibility(state,actor,target,intent.attack_skill)
+    if (intent.attack_use is not None and intent.attack_use.kind.value=='dragon_bow'
+            and not visibility.visible):
+        raise ValueError('Dragon Bow requires an actually visible target')
     pc_attacks = actor in state.source.pc_activation_order
+    target_is_pc = target in state.source.pc_activation_order
+    from towr.domain.pc_actor_models import pc_actor_npc_snapshot, pc_actor_side
+    if pc_actor_side(state, actor) is pc_actor_side(state, target):
+        raise ValueError('physical Attack requires actual opposing sides')
     if ((state.battlefield is not None or intent.attack_skill is Skill.THROWING)
             and not pc_battlefield_attack_available(state, actor, target)):
         raise ValueError('Attack target is outside the actual battlefield weapon Range')
-    action_id = pc_melee_action_id(state, actor) + (':attack2' if slot_index == 2 else '')
     modifiers = []
-    modifiers.extend(pc_charge_attack_modifiers(state,actor,target))
+    if charge is not None:
+        modifiers.extend(pc_charge_attack_modifiers(state,actor,target))
     damage_modifiers = ()
     wound_dice_modifiers = ()
     if state.source.facts.outnumbering_bonus_approved and pc_battlefield_allows_outnumbering(state,actor):
@@ -1334,9 +1502,9 @@ def build_pc_melee_attack(state: PcMeleeState, *, weapon_intent=None) -> tuple[A
             raise ValueError("Attack requires actual held weapons and usable hands")
         weapon = weapon_use.kind
         member = state.participant(actor)
-        target_snapshot = state.enemy(target)
-        shooting = pc_attack_skill(state,actor) is Skill.SHOOTING
-        throwing = pc_attack_skill(state,actor) is Skill.THROWING
+        target_snapshot = pc_actor_npc_snapshot(state, target)
+        shooting = intent.attack_skill is Skill.SHOOTING
+        throwing = intent.attack_skill is Skill.THROWING
         if shooting or throwing:
             modifiers = []
         if shooting:
@@ -1351,9 +1519,9 @@ def build_pc_melee_attack(state: PcMeleeState, *, weapon_intent=None) -> tuple[A
             target_mounted=pc_is_mounted(state,target)))
         if shooting:
             modifiers.extend(pc_aim_attack_modifiers(state,actor,target))
-        attacker = _pc_test(state, actor, action_id + ':attack', pc_attack_skill(state,actor), tuple(modifiers),weapon_use=weapon_use)
-        from towr.domain.pc_help_models import build_pc_attack_help
-        attacker,_ = build_pc_attack_help(state,attacker)
+        attacker = _pc_test(state, actor, action_id + ':attack', intent.attack_skill, tuple(modifiers),weapon_use=weapon_use)
+        from towr.domain.pc_help_models import build_pc_test_help
+        attacker,_ = build_pc_test_help(state,actor,intent.attack_skill,attacker)
         from towr.domain.pc_generated_equipment import npc_protection_test
         protection_profile,defender = npc_protection_test(state,target,actor,
             action_id+':protection',intent.npc_protection,attack_skill=intent.attack_skill,
@@ -1362,7 +1530,7 @@ def build_pc_melee_attack(state: PcMeleeState, *, weapon_intent=None) -> tuple[A
         from towr.domain.pc_melee_models import PcTwoHandedGrip
         damage = (None if weapon in (PcMeleeWeapon.UNARMED,PcMeleeWeapon.WEIGHTED_NET,
             PcMeleeWeapon.ROCK,PcMeleeWeapon.OIL_FLASK,PcMeleeWeapon.BLASTING_CHARGE) else pc_weapon_damage(weapon, pc.strength,
-            two_handed=member.weapon_hand is PcTwoHandedGrip.BOTH))
+            two_handed=weapon_use.primary is not None and weapon_use.primary.grip is WeaponGrip.BOTH))
         resilience = target_snapshot.state.current_resilience
         from towr.domain.weapon_effect_preparation import weapon_damage_preparation
         damage_modifiers = weapon_damage_preparation(weapon_use,pc.strength,resilience).modifiers
@@ -1372,26 +1540,34 @@ def build_pc_melee_attack(state: PcMeleeState, *, weapon_intent=None) -> tuple[A
     else:
         enemy = state.enemy(actor)
         profile = pc_selected_npc_attack_profile(state,actor)
+        if enemy.definition.generated_components is not None and intent.attack_use is not None:
+            from towr.domain.generated_npc_models import generated_weapon_attack_profile,generated_unarmed_attack_profile
+            use=intent.attack_use
+            profile=(generated_unarmed_attack_profile(enemy.definition.generated_components)
+                if use.primary is None else generated_weapon_attack_profile(enemy.definition.generated_components,
+                    use.primary.source_item_id,use.primary.grip))
         if crown is not None and (enemy.definition.id!='pc-book-npc:great_stag'
                 or not state.participant(target).injury.conditions.has(Condition.PRONE)
                 or state.participant(target).injury.dead):
             raise ValueError('Trample requires the granted same living Prone target')
-        member = state.participant(target)
+        member = state.participant(target) if target_is_pc else None
+        target_snapshot = None if target_is_pc else pc_actor_npc_snapshot(state, target)
+        target_body = member.injury if target_is_pc else target_snapshot.state.injury
         if profile.skill in (Skill.THROWING,Skill.SHOOTING):
             modifiers = []  # Ranged attacks receive no Melee/Brawn outnumbering.
-        if member.injury.conditions.has(Condition.PRONE):
+        if target_body.conditions.has(Condition.PRONE):
             if profile.skill is Skill.SHOOTING:
                 modifiers.append(DiceModifier('RULE-HEALTH-008:prone-shooting', -1))
             elif profile.skill is not Skill.THROWING:
                 modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground', 1))
         modifiers.extend(pc_npc_attack_modifiers(enemy.definition,enemy.state.injury.conditions,
-            target_conditions=member.injury.conditions,attacker_wounds=enemy.state.injury.wounds))
+            target_conditions=target_body.conditions,attacker_wounds=enemy.state.injury.wounds))
         from towr.domain.pc_generated_equipment import generated_attack_modifiers,generated_damage_modifiers
         npc_use=intent.attack_use
         if enemy.definition.generated_components is not None and npc_use is None:
             raise ValueError('generated NPC Attack requires its actual held physical implements')
         modifiers.extend(generated_attack_modifiers(enemy.definition,enemy.state.injury.conditions,
-            member.injury.conditions,target_mounted=pc_is_mounted(state,target),weapon_use=npc_use,
+            target_body.conditions,target_mounted=pc_is_mounted(state,target),weapon_use=npc_use,
             actor_mounted=pc_is_mounted(state,actor),charging=charge is not None))
         if profile.skill is Skill.SHOOTING:
             from towr.domain.pc_npc_ranged_models import pc_npc_ranged_profile_modifiers
@@ -1405,46 +1581,60 @@ def build_pc_melee_attack(state: PcMeleeState, *, weapon_intent=None) -> tuple[A
             modifiers = [m for m in modifiers if m.amount <= 0]
         attacker = TestRequest(action_id + ':attack', profile.test_profile,
             (*modifiers,*magic_test_modifiers(state,actor,profile.skill)[0]),
-            (*pc_bestigor_attack_quality(state, actor),*generated_attack_quality(state,actor)))
+            (*pc_bestigor_attack_quality(state, actor),*generated_attack_quality(state,actor),
+                *magic_test_modifiers(state,actor,profile.skill)[1]))
         from towr.domain.pc_npc_help_models import build_pc_npc_attack_help
         from towr.domain.pc_armour_models import actor_armour_quality_modifiers
         attacker=replace(attacker,quality_modifiers=(*attacker.quality_modifiers,
             *actor_armour_quality_modifiers(state,actor,charge_attack=charge is not None)))
         if profile.skill is not Skill.THROWING:
             attacker,_ = build_pc_npc_attack_help(state,actor,attacker)
+        from towr.domain.pc_help_models import build_pc_test_help
+        attacker,_=build_pc_test_help(state,actor,profile.skill,attacker)
         skill = intent.protection_skill
-        defender = None if skill is None else _pc_test(state, target, action_id + ':protection', skill,
-            oppose_attack=True,incoming_attack_skill=profile.skill,weapon_use=intent.protection_use)
-        if defender is not None:
+        if target_is_pc:
+            defender = None if skill is None else _pc_test(state, target, action_id + ':protection', skill,
+                oppose_attack=True,incoming_attack_skill=profile.skill,weapon_use=intent.protection_use)
+        else:
+            from towr.domain.pc_generated_equipment import npc_protection_test
+            protection_profile, defender = npc_protection_test(state, target, actor, action_id+':protection',
+                intent.npc_protection, attack_skill=profile.skill, weapon_use=intent.protection_use)
+            skill = protection_profile.skill
+        if defender is not None and target_is_pc:
             from towr.domain.pc_help_models import build_pc_test_help
             defender,_ = build_pc_test_help(state,target,skill,defender)
         if enemy.definition.generated_components is not None and profile.skill is Skill.SHOOTING:
             from towr.domain.pc_generated_ranged_advice import npc_repeater_bonus
             from towr.domain.ranged_weapon_profiles import ranged_weapon_reload_profile,RangedWeaponId
             if npc_repeater_bonus(state,actor,attacker,
-                    None if member.injury.conditions.has(Condition.DEFENCELESS) else defender,target,
+                    None if target_body.conditions.has(Condition.DEFENCELESS) else defender,target,
                     defender_skill=skill):
                 bonus=ranged_weapon_reload_profile(RangedWeaponId(
                     npc_use.primary.kind.value)).optional_bonus_modifier()
                 attacker=replace(attacker,dice_modifiers=(*attacker.dice_modifiers,bonus))
-        resilience = pc_shield_resilience(state,target)
+        resilience = pc_shield_resilience(state,target) if target_is_pc else target_snapshot.state.current_resilience
         damage_modifiers = (pc_npc_damage_modifiers(enemy.definition)
             + generated_damage_modifiers(enemy.definition,resilience,weapon_use=npc_use))
-        wound_dice_modifiers = pc_npc_wound_dice_modifiers(enemy.definition,member.injury)
+        from towr.domain.talent_injury_models import hardy_wound_dice_modifiers
+        wound_dice_modifiers = ((*pc_npc_wound_dice_modifiers(enemy.definition,target_body),
+            *hardy_wound_dice_modifiers(state.source.participant(target).talents)) if target_is_pc else ())
         attacker_conditions = enemy.state.injury.conditions
-        target_injury = member.injury if member.injury.conditions.has(Condition.DEFENCELESS) else pc_after_test(state, target,critical_for_hand(member,
-            weapon_use_hand(intent.protection_use)))
+        target_injury = (target_body if not target_is_pc or target_body.conditions.has(Condition.DEFENCELESS)
+            else pc_after_test(state, target,critical_for_hand(member,weapon_use_hand(intent.protection_use))))
         damage = (profile.damage if crown is not None or enemy.definition.generated_components is not None else pc_npc_damage_profile(enemy.definition,
             unopposed=target_injury.conditions.has(Condition.DEFENCELESS)))
         from towr.domain.pc_weapon_inventory import pc_protection_weapon_use
-        defence_use=pc_protection_weapon_use(member,Skill.DEFENCE,Skill.MELEE)
-        target_armed = defence_use is not None and bool(defence_use.item_ids)
+        defence_use=pc_protection_weapon_use(member,Skill.DEFENCE,Skill.MELEE) if target_is_pc else None
+        target_armed = (defence_use is not None and bool(defence_use.item_ids)) if target_is_pc else target_snapshot.state.wields_weapon
     if pc_attacks and shooting:
         from towr.domain.ranged_weapon_profiles import RangedWeaponId, ranged_weapon_combat_profile
         ignores_armour = ranged_weapon_combat_profile(RangedWeaponId(weapon.value)).ignores_armour
     else:
         ignores_armour = False if pc_attacks else profile.ignores_armour
     from towr.domain.attack_models import ConditionImpactSpec
+    from towr.domain.pc_oath_models import oath_allows_attack
+    if not oath_allows_attack(state, actor, intent.attack_skill if pc_attacks else profile.skill):
+        raise ValueError('automatic Attack cannot skip the actual GM-confirmed oath restriction')
     from towr.domain.pc_npc_net_policy_models import NET_RULE_ID
     from towr.domain.weapon_impact_preparation import UNARMED_IMPACT_RULE_ID
     actual_use = weapon_use if pc_attacks else npc_use
@@ -1470,21 +1660,25 @@ def build_pc_melee_attack(state: PcMeleeState, *, weapon_intent=None) -> tuple[A
         attacker=replace(attacker,quality_modifiers=tuple(dict.fromkeys((*attacker.quality_modifiers,
             QualityModifier('RULE-HEALTH-008:blinded',TestQuality.GRIM)))))
     attacker=magic_weapon_attack_test(intent,attacker)
+    from towr.domain.pc_oath_models import filter_honour_test
+    attacker=filter_honour_test(attacker)
     weapon_effects=(() if actual_use is None else preparation.secondary_effects)
+    from towr.domain.pc_musician_effect_models import pc_attack_tie_break
     attack = AttackRequest(action_id + ':attack-request', attacker, None,impact,
         pc_enemy_range(state,actor,target).value == 'close', attacker_conditions.has(Condition.STAGGERED),
+        tie_break=pc_attack_tie_break(state,actor,target),
         secondary_effects=tuple(dict.fromkeys((*((NearbyTargetsStaggerSpec(BLUNDERBUSS_NEARBY_STAGGER_RULE_ID),)
             if pc_attacks and shooting and weapon is PcMeleeWeapon.BLUNDERBUSS else () if pc_attacks else profile.secondary_effects),
             *pc_mounted_attack_effects(state,actor,target,is_charge=charge is not None,
-                attack_skill=pc_attack_skill(state,actor) if pc_attacks else profile.skill),
+                attack_skill=intent.attack_skill if pc_attacks else profile.skill),
             *weapon_effects))))
     defenceless = target_injury.conditions.has(Condition.DEFENCELESS)
     from towr.domain.protection_models import HalflingStealthProtectionPermission
     stealth_permission = (HalflingStealthProtectionPermission(target,target_snapshot.definition)
-        if pc_attacks and skill is Skill.STEALTH else None)
+        if not target_is_pc and skill is Skill.STEALTH else None)
     protection = ProtectionPreparationRequest(action_id + ':prepare-protection', target, attack,
-        pc_attack_skill(state,actor) if pc_attacks else profile.skill,
-        True, defenceless, target_armed, target_snapshot.state.holds_shield if pc_attacks else pc_has_working_shield(member),
+        intent.attack_skill if pc_attacks else profile.skill,
+        True, defenceless, target_armed, pc_has_working_shield(member) if target_is_pc else target_snapshot.state.holds_shield,
         None if defenceless else skill,
         () if defenceless else (ProtectionTestOption(target,skill,defender),),
         halfling_stealth_permission=stealth_permission)
@@ -1494,37 +1688,28 @@ def build_pc_melee_attack(state: PcMeleeState, *, weapon_intent=None) -> tuple[A
     from towr.domain.pc_give_ground_models import pc_give_ground_context
     give_ground=pc_give_ground_context(state,target,actor)
     kernel = KernelAttackRequest(action_id + ':kernel',target,prepared_attack,
-        target_snapshot.definition.injury_policy if pc_attacks else TargetInjuryPolicy.PLAYER, target_injury,
+        TargetInjuryPolicy.PLAYER if target_is_pc else target_snapshot.definition.injury_policy, target_injury,
         give_ground.can_leave and (pc_attacks or pc_npc_allows_give_ground(enemy.definition))
             and briarroot_allows_give_ground(state,target)
             and (actual_use is None or not preparation.forbids_give_ground),
         give_ground.given_this_round,physical_attack=True,wound_dice_modifiers=wound_dice_modifiers,minion_stagger_defeat=(
-            pc_npc_stagger_defeat_spec(target_snapshot.definition) if pc_attacks else None),
-        first_stagger_wound=(pc_flagellant_first_stagger_spec(state,target) if pc_attacks else None))
+            pc_npc_stagger_defeat_spec(target_snapshot.definition) if not target_is_pc else None),
+        first_stagger_wound=(pc_flagellant_first_stagger_spec(state,target) if not target_is_pc else None))
+    from towr.domain.pc_undead_minion_models import pc_undead_minion_source
+    undead = pc_undead_minion_source(state, target)
+    if undead is not None:
+        from towr.domain.undead_minion_models import undead_minion_stagger_defeat_spec, undead_minion_effect_immunities
+        kernel = replace(kernel, minion_stagger_defeat=undead_minion_stagger_defeat_spec(undead,target),
+            target_effect_immunities=undead_minion_effect_immunities(undead,target))
     if intent.magic_context is not None and intent.magic_context.headsman_execution:
         from towr.domain.injury_models import FixedWoundSelection
         from towr.domain.weapon_quality_preparation import HEADSMAN_EXECUTION_RULE_ID
         kernel=replace(kernel,fixed_character_wound=FixedWoundSelection(
             WoundEntryId.DECAPITATION,27,HEADSMAN_EXECUTION_RULE_ID))
-    request = AttackActionExecutionRequest(action_id + ':execute',state.round_state,actor,target,slot_index,kernel,
-        charge_movement=charge)
-    if pc_attacks and shooting:
-        preparation = prepare_pc_ranged_shot(state,request)
-        if pc_conditioned_ranged_attack(state,actor,preparation)!=request:
-            raise ValueError('PC ranged preparation changed its complete canonical profile')
-    elif not pc_attacks and profile.skill is Skill.SHOOTING:
-        from towr.domain.pc_npc_ranged_models import pc_conditioned_npc_ranged_attack
-        preparation = prepare_pc_npc_ranged_shot(state,request)
-        # Let K1 derive the printed Damage/Aim/range/nearby/Wound traits from
-        # their complete source. The Protection source must witness precisely
-        # the resulting Attack too; re-preparation then checks single use.
-        request = pc_conditioned_npc_ranged_attack(state,actor,preparation)
-        protection = replace(protection,attack=replace(request.kernel_request.attack,
-            defender_test=None))
-        if pc_conditioned_npc_ranged_attack(state,actor,
-                prepare_pc_npc_ranged_shot(state,request)) != request:
-            raise ValueError('NPC ranged preparation changed its full canonical printed profile')
-    return request, protection
+    from towr.domain.pc_oath_models import pc_oath_wound_options
+    kernel = replace(kernel, wound_negation_options=pc_oath_wound_options(state, target))
+    return kernel,protection
+
 
 
 def build_pc_melee_recover(state: PcMeleeState) -> RecoverActionExecutionRequest:
@@ -1568,6 +1753,8 @@ def build_pc_melee_recover(state: PcMeleeState) -> RecoverActionExecutionRequest
     elif scarab is not None:
         choice=replace(choice,object_interaction=RecoverObjectInteractionFollowUp(
             action_id+':scarab-heal',actor,scarab.item_id,True))
+    from towr.domain.pc_back_in_saddle_models import configure_back_in_saddle_recover
+    choice = configure_back_in_saddle_recover(state, actor, action_id, choice)
     return RecoverActionExecutionRequest(action_id + ':execute',state.round_state,actor,member.injury.conditions,
         pc_has_close_enemy(state,actor) if state.battlefield is not None else bool(state.live_enemies),
         1,RecoverMode.STANDARD,choice,healing_potion=healing)
@@ -1601,7 +1788,7 @@ def build_pc_wound_completion(state: PcMeleeState) -> CharacterWoundLifecycleCom
             ConsumeWoundNegationRequest(pending.source_request.wound.id, FATE_NEAR_MISS_RULE_ID))
     return CharacterWoundLifecycleCompletionRequest(pending.request_id+':complete', pending,
         member.injury, member.daily_wounds,
-        daily_registration_id=pending.request_id+':daily' if near_miss is None else None,
+        daily_registration_id=pending.request_id+':daily' if near_miss is None and pending.wound_result.wound_accepted else None,
         near_miss=near_miss, consumed_roll_ids=consumed, consumed_near_miss_effect_ids=effects)
 
 
@@ -1675,6 +1862,11 @@ def _test_result(request: TestRequest, actual: TestResult):
         trace.initial_values,trace.rerolls,tuple(final),successes,success_delta,max(0,successes+success_delta),rules)
     if trace != expected:
         raise ValueError('PC Test trace is not canonical for its bound request')
+    if actual.honour_bound is not None:
+        replace(actual)
+        grant = actual.honour_bound
+        if grant.activation.source_request.test != request or grant.raw_test.trace != trace:
+            raise ValueError('exceptional Test outcome changed its actual prepared source or dice')
 
 
 def _enemy_update(state: PcMeleeState, actor_id: str, injury: ProfileInjuryState):
@@ -1695,7 +1887,19 @@ def _ready(state: PcMeleeState):
 def project_pc_melee_step(state: PcMeleeState, proof: PcMeleeProof) -> PcMeleeState:
     """Pure projection from one exact source and explicit typed K1 evidence."""
     from towr.domain._pc_melee_projection import project_pc_step
-    return project_pc_step(state,proof)
+    from towr.domain.pc_oath_models import project_pc_oath_step, project_oath_aftermath, validate_oath_proof_access
+    validate_oath_proof_access(state, proof)
+    from towr.domain.pc_oath_models import expected_oath_negation_ack
+    acknowledgement = expected_oath_negation_ack(state)
+    if acknowledgement is not None or type(proof) in (PcLadyPrayerProof, PcOathNegationAckProof):
+        if acknowledgement is not None and proof != acknowledgement:
+            raise ValueError('actual Wound resource consumption must settle before continuation')
+        validate_pc_melee_state_shape(state)
+        return project_pc_oath_step(state, proof)
+    after = project_oath_aftermath(state, project_pc_step(state,proof), proof)
+    from towr.domain.pc_oath_models import validate_native_oath_resources
+    validate_native_oath_resources(after)
+    return after
 
 
 def validate_pc_melee_combat_shape(combat: CombatRoundState) -> None:
@@ -1747,6 +1951,16 @@ def validate_pc_melee_state_shape(state: PcMeleeState) -> None:
         raise TypeError('PC owner must be typed')
     replace(state)
     validate_pc_melee_scenario_admission(state.source)
+    from towr.domain.pc_oath_models import validate_native_oath_resources
+    validate_native_oath_resources(state)
+    from towr.domain.pc_oath_models import oath_context_for
+    expected_oath_actors = tuple(actor for actor in (*state.source.pc_activation_order, *state.source.enemy_activation_order)
+        if oath_context_for(state.source, actor) is not None)
+    if tuple(row.actor_id for row in state.oaths) != expected_oath_actors:
+        raise ValueError('native oath resource bank must match actual complete source owners')
+    for row in state.oaths:
+        if row.context != oath_context_for(state.source, row.actor_id):
+            raise ValueError('native oath GM context replaced its actual original source')
     validate_pc_melee_combat_shape(state.round_state)
     for member in state.party:
         replace(member)
@@ -1803,6 +2017,8 @@ def validate_pc_melee_state_shape(state: PcMeleeState) -> None:
                     or type(pending.defeated) is not bool):
                 raise TypeError('profile change requires typed integer/bool values')
         elif type(pending) is MinionStaggerDefeatCause:
+            replace(pending)
+        elif type(pending) is ConsumeWoundNegationRequest:
             replace(pending)
         elif type(pending) is NearbyTargetsStaggerRequest:
             replace(pending)

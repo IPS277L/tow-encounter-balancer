@@ -47,6 +47,7 @@ class FateSpendKind(str, Enum):
     GLORIOUS_TEST = "glorious_test"
     SECOND_ACTION = "second_action"
     TACTICAL_RETREAT = "tactical_retreat"
+    HONOUR_BOUND_UNMITIGATED_SUCCESS = "honour_bound_unmitigated_success"
 
 
 class FateSpendFunding(str, Enum):
@@ -95,6 +96,9 @@ class FateSpendRecord:
             and self.rule_id != FATE_TACTICAL_RETREAT_RULE_ID
         ):
             raise ValueError("Tactical Retreat spend requires its canonical rule")
+        if (self.kind is FateSpendKind.HONOUR_BOUND_UNMITIGATED_SUCCESS
+                and self.rule_id != 'RULE-TALENT-002:honour-bound-unmitigated'):
+            raise ValueError('Honour Bound spend requires its canonical Talent rule')
 
     @property
     def session_cost(self) -> int:
@@ -259,6 +263,10 @@ class FateSessionState:
         )
         if len(set(tactical_retreat_ids)) != len(tactical_retreat_ids):
             raise ValueError("Fate cannot fund the same Retreat twice")
+        honour_test_ids = tuple(item.subject_id for item in spends
+            if item.kind is FateSpendKind.HONOUR_BOUND_UNMITIGATED_SUCCESS)
+        if len(set(honour_test_ids)) != len(honour_test_ids):
+            raise ValueError('Honour Bound cannot fund the same Unmitigated Test twice')
 
         refreshes = tuple(self.refreshes)
         if not all(isinstance(item, FateRefreshRecord) for item in refreshes):

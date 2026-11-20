@@ -11,6 +11,9 @@ from towr.domain.test_models import InitialTestRoll, RollTrace, TestResult, Test
 
 def build_pc_glorious_spend(state, actor_id, skill, initial):
     """Choose from this PC's own initial dice, never another actor's Test."""
+    from towr.domain.pc_oath_models import pc_can_honour_unmitigated
+    if pc_can_honour_unmitigated(state, actor_id):
+        return None
     participant = state.source.participant(actor_id)
     member = state.participant(actor_id)
     strategy = participant.glorious_policy
@@ -50,6 +53,8 @@ def validate_pc_test_fate(state, actor_id, skill, request, test, decline, glorio
 
     if type(test) is not TestResult or type(test.trace) is not RollTrace:
         raise TypeError('PC Fate window requires the actual typed Test result and trace')
+    if test.honour_bound is not None and test.honour_bound.activation.state.actor_id != actor_id:
+        raise ValueError('a PC cannot spend Honour Bound on another actor\'s Test')
     parameters = _expected_initial_roll_parameters(request)
     initial = InitialTestRoll(request,*parameters,test.trace.initial_values)
     expected = build_pc_glorious_spend(state,actor_id,skill,initial)

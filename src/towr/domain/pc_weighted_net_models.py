@@ -5,6 +5,8 @@ the explicitly stationary all-Close scene uses a virtual position in its one
 Zone. Neither representation adds a combat actor or a free replacement item.
 """
 from __future__ import annotations
+from towr.domain.pc_acrobatic_models import actor_acrobatic_source
+from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
 
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -164,12 +166,17 @@ def weighted_net_condition_sources(state,target_id,*,bank=None):
 
 
 def _actors(state):
-    return (*state.source.pc_activation_order,
+    originals = (*state.source.pc_activation_order,
         *(actor for actor in state.source.enemy_activation_order if actor not in state.exited_npc_ids))
+    from towr.domain.pc_actor_models import pc_active_actor_ids
+    return (*originals, *(actor for actor in pc_active_actor_ids(state)
+        if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order)))
 
 
 def _ground_position(state,anchor):
     actors = _actors(state)
+    if anchor not in actors:
+        raise ValueError('Net ground position requires its actual available anchor actor')
     if state.battlefield is None:
         if not state.source.facts.all_opponents_close:
             raise ValueError('stationary Net geometry requires the explicit all-Close scene')
@@ -242,6 +249,8 @@ class PcNetThrowLanding:
 def complete_weighted_net_throw(state,request,execution):
     if not is_net_impact(request.kernel_request.attack.impact_spec):
         return None
+    if request.actor_id not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+        raise ValueError('a passive mount body cannot throw or acquire its rider\'s Net')
     item = weighted_net_for_actor(state,request.actor_id)
     if item is None or item.location is not PcNetLocation.HELD:
         raise ValueError('Net throw requires its same actual held physical item')
@@ -270,7 +279,8 @@ def weighted_net_updates_from_attack(state,request,execution,landing):
 
 
 def _injury(state,actor):
-    return state.participant(actor).injury if actor in state.source.pc_activation_order else state.enemy(actor).state.injury
+    from towr.domain.pc_actor_models import pc_actor_injury
+    return pc_actor_injury(state,actor)
 
 
 def _conditions(state,actor):
@@ -278,7 +288,8 @@ def _conditions(state,actor):
 
 
 def _allied(state,first,second):
-    return (first in state.source.pc_activation_order) == (second in state.source.pc_activation_order)
+    from towr.domain.pc_actor_models import pc_actor_side
+    return pc_actor_side(state,first) is pc_actor_side(state,second)
 
 
 def _close_actors(state,first,second):
@@ -293,15 +304,16 @@ def _recover_actor(state):
             or turn.action_slots[-1].declaration.kind is not CombatActionKind.RECOVER
             or state.pending or state.pending_wound is not None or state.magic_pending is not None):
         raise ValueError('Net recovery requires the actual unused Recover action after mandatory work')
+    if turn.actor_id not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+        raise ValueError('a passive mount body has no alternate Net Recover policy')
     if _conditions(state,turn.actor_id).has(Condition.DEFENCELESS):
         raise ValueError('Defenceless actors cannot perform a Net Recover')
     return turn.actor_id,len(turn.action_slots)
 
 
 def _has_close_enemy(state,actor):
-    other = state.live_enemies if actor in state.source.pc_activation_order else state.live_party
-    return any(_close_actors(state,actor,
-        member.state.actor_id if actor in state.source.pc_activation_order else member.actor_id) for member in other)
+    from towr.domain.pc_actor_models import pc_opponent_ids
+    return any(_close_actors(state,actor,other) for other in pc_opponent_ids(state,actor))
 
 
 def _brawn_test(state,actor,test_id):
@@ -442,6 +454,8 @@ class PcNetRecoveryIntent:
 
 def weighted_net_recovery_options(state,actor):
     """Pure legal alternatives; the owner binds the final automatic intent."""
+    if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+        return ()
     turn = state.round_state.active_turn
     if (turn is None or turn.actor_id != actor or state.pending or state.pending_wound is not None
             or state.magic_pending is not None or _conditions(state,actor).has(Condition.DEFENCELESS)):
@@ -474,6 +488,8 @@ def selected_weighted_net_recovery(state,actor):
         if option.kind is not PcNetRecoverKind.RELEASE or state.battlefield is None:
             continue
         target = option.target_id
+        if target not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+            continue  # A passive creature has no Attack tactic to repair here.
         enemies = (tuple(enemy.state.actor_id for enemy in state.live_enemies)
             if target in state.source.pc_activation_order else tuple(member.actor_id for member in state.live_party))
         if not any(pc_battlefield_attack_available(state,target,enemy) for enemy in enemies):
@@ -547,6 +563,8 @@ def expected_weighted_net_incidental_pickup(state):
             or state.magic_pending is not None):
         return None
     actor = turn.actor_id
+    if actor not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+        return None
     if (any(_conditions(state,actor).has(condition) for condition in (Condition.DEFENCELESS,Condition.BROKEN))
             or _has_close_enemy(state,actor) or not _pickup_hands(state,actor)
             or actor in state.source.enemy_activation_order and state.enemy(actor).definition.id == NET_DEFINITION_ID):
@@ -616,7 +634,7 @@ def expected_weighted_net_approach(state,actor,item_id):
     terrain=terrain_test_required_for_route(state,actor,tuple(route))
     request = FreeMovementRequest(pc_melee_action_id(state,actor)+':net:approach:'+item_id,
         state.round_state,spatial,actor,speed,_conditions(state,actor),tuple(route),
-        crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain)
+        crosses_difficult_terrain=terrain,terrain_resolution_deferred=terrain,acrobatic=actor_acrobatic_source(state,actor),path_entity_ids=pc_enemy_path_blockers(state,actor,tuple(route)))
     result = resolve_free_movement(request)
     after = replace(with_actor_placement(previous,actor,current,
         close_to_ids=close if current == destination else ()),spatial=result.state)
@@ -629,6 +647,15 @@ def _independent_burden(state,target):
     from towr.domain.pc_inventory_conditions import external_inventory_conditions
     from towr.domain.pc_briarroot_models import external_briarroot_conditions
     from towr.domain.pc_magic_models import external_magic_conditions
+    if target not in (*state.source.pc_activation_order,*state.source.enemy_activation_order):
+        from towr.domain.pc_companion_effect_models import companion_profile
+        from towr.domain.pc_mount_companion_owner import initial_pc_companions
+        companion_profile(state,target)  # Exact own species/Barding source, not rider equipment.
+        original = next(row for row in initial_pc_companions(state.source)
+            if row.snapshot.state.actor_id == target)
+        return (original.snapshot.state.injury.conditions.has(Condition.BURDENED)
+            or Condition.BURDENED in (external_briarroot_conditions(state,target)
+                | external_magic_conditions(state,target)))
     if Condition.BURDENED in (external_inventory_conditions(state,target) | external_armour_conditions(state,target)
             | external_briarroot_conditions(state,target) | external_magic_conditions(state,target)):
         return True
@@ -729,7 +756,8 @@ def project_weighted_net_step(state,proof):
             updates['party'] = _party_update(state,target,injury=injury,
                 net_condition_sources=weighted_net_condition_sources(state,target,bank=bank))
         else:
-            updates['enemies'] = _enemy_update(state,target,injury)
+            from towr.domain.pc_actor_models import pc_actor_npc_update
+            updates.update(pc_actor_npc_update(state,target,injury=injury))
         if actor in state.source.pc_activation_order:
             member = next(member for member in updates.get('party',state.party) if member.actor_id == actor)
             actor_injury = pc_after_test(state,actor,critical_for_action(member,CombatActionKind.RECOVER))
@@ -918,9 +946,9 @@ def validate_weighted_net_bank(state):
         replace(actual)
         if (actual.item_id,actual.owner_id) != (original.item_id,original.owner_id):
             raise ValueError('Net bank changed physical source membership or ownership')
-        if actual.location is PcNetLocation.BOUND and actual.bound_target_id not in (
-                *state.source.pc_activation_order,*state.source.enemy_activation_order):
-            raise ValueError('Net binding targets a source-less actor')
+        if actual.location is PcNetLocation.BOUND:
+            from towr.domain.pc_actor_models import pc_actor_side
+            pc_actor_side(state,actual.bound_target_id)
         if actual.owner_id in state.source.pc_activation_order:
             inventory = state.participant(actual.owner_id).weapon_inventory
             if type(inventory) is not WeaponInventoryState:
@@ -954,6 +982,8 @@ def _weighted_net_history_bank(state,source):
     from towr.domain.pc_net_models import PcNpcNetDrawProof
     from towr.domain.pc_weapon_inventory import PcWeaponSwapProof
     from towr.domain.pc_npc_weapon_inventory import PcNpcWeaponEquipProof
+    from towr.domain.pc_musician_equipment_models import PcMusicianEquipmentProof
+    from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
     from towr.domain.pc_combat_equipment_models import PcItemLocation
     from towr.domain.pc_melee_models import PcMeleeWeapon
     bank = source
@@ -1019,9 +1049,13 @@ def _weighted_net_history_bank(state,source):
                 bank = _replace_item(bank,replace(item,location=PcNetLocation.HELD))
             elif item.location is PcNetLocation.HELD:
                 bank = _replace_item(bank,replace(item,location=PcNetLocation.CARRIED))
-        elif type(proof) in (PcWeaponSwapProof,PcNpcWeaponEquipProof):
-            previous=proof.previous if type(proof) is PcWeaponSwapProof else proof.transition.before
-            following=proof.state if type(proof) is PcWeaponSwapProof else proof.transition.after
+        elif type(proof) in (PcWeaponSwapProof,PcNpcWeaponEquipProof,PcMusicianEquipmentProof,PcMusicianRecoverProof):
+            if type(proof) in (PcMusicianEquipmentProof,PcMusicianRecoverProof):
+                equipment=proof.equipment if type(proof) is PcMusicianRecoverProof else proof
+                previous,following=equipment.previous_weapons,equipment.weapons
+            else:
+                previous=proof.previous if type(proof) is PcWeaponSwapProof else proof.transition.before
+                following=proof.state if type(proof) is PcWeaponSwapProof else proof.transition.after
             for before,after in zip(previous.items,following.items,strict=True):
                 if before.weapon is not PcMeleeWeapon.WEIGHTED_NET:
                     continue

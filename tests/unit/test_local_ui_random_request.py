@@ -39,6 +39,57 @@ class LocalUiRandomRequestTests(unittest.TestCase):
                     else:
                         self.assertEqual(member['equipment']['weapons'], [])
 
+    def test_random_draft_preserves_the_explicit_gm_passage_blocking_fact(self):
+        for value in (False, True):
+            template = deepcopy(self.template)
+            template['scene']['enemy_zone_blocking'] = value
+            before = deepcopy(template)
+            with self.subTest(value=value):
+                draft = random_ui_request(template, Random(0))
+                self.assertIs(draft['scene']['enemy_zone_blocking'], value)
+                self.assertIs(parse_dynamic_encounter_request(json.dumps(draft)).request.battlefield.enemy_zone_blocking,
+                    value)
+                self.assertEqual(template, before)
+        template = deepcopy(self.template)
+        template['scene'].pop('enemy_zone_blocking', None)
+        self.assertIs(random_ui_request(template, Random(0))['scene']['enemy_zone_blocking'], False)
+
+    def test_random_draft_does_not_coerce_invalid_passage_blocking_into_a_gm_confirmation(self):
+        template = deepcopy(self.template)
+        template['scene']['enemy_zone_blocking'] = 1
+        before = deepcopy(template)
+        with self.assertRaises(ValueError):
+            random_ui_request(template, Random(0))
+        self.assertEqual(template, before)
+
+    def test_random_draft_preserves_mount_policy_and_gm_combatant_status(self):
+        for value in (False, True):
+            template = deepcopy(self.template)
+            template['scene'].update(dismounted_mount_policy='wait_and_recover',
+                dismounted_mounts_are_combatants=value)
+            before = deepcopy(template)
+            with self.subTest(value=value):
+                draft = random_ui_request(template, Random(0))
+                self.assertEqual(draft['scene']['dismounted_mount_policy'], 'wait_and_recover')
+                self.assertIs(draft['scene']['dismounted_mounts_are_combatants'], value)
+                self.assertEqual(template, before)
+        template = deepcopy(self.template)
+        template['scene'].pop('dismounted_mount_policy', None)
+        template['scene'].pop('dismounted_mounts_are_combatants', None)
+        draft = random_ui_request(template, Random(0))
+        self.assertEqual(draft['scene']['dismounted_mount_policy'], 'wait_and_recover')
+        self.assertIs(draft['scene']['dismounted_mounts_are_combatants'], False)
+
+    def test_random_draft_keeps_invalid_mount_facts_for_strict_source_rejection(self):
+        for name, value in (('dismounted_mount_policy', 'attack'), ('dismounted_mount_policy', None),
+                ('dismounted_mounts_are_combatants', 1), ('dismounted_mounts_are_combatants', None)):
+            template = deepcopy(self.template)
+            template['scene'][name] = value
+            before = deepcopy(template)
+            with self.subTest(name=name, value=value), self.assertRaises(ValueError):
+                random_ui_request(template, Random(0))
+            self.assertEqual(template, before)
+
     def test_explicit_rng_varies_the_editable_inputs_without_changing_search_seed_or_source(self):
         template = deepcopy(self.template)
         template['scene'].update(single_combat_pairs=[dict(actor_id='old',target_id='removed')],

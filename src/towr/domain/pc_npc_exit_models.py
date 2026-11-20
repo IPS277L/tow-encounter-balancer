@@ -1,5 +1,7 @@
 """One explicit clear adjacent exit for the Broken Official's actual own turn."""
 from __future__ import annotations
+from towr.domain.pc_acrobatic_models import actor_acrobatic_source
+from towr.domain.pc_movement_block_models import pc_enemy_path_blockers
 
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
@@ -15,14 +17,8 @@ if TYPE_CHECKING:
 
 
 def _exit_result(request: FreeMovementRequest) -> FreeMovementResult:
-    previous = request.state
-    placements = tuple(replace(p,zone_id=request.destination_zone_id) if p.entity_id==request.actor_id else p
-        for p in previous.placements)
-    moved = replace(previous,placements=placements,
-        free_move_used_entity_ids=(*previous.free_move_used_entity_ids,request.actor_id))
-    return FreeMovementResult(request.id,request.rule_id,request.round_state,request.actor_id,request.speed,
-        previous.placement_for(request.actor_id).zone_id,request.traversed_zone_ids,previous,moved,
-        (request.rule_id,'RULE-COMBAT-012:speed','RULE-COMBAT-011:zones-and-ranges'))
+    from towr.rules.free_movement_resolution import resolve_free_movement
+    return resolve_free_movement(request)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,7 +36,8 @@ class PcNpcExitProof:
                 or self.request.crosses_obstacle or self.request.crosses_difficult_terrain):
             raise ValueError('NPC adjacent exit requires executable ordinary free movement')
         actor_side = self.request.state.placement_for(self.request.actor_id).side_id
-        if any(self.request.state.placement_for(actor).side_id!=actor_side for actor in self.request.path_entity_ids):
+        if (self.request.acrobatic is None and any(self.request.state.placement_for(actor).side_id!=actor_side
+                for actor in self.request.path_entity_ids)):
             raise ValueError('NPC adjacent exit cannot pass through an enemy')
         expected = _exit_result(self.request)
         if self.result!=expected:
@@ -87,7 +84,7 @@ def build_pc_npc_exit(state: PcMeleeState, actor_id: str) -> FreeMovementRequest
     from towr.domain.pc_melee_result_models import pc_melee_action_id
     return FreeMovementRequest(pc_melee_action_id(state,actor_id)+':broken-exit:free-movement',
         state.round_state,spatial,actor_id,MovementSpeed.NORMAL,state.enemy(actor_id).state.injury.conditions,
-        (destination,))
+        (destination,),acrobatic=actor_acrobatic_source(state,actor_id),path_entity_ids=pc_enemy_path_blockers(state,actor_id,(destination,)))
 
 
 def expected_pc_npc_exit(state: PcMeleeState, actor_id: str) -> PcNpcExitProof | None:

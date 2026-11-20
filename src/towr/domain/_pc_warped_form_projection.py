@@ -17,6 +17,7 @@ def project_warped_form_step(state, proof):
         elf_merchant_profile_wound_state, pc_npc_drained_profile_wound_state, pc_npc_prone_profile_wound_state)
     from towr.domain.pc_npc_distraction_models import wave_distraction_from_profile_wound, ordered_npc_distractions
     from towr.domain.condition_models import Condition
+    from towr.domain.pc_actor_models import pc_actor_npc_snapshot, pc_actor_npc_update, pc_companion
 
     def same(actual, expected):
         if actual != expected:
@@ -55,7 +56,7 @@ def project_warped_form_step(state, proof):
         if target in state.source.pc_activation_order:
             changes['party'] = _party_update(state, target, injury=canonical.state)
         else:
-            changes['enemies'] = _enemy_update(state, target, canonical.state)
+            changes.update(pc_actor_npc_update(state, target, injury=canonical.state))
         return finish(**changes)
     if type(proof) is PcWarpedFormEndProof:
         if state.pending or state.pending_wound is not None or next_warped_form_target(state) is not None:
@@ -74,15 +75,23 @@ def project_warped_form_step(state, proof):
         if defeat is None:
             raise ValueError('wave fleeing ACK lacks its actual Dirty Coward result')
         same(state.pending, (defeat.cause,))
-        enemy = state.enemy(target)
+        enemy = pc_actor_npc_snapshot(state, target)
+        same(enemy.state.injury, target_proof.result.state)
         dropped = replace(enemy, state=replace(enemy.state, wields_weapon=False, available_attack_ids=()))
-        enemies = tuple(dropped if e.state.actor_id == target else e for e in state.enemies)
-        return finish(enemies=enemies, pending=(), round_state=_exclude(combat, target))
+        return finish(**pc_actor_npc_update(state, target, snapshot=dropped),
+            pending=(), round_state=_exclude(combat, target))
     if type(proof) is not PcWarpedFormProfileProof or target_proof.result.profile_wound is None:
         raise ValueError('wave profile ACK lacks its actual Wound')
     same(proof.source, target_proof.result.profile_wound.state_change)
     same(state.pending, (proof.source,))
-    same(state.enemy(target).state.injury, target_proof.result.profile_wound.state)
+    same(pc_actor_npc_snapshot(state, target).state.injury, target_proof.result.profile_wound.state)
+    if pc_companion(state, target) is not None:
+        if proof.decision is not None:
+            raise ValueError('a companion wave Wound cannot invent an original-roster GM disposition')
+        from towr.domain.pc_companion_effect_models import companion_profile_wound_injury
+        injury = companion_profile_wound_injury(state, target, proof.source)
+        return finish(**pc_actor_npc_update(state, target, injury=injury), pending=(),
+            round_state=_exclude(combat, target) if proof.source.defeated else combat)
     if proof.source.defeated:
         policy = next(p for p in state.source.npc_warped_form_policies if p.actor_id == activation.actor_id)
         decision = next(d for d in policy.npc_defeat_decisions if d.target_id == target)
@@ -104,6 +113,8 @@ def project_warped_form_step(state, proof):
 
 
 def _exclude(combat, actor):
+    if actor not in tuple(participant.entity_id for participant in combat.participants):
+        return combat  # A newly retained/passive body has no invented clock slot.
     if actor in (*combat.completed_turn_entity_ids, *combat.excluded_turn_entity_ids):
         return combat
     return replace(combat, excluded_turn_entity_ids=(*combat.excluded_turn_entity_ids, actor))

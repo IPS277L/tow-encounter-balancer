@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 import unittest
+from tests.support.talent_sources import paid_talent_document
+from towr.domain.talent_catalog import TalentId
 
 from tests.support.armour_fixtures import armour_document
 
@@ -25,7 +27,7 @@ class CharacterFileTests(unittest.TestCase):
         player['equipment']['armour'].append(dict(id='heavy', kind='heavy_armour', location='carried'))
         player['consumables'] = [dict(id='potion', kind='enhancement_potion', quantity=3,
             characteristic='ballistic_skill')]
-        player['talents'] = ['lucky', 'Future talent']
+        player['talents'] = [paid_talent_document(TalentId.LUCKY),paid_talent_document(TalentId.MIGHTY_BLOW)]
         self.assertEqual(parse_character_file('\ufeff' + json.dumps(player), 'player'), player)
         self.assertEqual(parse_character_file(b'\xef\xbb\xbf' + json.dumps(player).encode(), 'player'), player)
 
@@ -73,6 +75,6 @@ class CharacterFileTests(unittest.TestCase):
         with self.assertRaises(DynamicEncounterInputError):
             parse_character_file(json.dumps(player), 'player')
         player['consumables'] = []
-        player['talents'] = ['Lucky', 'lucky']
+        player['talents'] = [paid_talent_document(TalentId.LUCKY),paid_talent_document(TalentId.LUCKY)]
         with self.assertRaises(DynamicEncounterInputError):
             parse_character_file(json.dumps(player), 'player')

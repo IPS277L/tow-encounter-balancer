@@ -56,7 +56,7 @@ def resolve_end_of_day_infection(
         decisions=decisions,
     )
     avoided_infection = (
-        test_result.successes >= request.daily_wounds.wound_count
+        test_result.effective_successes >= request.daily_wounds.wound_count
     )
     added = _infection_festering_wound(request, avoided_infection)
     festering_state = request.festering_wound_state

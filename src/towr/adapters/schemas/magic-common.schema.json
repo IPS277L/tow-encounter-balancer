@@ -823,6 +823,15 @@
     "magic_simulation_request_definition": {
       "type": "object",
       "properties": {
+        "talents": {
+          "$ref": "urn:towr:talent:common:1#/$defs/acquired_talents"
+        },
+        "talent_facts": {
+          "anyOf": [
+            {"type": "null"},
+            {"$ref": "urn:towr:talent:common:1#/$defs/owner_facts"}
+          ]
+        },
         "id": {
           "$ref": "urn:towr:magic:common#/$defs/magic_simulation_request_id"
         },

@@ -48,7 +48,7 @@ def execute_aim_action(
         source_test_id=request.awareness_test.id,
         actor_id=request.actor_id,
         target_id=request.target_id,
-        bonus_dice=awareness.successes,
+        bonus_dice=awareness.effective_successes,
         rule_id=request.rule_id,
     )
     executed_slot = replace(

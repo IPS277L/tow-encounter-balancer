@@ -50,8 +50,7 @@ def project_heavy_turn_end(state,proof,finish):
         return finish(round_state=expected_clock)
     member = state.participant(turn.actor_id)
     if member.injury.dead:
-        if (state.source.participant(turn.actor_id).wizard is None or proof.critical is not None
-                or getattr(proof,'fate_decline',None) is not None):
+        if proof.critical is not None or getattr(proof,'fate_decline',None) is not None:
             raise ValueError('dead PC cannot initiate another action or Test window')
         return finish(round_state=expected_clock)
     if not incapable:

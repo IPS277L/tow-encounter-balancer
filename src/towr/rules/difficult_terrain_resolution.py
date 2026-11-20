@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from towr.domain.talent_acrobatic_models import validate_acrobatic_source, acrobatic_rule_ids
+
 from dataclasses import replace
 
 from towr.domain.condition_models import (
@@ -61,7 +63,7 @@ def _terrain_spatial_state(request):
         raise ValueError("Difficult Terrain must cross one Zone boundary")
     for entity_id in request.path_entity_ids:
         crossed = state.placement_for(entity_id)
-        if crossed.side_id != actor.side_id:
+        if crossed.side_id != actor.side_id and not validate_acrobatic_source(request.acrobatic,request.actor_id):
             raise ValueError("Difficult Terrain cannot pass through an enemy")
 
     updated_placements = tuple(
@@ -108,6 +110,7 @@ def _complete_difficult_terrain_after_test(request,athletics_result):
         conditions = prone_application.state
 
     return DifficultTerrainTraversalResult(
+        acrobatic=request.acrobatic,
         request_id=request.id,
         rule_id=request.rule_id,
         source_request=request,
@@ -131,6 +134,7 @@ def _complete_difficult_terrain_after_test(request,athletics_result):
                 (
                     DIFFICULT_TERRAIN_TRAVERSAL_RULE_ID,
                     ZONE_GRAPH_RULE_ID,
+                    *acrobatic_rule_ids(request.acrobatic,request.actor_id),
                     *athletics_result.trace.applied_rule_ids,
                     *(
                         prone_application.applied_rule_ids

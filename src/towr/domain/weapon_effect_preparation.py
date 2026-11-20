@@ -13,6 +13,8 @@ from towr.domain.attack_models import DamageModifier,DamageProfile,ResiliencePro
 from towr.domain.condition_models import Condition,ConditionState
 from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 from towr.domain.test_models import DiceModifier,Skill
+from towr.domain.talent_catalog import TalentId
+from towr.domain.talent_models import AcquiredTalent,has_talent
 from towr.domain.weapon_catalog import WeaponKind,weapon_printed_damage,weapon_profile,WeaponTrait
 from towr.domain.weapon_inventory_models import WeaponGrip
 from towr.domain.weapon_use_models import WeaponUse,WeaponProtectionUse
@@ -231,9 +233,21 @@ def _test_items(use):
     return (() if use.primary is None else (use.primary,*use.contributors)) if type(use) is WeaponUse else use.implements
 
 
-def _test_contributions(use,conditions,skill,**context):
-    return tuple(WeaponDiceContribution(item.id,modifier) for item in _test_items(use)
-        for modifier in weapon_kind_test_modifiers(item.kind,skill,conditions,**context))
+def _test_contributions(use,conditions,skill,*,talents=(),**context):
+    mighty_blow=has_talent(talents,TalentId.MIGHTY_BLOW)
+    own_context=dict(context)
+    target_conditions=own_context.pop('target_conditions',None)
+    contributions=[]
+    for item in _test_items(use):
+        # Keep the item's own penalties separate from actual target Traits.
+        # The Talent does not cancel unrelated negative target/actor sources.
+        own=weapon_kind_test_modifiers(item.kind,skill,conditions,**own_context)
+        if mighty_blow and skill is Skill.MELEE and item.grip is WeaponGrip.BOTH:
+            own=tuple(modifier for modifier in own if modifier.amount>0)
+        target=weapon_kind_target_test_modifiers(item.kind,skill,target_conditions,
+            target_mounted=context.get('target_mounted',False))
+        contributions.extend(WeaponDiceContribution(item.id,modifier) for modifier in (*own,*target))
+    return tuple(contributions)
 
 
 @dataclass(frozen=True,slots=True)
@@ -251,6 +265,7 @@ class WeaponTestPreparation:
     concealing_weapon:bool=field(default=False,kw_only=True)
     crossing_difficult_terrain:bool=field(default=False,kw_only=True)
     harvesting_resources:bool=field(default=False,kw_only=True)
+    talents:tuple[AcquiredTalent,...]=field(default=(),kw_only=True)
 
     def __post_init__(self):
         _use(self.use);_skill(self.skill);_conditions(self.conditions,'actor Conditions')
@@ -262,7 +277,8 @@ class WeaponTestPreparation:
             replace(item)
         # Also validate contexts for Unarmed/Shield-only, which have no items.
         weapon_kind_test_modifiers(WeaponKind.UNARMED,self.skill,self.conditions,**self.context)
-        if self.contributions!=_test_contributions(self.use,self.conditions,self.skill,**self.context):
+        if self.contributions!=_test_contributions(self.use,self.conditions,self.skill,
+                talents=self.talents,**self.context):
             raise ValueError('weapon dice contributions differ from their actual selected items and Test')
 
     @property
@@ -279,7 +295,8 @@ def weapon_test_modifiers(use:WeaponUse|WeaponProtectionUse,conditions:Condition
         skill:Skill|None=None,target_conditions:ConditionState|None=None,against_charge:bool=False,
         actor_mounted:bool=False,charging:bool=False,target_mounted:bool=False,
         target_range:RangedWeaponRange|None=None,concealing_weapon:bool=False,
-        crossing_difficult_terrain:bool=False,harvesting_resources:bool=False)->WeaponTestPreparation:
+        crossing_difficult_terrain:bool=False,harvesting_resources:bool=False,
+        talents:tuple[AcquiredTalent,...]=())->WeaponTestPreparation:
     """Prepare an actual Attack/Protection Skill, without utility stacking.
 
     Utility Tests use the low-level kind helper for their explicitly selected
@@ -290,7 +307,8 @@ def weapon_test_modifiers(use:WeaponUse|WeaponProtectionUse,conditions:Condition
     context=dict(target_conditions=target_conditions,against_charge=against_charge,actor_mounted=actor_mounted,
         charging=charging,target_mounted=target_mounted,target_range=target_range,concealing_weapon=concealing_weapon,
         crossing_difficult_terrain=crossing_difficult_terrain,harvesting_resources=harvesting_resources)
-    return WeaponTestPreparation(use,conditions,actual,_test_contributions(use,conditions,actual,**context),**context)
+    return WeaponTestPreparation(use,conditions,actual,
+        _test_contributions(use,conditions,actual,talents=talents,**context),talents=talents,**context)
 
 
 def _damage_contributions(use,target_resilience,*,actor_mounted,charging):

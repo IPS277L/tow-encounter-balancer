@@ -11,12 +11,15 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from towr.domain.armour_models import ShieldKind, armour_is_worn
+from towr.domain.armour_models import ShieldKind
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import ProfileInjuryState
 from towr.domain.magic_models import WizardMagicState
 from towr.domain.npc_roster_models import NpcParticipantSnapshot
 from towr.domain.pc_battlefield_models import PcBattlefieldState, battlefield_range
+from towr.domain.pc_mount_models import PcMountedState
+from towr.domain.pc_npc_resilience_models import npc_equipment_resilience, npc_mount_resilience_source
+from towr.domain.talent_armour_bane_models import ArmourBaneApplication
 from towr.domain.pc_npc_ranged_models import (
     pc_npc_ranged_weapon, initial_pc_npc_weapon_inventories, npc_ranged_weapon_from_unit,
 )
@@ -115,6 +118,7 @@ def _free_shield_hand(enemy):
     occupied = {hand for item in inventory.items if item.location is WeaponItemLocation.HELD
         for hand in ((WeaponGrip.LEFT,WeaponGrip.RIGHT)
             if item.grip is WeaponGrip.BOTH else (item.grip,))}
+    occupied.update(enemy.state.tool_inventory.occupied_hands)
     return next((hand for hand in (WeaponGrip.RIGHT,WeaponGrip.LEFT) if hand not in occupied),None)
 
 
@@ -139,16 +143,24 @@ def _pickup_weapon_witness(enemy):
     return unit
 
 
-def _with_shield(enemy, held, *, injury=None):
+def _with_shield(enemy, held, *, mount_source, armour_bane_sources, injury=None):
     if type(enemy) is not NpcParticipantSnapshot or type(held) is not bool:
         raise TypeError('NPC Shield equipment projection requires its exact participant and bool')
     replace(enemy)
     if enemy.state.holds_shield is held:
         raise ValueError('NPC Shield equipment is already in the requested state')
-    resilience = enemy.state.current_resilience
-    bonus = resilience.bonus+(1 if held else -1)
-    components = enemy.definition.generated_components
-    worn = components is not None and armour_is_worn(components.armour)
+    from towr.domain.pc_armour_bane_models import armour_bane_resilience_from_sources
+    before_base = npc_equipment_resilience(enemy.definition, enemy.state.actor_id,
+        shield_held=enemy.state.holds_shield, mount_source=mount_source)
+    before = armour_bane_resilience_from_sources(before_base, armour_bane_sources)
+    for application in armour_bane_sources:
+        if application.target_id != enemy.state.actor_id:
+            raise ValueError('NPC Shield resilience retained another actor Armour Bane source')
+    _same(enemy.state.current_resilience,before,
+        'NPC Shield source differs from its actual equipment, mount and Armour Bane provenance')
+    after_base = npc_equipment_resilience(enemy.definition, enemy.state.actor_id,
+        shield_held=held, mount_source=mount_source)
+    resilience = armour_bane_resilience_from_sources(after_base, armour_bane_sources)
     inventory = enemy.state.weapon_inventory
     if inventory is None:
         raise ValueError('NPC Shield transition requires its actual physical weapon inventory')
@@ -161,7 +173,7 @@ def _with_shield(enemy, held, *, injury=None):
             raise ValueError('NPC Shield pickup requires an actual free hand')
     return replace(enemy, state=replace(enemy.state, holds_shield=held,
         weapon_inventory=replace(inventory,shield_hand=shield_hand),
-        current_resilience=replace(resilience, bonus=bonus, armoured=True if bonus == 0 and worn else None),
+        current_resilience=resilience,
         injury=enemy.state.injury if injury is None else injury))
 
 
@@ -188,6 +200,8 @@ class PcNpcShieldDropProof:
     previous_enemy: NpcParticipantSnapshot
     enemy: NpcParticipantSnapshot
     rule_id: str = NPC_SHIELD_DROP_RULE_ID
+    mount_source: PcMountedState | None = field(kw_only=True)
+    armour_bane_sources: tuple[ArmourBaneApplication,...] = field(kw_only=True)
 
     @property
     def actor_id(self):
@@ -217,7 +231,8 @@ class PcNpcShieldDropProof:
                 raise ValueError('weapon-first Shield release requires an actual potential two-handed use')
         else:
             _held_weapon_witness(self.previous_enemy,self.weapon)
-        _same(self.enemy, _with_shield(self.previous_enemy, False),
+        _same(self.enemy, _with_shield(self.previous_enemy, False,
+            mount_source=self.mount_source,armour_bane_sources=self.armour_bane_sources),
             'NPC Shield drop changed something besides held Shield and its Resilience source')
 
 
@@ -239,6 +254,8 @@ class PcNpcShieldRecoverProof:
     weapon: ReloadableWeaponState | WeaponUnitState
     previous_enemy: NpcParticipantSnapshot
     enemy: NpcParticipantSnapshot
+    mount_source: PcMountedState | None = field(kw_only=True)
+    armour_bane_sources: tuple[ArmourBaneApplication,...] = field(kw_only=True)
 
     @property
     def actor_id(self):
@@ -286,7 +303,8 @@ class PcNpcShieldRecoverProof:
         _same(self.result, expected_pc_standard_recover(self.request),
             'NPC Shield pickup changed its actual paid standard Recover receipt')
         _same(self.enemy, _with_shield(self.previous_enemy, True,
-            injury=_standard_injury(self.previous_injury, self.result)),
+            injury=_standard_injury(self.previous_injury, self.result),
+            mount_source=self.mount_source,armour_bane_sources=self.armour_bane_sources),
             'NPC Shield pickup changed unrelated equipment, Resilience or injuries')
 
 
@@ -361,7 +379,16 @@ def _drop_id(source, actor, index):
     return f'{source.id}:npc-shield:drop:{index}:{actor}'
 
 
+def _resilience_witness(state,actor):
+    from towr.domain.pc_armour_bane_models import armour_bane_applications
+    return dict(mount_source=npc_mount_resilience_source(state,actor),
+        armour_bane_sources=armour_bane_applications(state,actor))
+
+
 def expected_npc_shield_drop(state):
+    from towr.domain.pc_bash_attack_models import expected_bash_npc_shield_drop
+    bash=expected_bash_npc_shield_drop(state)
+    if bash is not None:return bash
     actor = _ready_actor(state,CombatActionKind.ATTACK) or _ready_actor(state,CombatActionKind.IMPROVISE)
     if actor is None:
         return None
@@ -374,8 +401,9 @@ def expected_npc_shield_drop(state):
         enemy = state.enemy(actor)
         after = replace(item,location=NpcShieldLocation.DROPPED,ground=_drop_position(state,actor))
         index = len(state.history)
+        witness = _resilience_witness(state,actor)
         return PcNpcShieldDropProof(_drop_id(state.source,actor,index),index,
-            item,after,selected,enemy,_with_shield(enemy,False))
+            item,after,selected,enemy,_with_shield(enemy,False,**witness),**witness)
     if _ready_actor(state,CombatActionKind.IMPROVISE) is None:
         return None
     weapon = pc_npc_ranged_weapon(state, actor)
@@ -395,8 +423,9 @@ def expected_npc_shield_drop(state):
     enemy = state.enemy(actor)
     after = replace(item, location=NpcShieldLocation.DROPPED, ground=_drop_position(state, actor))
     index = len(state.history)
+    witness = _resilience_witness(state,actor)
     return PcNpcShieldDropProof(_drop_id(state.source, actor, index), index,
-        item, after, weapon, enemy, _with_shield(enemy, False))
+        item, after, weapon, enemy, _with_shield(enemy, False,**witness),**witness)
 
 
 def npc_shield_item_close(state, actor):
@@ -440,9 +469,10 @@ def complete_npc_shield_pickup(state, request, result):
     item = npc_shield_item(state, request.actor_id)
     enemy = state.enemy(request.actor_id)
     injury = _standard_injury(enemy.state.injury, result)
+    witness = _resilience_witness(state,request.actor_id)
     return PcNpcShieldRecoverProof(request, result, item,
         replace(item, location=NpcShieldLocation.HELD, ground=None),
-        _pickup_weapon_witness(enemy), enemy, _with_shield(enemy, True, injury=injury))
+        _pickup_weapon_witness(enemy), enemy, _with_shield(enemy, True, injury=injury,**witness),**witness)
 
 
 def _bank_update(state, item):
@@ -511,7 +541,39 @@ def validate_npc_shields(state):
     weapons = {key:npc_ranged_weapon_from_unit(item) for key,item in units.items()}
     from towr.domain.pc_melee_result_models import PcAttackProof
     from towr.domain.pc_npc_ranged_models import PcNpcRangedReloadProof
+    from towr.domain.pc_mount_models import PcDismountProof
+    from towr.domain.pc_armour_bane_models import armour_bane_applications
+    mount_sources={enemy.state.actor_id:(None if enemy.definition.generated_components is None
+        or enemy.definition.generated_components.mount is None else PcMountedState(
+            enemy.state.actor_id,enemy.definition.generated_components.mount,True))
+        for enemy in state.source.enemies}
+    ledgers={}
+    preceding_attacks=set()
+    from towr.domain.pc_immediate_attack_models import PcImmediateStrikeProof
+    from towr.domain.pc_musician_equipment_models import PcMusicianEquipmentProof
+    from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
     for index, proof in enumerate(state.history):
+        if type(proof) is PcMusicianRecoverProof:
+            replace(proof)
+            proof=proof.equipment
+        if type(proof) is PcMusicianEquipmentProof and proof.actor_id in bank:
+            replace(proof)
+            actor=proof.actor_id
+            _same(proof.previous_npc_shield,bank[actor],
+                'music Shield release detached from its actual source prefix')
+            if proof.previous_npc_shield!=proof.npc_shield:
+                if proof.history_index!=index:
+                    raise ValueError('music Shield release changed its actual journal position')
+                _shield_transition(proof.previous_npc_shield,proof.npc_shield,picked_up=False)
+                _same(proof.previous.definition,state.source.enemy(actor).definition,
+                    'music Shield release replaced its actual NPC definition')
+                bank[actor]=proof.npc_shield
+        if type(proof) in (PcAttackProof,PcImmediateStrikeProof):
+            preceding_attacks.add(proof.request.id)
+        if type(proof) is PcDismountProof and proof.actor_id in mount_sources:
+            _same(proof.previous,mount_sources[proof.actor_id],
+                'NPC Shield mount history differs from its actual source prefix')
+            mount_sources[proof.actor_id]=proof.state
         if type(proof) is PcAttackProof and proof.npc_ranged_shot is not None:
             shot = proof.npc_ranged_shot.execution
             weapons[(shot.source_request.attack.actor_id,shot.weapon_state.weapon_instance_id)] = shot.weapon_state
@@ -525,6 +587,13 @@ def validate_npc_shields(state):
         actor = proof.actor_id
         if actor not in bank:
             raise ValueError('NPC Shield receipt invented a source-less item')
+        if actor not in ledgers:
+            ledgers[actor]=armour_bane_applications(state,actor)
+        _same(proof.armour_bane_sources,tuple(application for application in ledgers[actor]
+            if application.attack_id in preceding_attacks),
+            'NPC Shield receipt changed its actual preceding Armour Bane sources')
+        _same(proof.mount_source,mount_sources[actor],
+            'NPC Shield receipt changed its actual preceding mount source')
         _same(proof.previous, bank[actor], 'NPC Shield receipt detached from its physical item prefix')
         if type(proof.weapon) is WeaponUnitState:
             key = actor,proof.weapon.id
@@ -552,6 +621,8 @@ def validate_npc_shields(state):
         if type(item) is not PcNpcShieldState:
             raise TypeError('NPC Shield bank requires exact typed states')
         replace(item)
+        _same(npc_mount_resilience_source(state,item.actor_id),mount_sources[item.actor_id],
+            'NPC Shield bank differs from its actual mount history')
         if state.enemy(item.actor_id).state.holds_shield is not (item.location is NpcShieldLocation.HELD):
             raise ValueError('NPC held Shield differs from its actual physical item state')
         inventory = state.enemy(item.actor_id).state.weapon_inventory

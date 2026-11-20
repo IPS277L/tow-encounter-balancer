@@ -5,6 +5,15 @@ from towr.simulation.pc_npc_ranged_statistics import PcNpcRangedCount,validate_n
 from towr.simulation.pc_extra_attack_statistics import (
     PcExtraAttackCount,pc_extra_attack_actors,validate_pc_extra_attack_counts,
 )
+from towr.simulation.pc_rapid_reload_statistics import (
+    PcRapidReloadCount, validate_rapid_reload_counts, validate_npc_aim_counts,
+)
+from towr.simulation.pc_immediate_attack_statistics import (
+    PcImmediateAttackCount, validate_immediate_attack_counts,
+)
+from towr.simulation.pc_companion_statistics import PcCompanionCount, validate_companion_counts
+from towr.simulation.pc_musician_statistics import PcMusicianCount, validate_musician_counts
+from towr.simulation.pc_oath_statistics import PcOathCount, validate_oath_counts, validate_oath_fate_budget
 
 from dataclasses import dataclass, field, replace
 
@@ -18,7 +27,7 @@ from towr.simulation.pc_melee_models import (
     PcNpcExtraAttackCount, validate_npc_extra_attack_counts,
     PcNpcRecoverActionCount, validate_npc_recover_counts,
     PcNpcWarpedFormCount, validate_npc_warped_form_counts, warped_form_target_budget,
-    PcAimCounts, validate_aim_counts,
+    PcAimCount, PcAimCounts, validate_aim_counts,
 )
 
 
@@ -73,6 +82,12 @@ class PcMeleeSimulationSummary:
     pc_ranged_counts: tuple[PcRangedCount,...] | None = field(default=None,kw_only=True)
     pc_extra_attack_counts: tuple[PcExtraAttackCount,...] | None = field(default=None,kw_only=True)
     pc_extra_attack_trial_count: int | None = field(default=None,kw_only=True)
+    rapid_reload_counts: tuple[PcRapidReloadCount,...] | None = field(default=None,kw_only=True)
+    npc_aim_counts: tuple[PcAimCount,...] | None = field(default=None,kw_only=True)
+    immediate_attack_counts: tuple[PcImmediateAttackCount,...] | None = field(default=None,kw_only=True)
+    companion_counts: tuple[PcCompanionCount,...] | None = field(default=None,kw_only=True)
+    music_counts: tuple[PcMusicianCount,...] | None = field(default=None,kw_only=True)
+    oath_counts: tuple[PcOathCount,...] | None = field(default=None,kw_only=True)
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_request, PcMeleeSimulationRequest):
@@ -111,10 +126,26 @@ class PcMeleeSimulationSummary:
             trials=self.trials,extra_trials=self.pc_extra_attack_trial_count,
             actions=self.total_action_count,started_rounds=started)
         pc_extras=sum(row.count for row in self.pc_extra_attack_counts or ())
+        validate_npc_aim_counts(self.npc_aim_counts,self.source_request.scenario,trials=self.trials,
+            actions=self.total_action_count,started_rounds=started)
+        validate_rapid_reload_counts(self.rapid_reload_counts,self.source_request.scenario,trials=self.trials,
+            actions=self.total_action_count,started_rounds=started,
+            pc_ranged_counts=self.pc_ranged_counts,npc_ranged_counts=self.npc_ranged_counts,
+            aim_counts=self.aim,npc_aim_counts=self.npc_aim_counts,
+            pc_extra_counts=self.pc_extra_attack_counts,npc_extra_counts=self.npc_extra_attack_counts)
+        rapid=sum(row.count for row in self.rapid_reload_counts or ())
+        validate_immediate_attack_counts(self.immediate_attack_counts,self.source_request.scenario,
+            actions=self.total_action_count,started_rounds=started)
+        validate_companion_counts(self.companion_counts,self.source_request.scenario,trials=self.trials,started_rounds=started)
+        validate_musician_counts(self.music_counts,self.source_request.scenario,trials=self.trials,
+            started_rounds=started,actions=self.total_action_count)
+        validate_oath_counts(self.oath_counts,self.source_request.scenario,trials=self.trials,
+            started_rounds=started,actions=self.total_action_count)
+        companion_actions=sum(row.recover_actions+row.movement_actions for row in self.companion_counts or ())
         terminal = counts.objective_achieved+counts.party_defeated
         members = len(self.source_request.scenario.party)
         if not max(completed, terminal+limited*budget) <= self.total_action_count <= (
-                members+len(self.source_request.scenario.enemies))*started+self.total_npc_extra_attack_count+pc_extras+seconds:
+                members+len(self.source_request.scenario.enemies))*started+self.total_npc_extra_attack_count+pc_extras+seconds+rapid+companion_actions:
             raise ValueError('actions contradict outcomes/rounds/actor count')
         if type(self.any_pc_defeated_count) is not int:
             raise TypeError('trials with a confirmed PC death must be an integer')
@@ -154,6 +185,8 @@ class PcMeleeSimulationSummary:
             raise TypeError('Glorious trial count must be an integer')
         validate_glorious_counts(self.glorious_spend_counts,self.source_request.scenario,
             trials=self.trials,spend_trials=self.glorious_spend_trial_count)
+        validate_oath_fate_budget(self.oath_counts,self.source_request.scenario,self.glorious_spend_counts,
+            self.aim,trials=self.trials)
         if type(self.help_action_trial_count) is not int:
             raise TypeError('Help trial count must be an integer')
         validate_help_counts(self.help_action_counts,self.source_request.scenario,trials=self.trials,
@@ -167,16 +200,19 @@ class PcMeleeSimulationSummary:
         validate_potion_use_counts(self.potion_use_counts,self.source_request.scenario,trials=self.trials,
             actions=self.total_action_count,started_rounds=self.total_started_round_count)
         validate_pc_ranged_counts(self.pc_ranged_counts,self.source_request.scenario,
-            actions=self.total_action_count,started_rounds=self.total_started_round_count,help_counts=self.help_action_counts)
+            actions=self.total_action_count,started_rounds=self.total_started_round_count,help_counts=self.help_action_counts,
+            rapid_reload_counts=self.rapid_reload_counts)
         validate_npc_ranged_counts(self.npc_ranged_counts,self.source_request.scenario,
-            actions=self.total_action_count,started_rounds=self.total_started_round_count)
+            actions=self.total_action_count,started_rounds=self.total_started_round_count,
+            rapid_reload_counts=self.rapid_reload_counts)
         validate_magic_counts(self.magic_counts,self.source_request.scenario,trials=self.trials,
             actions=self.total_action_count,started_rounds=self.total_started_round_count,
             unsupported_trials=counts.unsupported_path)
         validate_automatic_action_budget(self.help_action_counts,self.ally_recover_action_counts,
             self.source_request.scenario,started_rounds=self.total_started_round_count,
             potion_counts=self.potion_use_counts,magic_counts=self.magic_counts,
-            pc_extra_counts=self.pc_extra_attack_counts,aim_counts=self.aim)
+            pc_extra_counts=self.pc_extra_attack_counts,aim_counts=self.aim,rapid_reload_counts=self.rapid_reload_counts,
+            pc_ranged_counts=self.pc_ranged_counts,music_counts=self.music_counts,oath_counts=self.oath_counts)
         if type(self.npc_help_action_trial_count) is not int:
             raise TypeError('NPC Help trial count must be an integer')
         validate_npc_help_counts(self.npc_help_action_counts,self.source_request.scenario,trials=self.trials,
@@ -190,9 +226,10 @@ class PcMeleeSimulationSummary:
             warped_form_counts=self.npc_warped_form_counts)
         validate_npc_action_budget(self.npc_extra_attack_counts,self.npc_help_action_counts,
             self.npc_recover_action_counts,started_rounds=self.total_started_round_count,
-            ranged_counts=self.npc_ranged_counts)
+            ranged_counts=self.npc_ranged_counts,rapid_reload_counts=self.rapid_reload_counts,npc_aim_counts=self.npc_aim_counts,
+            music_counts=self.music_counts,oath_counts=self.oath_counts)
         if sum(item.count for item in (*self.help_action_counts,*self.ally_recover_action_counts,
-                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*(self.total_npc_extra_attack_count+pc_extras)+(self.aim.total_action_count if self.aim is not None else 0)+self.total_casting_action_count+sum(row.shots+row.reload_actions for row in self.npc_ranged_counts or ())+sum(row.shots+row.reload_actions for row in self.pc_ranged_counts or ())>self.total_action_count:
+                *self.npc_help_action_counts,*self.npc_recover_action_counts,*(self.potion_use_counts or ())))+2*(self.total_npc_extra_attack_count+pc_extras)+(self.aim.total_action_count if self.aim is not None else 0)+sum(row.count for row in self.npc_aim_counts or ())+self.total_casting_action_count+sum(row.shots+row.reload_actions for row in self.npc_ranged_counts or ())+sum(row.shots+row.reload_actions for row in self.pc_ranged_counts or ())+sum(row.actions+row.pickups for row in self.music_counts or ())+sum(row.prayers for row in self.oath_counts or ())>self.total_action_count:
             raise ValueError('Help, ally Recover and primary/extra Attacks cannot consume the same action')
         validate_npc_exit_counts(self.npc_exit_counts,self.source_request.scenario,
             trials=self.trials,exit_trials=self.npc_exit_trial_count)
@@ -207,6 +244,10 @@ class PcMeleeSimulationSummary:
     @property
     def total_casting_action_count(self) -> int:
         return sum(row.casting_actions for row in self.magic_counts or ())
+
+    @property
+    def total_immediate_attack_count(self) -> int:
+        return sum(row.count for row in self.immediate_attack_counts or ())
 
     @property
     def total_spell_cast_count(self) -> int:

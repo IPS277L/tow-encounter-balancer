@@ -27,6 +27,7 @@ def _validator(kind: str, family: str = "simulation", schema_version: str = "6")
     names = [f"magic-{group}-{name}-v6.schema.json"
              for group in ("simulation", "balance") for name in ("request", "result", "error")]
     names.append("magic-common.schema.json")
+    names.append("talent-common.schema.json")
     documents = {
         name: json.loads(files("towr.adapters.schemas").joinpath(name).read_text(encoding="utf-8"))
         for name in names

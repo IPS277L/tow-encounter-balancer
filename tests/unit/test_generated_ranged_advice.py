@@ -84,7 +84,7 @@ class PreparedPcShootingProtectionTests(unittest.TestCase):
             fate_policy=PcFatePolicy.CONFIGURED,
             glorious_policy=PcGloriousPolicy((Skill.MELEE,),20,0))
         state=tactical_snapshot(replace(original,party=(member,)))
-        self.assertEqual(member.combat_talents,())
+        self.assertEqual(member.talents,())
         self.assertIs(pc_close_shooting_protection(state,'pc1','minion1','test')[0],Skill.MELEE)
         unavailable=replace(member,fate_policy=PcFatePolicy.DECLINE_OPTIONAL_FATE,glorious_policy=None)
         plain=tactical_snapshot(replace(original,party=(unavailable,)))

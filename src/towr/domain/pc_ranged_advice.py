@@ -12,8 +12,9 @@ from collections import defaultdict
 from towr.domain.condition_models import Condition
 from towr.domain.test_models import Skill,DiceModifier,TestQuality,_expected_initial_roll_parameters
 from towr.domain.turn_models import CombatActionKind
+from towr.domain.pc_actor_models import pc_actor_npc_snapshot
 from towr.domain.ranged_weapon_profiles import (
-    RangedWeaponId,ranged_weapon_reload_profile,RangedReloadTrigger,
+    RangedWeaponId,ranged_weapon_reload_profile,RangedReloadTrigger,ranged_weapon_combat_profile,
 )
 
 
@@ -67,7 +68,8 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
     from towr.domain.pc_mount_models import pc_is_mounted
     from towr.domain.pc_talent_advice import pc_test_distribution,pc_wild_test_variant
     from towr.domain.pc_generated_talents import has_generated_talent
-    from towr.domain.generated_npc_models import GeneratedTalent
+    from towr.domain.generated_npc_models import TalentId
+    from towr.domain.pc_musician_effect_models import musician_defends_ties
     member=state.participant(actor)
     initial_use=pc_attack_weapon_use(state,actor)
     if initial_use is None:return 0.0,None
@@ -84,9 +86,10 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
     if shooting and (member.ranged is None or (not ranged_weapon_is_loaded(member.ranged) and not allow_empty)):return 0.0,None
     best=(0.0,None)
     from towr.domain.pc_battlefield_movement_models import pc_battlefield_attack_available,pc_battlefield_allows_outnumbering
-    targets=(target_id,) if target_id is not None else state.source.participant(actor).target_priority
+    from towr.domain.pc_battlefield_movement_models import _enemies
+    targets=(target_id,) if target_id is not None else _enemies(state, actor)
     for target in targets:
-        enemy=state.enemy(target)
+        enemy=pc_actor_npc_snapshot(state,target)
         if enemy.state.injury.defeated or target in state.exited_npc_ids:continue
         if not pc_battlefield_attack_available(state,actor,target):continue
         use=pc_attack_weapon_use(state,actor,target)
@@ -119,7 +122,12 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
         if use.primary is None:
             from towr.domain.pc_tactical_models import stagger_attack_value
             value=stagger_attack_value(pc_test_distribution(state,actor,skill,request,include_policy=True),
-                (1.0,) if defenceless else _distribution(protection),enemy.state.injury.conditions.has(Condition.STAGGERED))
+                (1.0,) if defenceless else _distribution(protection),enemy.state.injury.conditions.has(Condition.STAGGERED),
+                defender_wins_ties=musician_defends_ties(state,target))
+            from towr.domain.pc_bash_advice import bash_follow_up_value
+            value+=bash_follow_up_value(state,actor,target,
+                pc_test_distribution(state,actor,skill,request,include_policy=True),
+                (1.0,) if defenceless else _distribution(protection))
             if best[1] is None or value>best[0]+1e-12:best=value,target
             continue
         if throwing:
@@ -141,10 +149,16 @@ def pc_attack_value(state,actor,*,extra=0,enhancement=None,wild=False,bonus=Fals
         stance=(skill is Skill.MELEE and not defenceless and protection_profile.skill is Skill.DEFENCE
             and enemy.state.injury.conditions.has(Condition.STAGGERED) and not wild
             and not member.injury.conditions.has(Condition.STAGGERED)
-            and has_generated_talent(enemy.definition,GeneratedTalent.DEFENSIVE_STANCE))
+            and has_generated_talent(enemy.definition,TalentId.DEFENSIVE_STANCE))
         value=_impact_value(pc_test_distribution(state,actor,skill,request,include_policy=state.source.participant(actor).pc.ranged is not None),
             (1.0,) if defenceless else _distribution(protection),base,resistance,damage.success_multiplier,
-            enemy.state.injury.conditions.has(Condition.STAGGERED),defenceless,stance)
+            enemy.state.injury.conditions.has(Condition.STAGGERED),defenceless,stance,
+            defender_wins_ties=musician_defends_ties(state,target))
+        if skill is Skill.BRAWN:
+            from towr.domain.pc_bash_advice import bash_follow_up_value
+            value+=bash_follow_up_value(state,actor,target,pc_test_distribution(state,actor,skill,request),
+                (1.0,) if defenceless else _distribution(protection),
+                parent_damage=(base,damage.success_multiplier,resistance))
         if best[1] is None or value>best[0]+1e-12:best=value,target
     return best
 
@@ -194,13 +208,15 @@ def _distribution_request_value(state,actor,request,skill,target,*,budget):
     from towr.domain.pc_weapon_inventory import pc_attack_weapon_use
     from towr.domain.weapon_effect_preparation import weapon_damage_preparation
     from towr.domain.attack_models import DamageImpactSpec,effective_damage_modifiers,effective_ignores_armour
-    enemy=state.enemy(target)
+    from towr.domain.pc_musician_effect_models import musician_defends_ties,pc_attack_success_wins
+    enemy=pc_actor_npc_snapshot(state,target)
     selected,protection=npc_protection_test(state,target,actor,'tactics:protection',attack_skill=skill)
     defenceless=enemy.state.injury.conditions.has(Condition.DEFENCELESS)
     if skill is Skill.THROWING:
         protection_values=(1.0,) if defenceless else _distribution(protection)
         burdened=enemy.state.injury.conditions.has(Condition.BURDENED)
-        return tuple((0.0 if burdened or not successes else .2*sum(protection_values[:successes+1]),after,chance)
+        return tuple((0.0 if burdened else .2*sum(other for opposed,other in enumerate(protection_values)
+            if pc_attack_success_wins(state,actor,target,successes,opposed)),after,chance)
             for successes,after,chance in pc_fate_branches(state,actor,skill,request,budget))
     use=pc_attack_weapon_use(state,actor,target)
     if use is None:return ()
@@ -215,17 +231,18 @@ def _distribution_request_value(state,actor,request,skill,target,*,budget):
     resilience=enemy.state.current_resilience.toughness if ignores else enemy.state.current_resilience.total
     distribution=(1.0,) if defenceless else _distribution(protection)
     from towr.domain.pc_generated_talents import has_generated_talent
-    from towr.domain.generated_npc_models import GeneratedTalent
+    from towr.domain.generated_npc_models import TalentId
     stance=(skill is Skill.MELEE and selected.skill is Skill.DEFENCE and not defenceless
         and enemy.state.injury.conditions.has(Condition.STAGGERED)
         and not state.participant(actor).injury.conditions.has(Condition.STAGGERED)
         and not any(m.quality is TestQuality.GLORIOUS and m.rule_id=='RULE-TALENT-002:wild-attack' for m in request.quality_modifiers)
-        and has_generated_talent(enemy.definition,GeneratedTalent.DEFENSIVE_STANCE))
+        and has_generated_talent(enemy.definition,TalentId.DEFENSIVE_STANCE))
     rows=[]
     for successes,after,chance in pc_fate_branches(state,actor,skill,request,budget):
         literal=(0.0,)*successes+(1.0,)
         rows.append((_impact_value(literal,distribution,base,resilience,damage.success_multiplier,
-            enemy.state.injury.conditions.has(Condition.STAGGERED),defenceless,stance),after,chance))
+            enemy.state.injury.conditions.has(Condition.STAGGERED),defenceless,stance,
+            defender_wins_ties=musician_defends_ties(state,target)),after,chance))
     return tuple(rows)
 
 
@@ -246,7 +263,7 @@ def _remaining_after(remaining,item_id,value):
 
 
 def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaining=None,_horizon=None,
-        _future_turn=False):
+        _future_turn=False,_rapid_follow_up=False):
     """Comparable immediate choices with a finite continuation per Fate branch."""
     from towr.domain.pc_tactical_models import PcTacticalChoice
     from towr.domain.pc_melee_result_models import _pc_test,pc_melee_action_id
@@ -272,8 +289,8 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaini
         view=pc_weapon_inventory_view(state,actor,item.id,future_turn=True)
         if view is not None and usable_weapon_hand(view.participant(actor)) is not None:views[item.id]=view
     remaining=_ranged_remaining(member) if _remaining is None else _remaining
-    targets=tuple(t for t in state.source.participant(actor).target_priority
-        if not state.enemy(t).state.injury.defeated and t not in state.exited_npc_ids)
+    from towr.domain.pc_battlefield_movement_models import _enemies
+    targets=_enemies(state, actor)
     budget=initial_fate_budget(state,actor) if _budget is None else _budget
     shot_rows={}
     for item_id,view in views.items():
@@ -297,16 +314,16 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaini
                 from towr.domain.pc_aim_models import pc_aim_attack_modifiers
                 modifiers.extend(pc_ranged_profile_modifiers(view,actor,target,require_loaded=False))
                 modifiers.extend(pc_aim_attack_modifiers(view,actor,target))
-            if skill is Skill.SHOOTING and state.enemy(target).state.injury.conditions.has(Condition.PRONE):modifiers.append(DiceModifier('RULE-HEALTH-008:prone-shooting',-1))
+            if skill is Skill.SHOOTING and pc_actor_npc_snapshot(state,target).state.injury.conditions.has(Condition.PRONE):modifiers.append(DiceModifier('RULE-HEALTH-008:prone-shooting',-1))
             if bonus:modifiers.append(ranged_weapon_reload_profile(RangedWeaponId(weapon.value)).optional_bonus_modifier())
             if skill is Skill.MELEE:
                 if pc_battlefield_allows_outnumbering(view,actor):modifiers.append(DiceModifier('RULE-COMBAT-007:outnumbering',1))
                 from towr.domain.pc_npc_ability_models import pc_npc_allows_enemy_higher_ground
-                if (state.enemy(target).state.injury.conditions.has(Condition.PRONE)
-                        and pc_npc_allows_enemy_higher_ground(state.enemy(target).definition)):
+                if (pc_actor_npc_snapshot(state,target).state.injury.conditions.has(Condition.PRONE)
+                        and pc_npc_allows_enemy_higher_ground(pc_actor_npc_snapshot(state,target).definition)):
                     modifiers.append(DiceModifier('RULE-COMBAT-007:higher-ground',1))
             from towr.domain.pc_mount_models import pc_is_mounted
-            modifiers.extend(pc_weapon_target_modifiers(use,state.enemy(target).state.injury.conditions,
+            modifiers.extend(pc_weapon_target_modifiers(use,pc_actor_npc_snapshot(state,target).state.injury.conditions,
                 target_mounted=pc_is_mounted(view,target)))
             request=_pc_test(view,actor,pc_melee_action_id(view,actor)+':attack',skill,tuple(modifiers),weapon_use=use)
             request,_=build_pc_test_help(view,actor,skill,request)
@@ -329,15 +346,60 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaini
         for item_id,view in views.items()}
     can_keep_shield={item_id:view.participant(actor).weapon_inventory.active.grip is not WeaponGrip.BOTH
         for item_id,view in views.items()}
+    from towr.domain.pc_rapid_reload_models import rapid_reload_forecast_eligible
+    turn=state.round_state.active_turn
+    rapid_future=rapid_reload_forecast_eligible(state,actor,future_turn=True)
+    rapid_now=rapid_reload_forecast_eligible(state,actor,
+        future_turn=_future_turn or turn is None or turn.actor_id!=actor)
     @lru_cache(maxsize=None)
-    def attack_rows(item_id,bonus,remaining_budget):
+    def attack_rows(item_id,bonus,remaining_budget,*,without_aim=False):
         request,skill,target=shot_rows[item_id,bonus]
+        if without_aim:
+            from towr.domain.aim_models import AIM_FOLLOW_UP_RULE_ID
+            request=replace(request,dice_modifiers=tuple(modifier for modifier in request.dice_modifiers
+                if modifier.rule_id!=AIM_FOLLOW_UP_RULE_ID))
         return _distribution_request_value(views[item_id],actor,request,skill,target,budget=remaining_budget)
     @lru_cache(maxsize=None)
     def reload_rows(item_id,remaining_budget):
         return pc_fate_branches(reload_views[item_id],actor,Skill.DEXTERITY,reload_tests[item_id],remaining_budget)
+    def can_aim(item_id):
+        from towr.domain.pc_heavy_wound_models import restriction_sources
+        from towr.domain.injury_models import WoundRestriction
+        from towr.domain.pc_short_opening_models import pc_has_close_enemy
+        view=views[item_id]
+        return (view.source.participant(actor).pc.ranged.awareness is not None
+            and not restriction_sources(view.participant(actor).injury,WoundRestriction.CANNOT_AIM)
+            and not pc_has_close_enemy(view,actor))
+    def needs_aim(item_id,target):
+        from towr.domain.pc_short_opening_models import pc_enemy_range
+        from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+        profile=ranged_weapon_combat_profile(RangedWeaponId(pc_active_weapon(views[item_id],actor).value))
+        return profile.requires_aim_before_attack or pc_enemy_range(state,actor,target) is RangedWeaponRange.EXTREME
+    def after_reload(turns,remaining,item_id,left,successes,remaining_budget,rapid):
+        following=_remaining_after(remaining,item_id,max(0,left-successes))
+        ordinary=continuation(turns-1,following,item_id,False,remaining_budget)
+        if not rapid or successes<=0 or successes<left:
+            return ordinary
+        weapon=pc_active_weapon(views[item_id],actor)
+        profile=ranged_weapon_combat_profile(RangedWeaponId(weapon.value))
+        # A Reload consumes an older Aim. Mandatory new Aim is legal as the
+        # second action but cannot manufacture a same-turn third-action shot.
+        choices=[ordinary]
+        for bonus in (False,True):
+            spec=shot_rows.get((item_id,bonus))
+            if spec is None:continue
+            _,_,target=spec
+            if needs_aim(item_id,target):
+                if can_aim(item_id):
+                    choices.append(continuation(turns-1,following,item_id,False,remaining_budget,target))
+                continue
+            next_remaining=(_remaining_after(following,item_id,profile.reload.required_successes)
+                if bonus or profile.reload.trigger is RangedReloadTrigger.AFTER_EVERY_SHOT else following)
+            choices.append(sum(chance*(utility+continuation(turns-1,next_remaining,item_id,False,after))
+                for utility,after,chance in attack_rows(item_id,bonus,remaining_budget,without_aim=True)))
+        return max(choices)
     @lru_cache(maxsize=None)
-    def continuation(turns,remaining,active,shield,remaining_budget):
+    def continuation(turns,remaining,active,shield,remaining_budget,aimed_target=None):
         if turns<=0:return 0.0
         options=[]
         for item_id,view in views.items():
@@ -345,8 +407,7 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaini
             left=_remaining_for(remaining,item_id)
             if shooting and left:
                 if item_id in reload_tests:
-                    value=sum(chance*continuation(turns-1,
-                            _remaining_after(remaining,item_id,max(0,left-successes)),item_id,False,after)
+                    value=sum(chance*after_reload(turns,remaining,item_id,left,successes,after,rapid_future)
                         for successes,after,chance in reload_rows(item_id,remaining_budget))
                     options.append(value)
                 continue
@@ -357,11 +418,15 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaini
                 if spec is None:continue
                 request,skill,target=spec
                 profile=ranged_weapon_reload_profile(RangedWeaponId(weapon.value)) if shooting else None
+                if shooting and needs_aim(item_id,target) and aimed_target!=target:
+                    if can_aim(item_id):
+                        options.append(continuation(turns-1,remaining,item_id,shield,remaining_budget,target))
+                    continue
                 next_remaining=(_remaining_after(remaining,item_id,profile.required_successes)
                     if shooting and (bonus or profile.trigger is RangedReloadTrigger.AFTER_EVERY_SHOT) else remaining)
                 value=sum(chance*(utility+continuation(turns-1,next_remaining,item_id,
                         shield and can_keep_shield[item_id],after))
-                    for utility,after,chance in attack_rows(item_id,bonus,remaining_budget))
+                    for utility,after,chance in attack_rows(item_id,bonus,remaining_budget,without_aim=True))
                 options.append(value)
         return max(options,default=0.0)
     result=[]
@@ -377,12 +442,12 @@ def ranged_action_choices(state,actor,*,incoming_risk=None,_budget=None,_remaini
             if item_id in current_reload_ids:
                 reload_cost=(max(0.0,incoming_risk(reload_views[item_id])-current_risk)
                     if incoming_risk is not None else 0.0)
-                value=sum(chance*continuation(horizon-1,
-                        _remaining_after(remaining,item_id,max(0,left-successes)),item_id,False,after)
+                value=sum(chance*after_reload(horizon,remaining,item_id,left,successes,after,rapid_now)
                     for successes,after,chance in reload_rows(item_id,budget))/horizon-reload_cost
                 result.append(PcTacticalChoice(actor,CombatActionKind.IMPROVISE,actor,None,value,'reload_selected_weapon',weapon_item_id=item_id,ranged_reload=True))
             continue
-        if (viewed_member.shield is not None and viewed_member.shield.location is PcShieldLocation.DROPPED and can_restore[item_id]):
+        if (not _rapid_follow_up and viewed_member.shield is not None
+                and viewed_member.shield.location is PcShieldLocation.DROPPED and can_restore[item_id]):
             value=continuation(horizon-1,remaining,item_id,True,budget)/horizon-cost
             result.append(PcTacticalChoice(actor,CombatActionKind.RECOVER,actor,None,value,'restore_selected_weapon_shield',weapon_item_id=item_id));continue
         for bonus in (False,True):

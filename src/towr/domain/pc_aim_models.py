@@ -44,6 +44,11 @@ class PcAimConsumptionProof:
 
 
 def _action(proof):
+    from towr.domain.pc_musician_effect_models import PcMusicianActionProof
+    from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
+    from towr.domain.pc_oath_models import PcLadyPrayerProof
+    if type(proof) in (PcMusicianActionProof,PcMusicianRecoverProof,PcLadyPrayerProof):
+        return proof.result.slot.execution
     from towr.domain.pc_melee_result_models import PcAttackProof, PcRecoverProof, PcHelpProof
     from towr.domain.pc_ranged_models import PcRangedReloadProof
     from towr.domain.pc_potion_models import PcPotionRecoverProof
@@ -178,7 +183,10 @@ def build_pc_aim(state):
     from towr.domain.pc_melee_result_models import _pc_test, pc_melee_action_id, _ready
     _ready(state)
     turn = state.round_state.active_turn
-    if turn is None or turn.actor_id not in state.source.pc_activation_order or len(turn.action_slots) > 1:
+    from towr.domain.pc_rapid_reload_models import pending_rapid_reload
+    rapid = pending_rapid_reload(state)
+    if (turn is None or turn.actor_id not in state.source.pc_activation_order
+            or len(turn.action_slots) > 1 and rapid is None):
         raise ValueError('Aim requires its own standard PC action')
     actor = turn.actor_id
     member = state.participant(actor)
@@ -188,11 +196,11 @@ def build_pc_aim(state):
     if (source.pc.ranged is None or source.pc.ranged.awareness is None
             or pc_active_weapon(state,actor) not in PC_RANGED_WEAPONS
             or usable_weapon_hand(member) is None
-            or not ranged_weapon_is_loaded(member.ranged) or pc_has_close_enemy(state,actor)
+            or rapid is None and not ranged_weapon_is_loaded(member.ranged) or pc_has_close_enemy(state,actor)
             or restriction_sources(member.injury,WoundRestriction.CANNOT_AIM)
             or member.injury.conditions.has(Condition.DEFENCELESS)):
         raise ValueError('Aim requires its actual held ready ranged weapon and Awareness source')
-    target = pc_aim_target(state,actor)
+    target = rapid.target_id if rapid is not None else pc_aim_target(state,actor)
     if target is None:
         raise ValueError('Aim requires a living target inside the scene maximum')
     action = pc_melee_action_id(state,actor)+':aim'
@@ -283,7 +291,7 @@ def project_pc_aim_step(state, proof):
     combat = replace(state.round_state,active_turn=replace(turn,action_slots=(*turn.action_slots[:-1],executed)))
     expected = PcAimProof(request,AimActionExecutionResult(request.id,AIM_ACTION_RULE_ID,request,
         result.awareness_test_result,AimBonusSnapshot(request.id+':bonus',request.id,request.awareness_test.id,
-            request.actor_id,request.target_id,result.awareness_test_result.successes),state.round_state,combat,
+            request.actor_id,request.target_id,result.awareness_test_result.effective_successes),state.round_state,combat,
         executed,tuple(dict.fromkeys((AIM_ACTION_RULE_ID,*result.awareness_test_result.trace.applied_rule_ids)))),proof.fate_decline)
     if proof != expected:
         raise ValueError('Aim altered its roll, bonus, slot receipt or round')

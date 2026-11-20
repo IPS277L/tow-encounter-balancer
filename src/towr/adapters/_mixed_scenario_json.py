@@ -105,7 +105,10 @@ def _parse_scenario(data, initial_id, round_budget, path_prefix, error_type):
 
 def scenario_document(scenario: NpcMixedScenario, definition_order: tuple[str, ...]) -> dict:
     roster = scenario.initial.current.state.roster
+    from towr.domain.talent_actor_models import npc_definition_acquired_talents
     for participant in roster.participants:
+        if npc_definition_acquired_talents(participant.definition) or participant.definition.talent_facts is not None:
+            raise ValueError('bounded Mixed JSON cannot drop declared NPC Talent sources')
         if (participant.definition.resilience.armoured is not None
                 or participant.state.current_resilience.armoured is not None):
             raise ValueError("bounded Mixed JSON does not support explicit armoured metadata")

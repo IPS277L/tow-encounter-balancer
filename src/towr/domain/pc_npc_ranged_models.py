@@ -284,11 +284,24 @@ def prepare_pc_npc_ranged_shot(state: PcMeleeState, request: AttackActionExecuti
         ordinary=replace(test,dice_modifiers=tuple(m for m in test.dice_modifiers
             if m.rule_id!=REPEATER_SHOOTING_BONUS_RULE_ID))
         target=request.target_id
-        source=state.source.participant(target)
         defender=request.kernel_request.attack.defender_test
-        defender_skill=(pc_shooting_protection(state,target,actor,defender.id)[0]
-            if defender is not None and source.policy is PcMeleePolicy.AUTOMATIC_COMBAT else
-            pc_protection_skill(state.participant(target),Skill.SHOOTING,source.close_shooting_protection_skill))
+        if target in state.source.pc_activation_order:
+            source=state.source.participant(target)
+            defender_skill=(pc_shooting_protection(state,target,actor,defender.id)[0]
+                if defender is not None and source.policy is PcMeleePolicy.AUTOMATIC_COMBAT else
+                pc_protection_skill(state.participant(target),Skill.SHOOTING,source.close_shooting_protection_skill))
+        else:
+            from towr.domain.pc_actor_models import pc_actor_npc_snapshot
+            pc_actor_npc_snapshot(state,target)
+            defender_skill=None
+            if defender is not None:
+                from towr.domain.pc_generated_equipment import npc_protection_test
+                from towr.domain.pc_melee_result_models import validate_pc_melee_source_types
+                protection_profile,prepared=npc_protection_test(state,target,actor,defender.id,attack_skill=Skill.SHOOTING)
+                if prepared!=defender:
+                    raise ValueError('NPC shot changed the companion\'s committed Protection Test')
+                validate_pc_melee_source_types(defender,prepared)
+                defender_skill=protection_profile.skill
         if selected != npc_repeater_bonus(state,actor,ordinary,
                 defender,target,defender_skill=defender_skill):
             raise ValueError('NPC Repeater mode differs from its committed automatic choice')
@@ -378,6 +391,8 @@ def build_pc_npc_ranged_reload(state: PcMeleeState) -> ReloadActionExecutionRequ
         raise ValueError('Free-with-Attack bows do not open a separate Reload action')
     enemy = state.enemy(actor)
     action = pc_melee_action_id(state,actor)
+    if enemy.state.tool_inventory.occupied_hands:
+        raise ValueError('NPC Reload requires its instrument to be stowed before using both hands')
     return ReloadActionExecutionRequest(action+':reload:execute',state.round_state,actor,
         enemy.state.injury.conditions,1,weapon,
         npc_ranged_reload_test(state,actor,action+':reload:dexterity'))

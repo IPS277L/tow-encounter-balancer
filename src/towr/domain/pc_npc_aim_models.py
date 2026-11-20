@@ -47,8 +47,13 @@ def _npc_source(source, actor):
 
 
 def _action(proof):
+    from towr.domain.pc_musician_effect_models import PcMusicianActionProof
+    from towr.domain.pc_battlefield_musician_models import PcMusicianRecoverProof
+    from towr.domain.pc_oath_models import PcLadyPrayerProof
+    if type(proof) in (PcMusicianActionProof,PcMusicianRecoverProof,PcLadyPrayerProof):
+        return proof.result.slot.execution
     """Only completed typed actions consume Aim; movement and turn clocks do not."""
-    from towr.domain.pc_melee_result_models import PcAttackProof, PcNpcHelpProof
+    from towr.domain.pc_melee_result_models import PcAttackProof, PcNpcHelpProof, PcHelpProof
     from towr.domain.pc_npc_ranged_models import PcNpcRangedReloadProof
     from towr.domain.pc_flagellant_models import PcNpcRecoverProof
     from towr.domain.pc_battlefield_movement_models import PcBattlefieldRecoverProof
@@ -63,7 +68,7 @@ def _action(proof):
     if type(proof) in (PcNpcRangedReloadProof, PcBattlefieldRecoverProof,
             PcNetReleaseProof, PcNetPickupProof):
         return proof.result.slot.execution
-    if type(proof) in (PcNpcHelpProof, PcNpcRecoverProof):
+    if type(proof) in (PcNpcHelpProof, PcHelpProof, PcNpcRecoverProof):
         return proof.execution.slot.execution
     if type(proof) is PcBattlefieldRunProof:
         return proof.result.slot.execution
@@ -218,21 +223,23 @@ def build_npc_aim(state: PcMeleeState) -> AimActionExecutionRequest:
     from towr.domain.pc_npc_ranged_models import _held_npc_ranged
     _ready(state)
     turn = state.round_state.active_turn
+    from towr.domain.pc_rapid_reload_models import pending_rapid_reload
+    rapid = pending_rapid_reload(state)
     if (turn is None or turn.actor_id not in state.source.enemy_activation_order
-            or len(turn.action_slots) > 1):
+            or len(turn.action_slots) > 1 and rapid is None):
         raise ValueError('NPC Aim requires its own ordinary turn and standard slot')
     actor = turn.actor_id
-    if not npc_needs_aim(state, actor):
+    if rapid is None and not npc_needs_aim(state, actor):
         raise ValueError('no mandatory NPC Aim is selected for the current legal target')
-    _held_npc_ranged(state, actor, loaded=True)
-    if turn.action_slots and (turn.action_slots[0].executed
-            or turn.action_slots[0].declaration.kind is not CombatActionKind.AIM):
+    _held_npc_ranged(state, actor, loaded=True if rapid is None else rapid.source_reload.state.loaded)
+    if turn.action_slots and (turn.action_slots[-1].executed
+            or turn.action_slots[-1].declaration.kind is not CombatActionKind.AIM):
         raise ValueError('NPC Aim cannot replace an executed or different action slot')
-    target = _target(state, actor)
+    target = rapid.target_id if rapid is not None else _target(state, actor)
     if target is None:
         raise ValueError('NPC Aim requires its live legal target')
     action = pc_melee_action_id(state, actor) + ':aim'
-    return AimActionExecutionRequest(action, state.round_state, actor, target, 1,
+    return AimActionExecutionRequest(action, state.round_state, actor, target, len(turn.action_slots) or 1,
         _awareness_test(state, actor, target, action + ':awareness'))
 
 
@@ -261,20 +268,20 @@ def project_npc_aim_step(state: PcMeleeState, proof) -> PcMeleeState:
     if proof.request != request or type(proof.result) is not AimActionExecutionResult:
         raise ValueError('NPC Aim changed its actual Awareness, actor, target or source')
     turn = state.round_state.active_turn
-    if len(turn.action_slots) != 1 or turn.action_slots[0].executed:
+    if turn.action_slots[request.slot_index - 1].executed:
         raise ValueError('NPC Aim must execute one unused reserved standard Aim slot')
     result = proof.result
     _test_result(request.awareness_test, result.awareness_test_result)
-    slot = turn.action_slots[0]
+    slot = turn.action_slots[request.slot_index - 1]
     receipt = ActionExecutionReceipt(request.id, AIM_ACTION_RULE_ID, request.id,
         result.awareness_test_result.trace.request_id, request.actor_id,
-        state.round_state.round_number, 1, slot.declaration)
+        state.round_state.round_number, request.slot_index, slot.declaration)
     executed = replace(slot, execution=receipt)
-    clock = replace(state.round_state, active_turn=replace(turn, action_slots=(executed,)))
+    clock = replace(state.round_state, active_turn=replace(turn, action_slots=(*turn.action_slots[:-1], executed)))
     expected = PcNpcAimProof(request, AimActionExecutionResult(
         request.id, AIM_ACTION_RULE_ID, request, result.awareness_test_result,
         AimBonusSnapshot(request.id + ':bonus', request.id, request.awareness_test.id,
-            request.actor_id, request.target_id, result.awareness_test_result.successes),
+            request.actor_id, request.target_id, result.awareness_test_result.effective_successes),
         state.round_state, clock, executed,
         tuple(dict.fromkeys((AIM_ACTION_RULE_ID, *result.awareness_test_result.trace.applied_rule_ids)))))
     if proof != expected:

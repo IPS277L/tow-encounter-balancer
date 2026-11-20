@@ -7,12 +7,14 @@ from tests.support.pc_magic_scenarios import magic_scenario
 from tests.support.pc_melee_scripted import ScriptedD10
 from tests.support.pc_shield_scenarios import shield_loadout
 from tests.support.pc_tactics_fixtures import tactical_snapshot
+from towr.domain.attack_models import DamageProfile
 from towr.domain.condition_models import Condition
 from towr.domain.injury_models import (CharacterInjuryState, WoundRecord, WoundEntryId,
     WoundRestriction, WoundRestrictionEffect, WoundConditionEffect, WoundEffectDuration)
 from towr.domain.pc_heavy_wound_models import PcBodyFact, PcBodyFactKind
 from towr.domain.pc_magic_models import (PcCastingProof, PcMagicInterruptionProof, PcMagicCleanupProof,
-    PcMiscastRollProof, PcMagicTaskKind, magic_hand, build_pc_casting_request, consume_magic_modifiers)
+    PcMiscastRollProof, PcMagicTaskKind, magic_hand, build_pc_casting_request, consume_magic_modifiers,
+    expected_magic_interruption)
 from towr.domain.pc_melee_models import (PcFatePolicy, PcGloriousPolicy, PcWeaponHand,
     PcMeleeWeapon, PcTwoHandedGrip, PcBackupWeaponPolicy)
 from towr.domain.pc_melee_result_models import (PcAttackProof, PcRecoverProof, PcMeleeStep,
@@ -35,40 +37,62 @@ def with_healing(source):
         ConsumableItem('healing',ConsumableKind.HEALING,1,None),)),*source.party[1:]))
 
 
+def with_wounding_attacks(source):
+    """Damage exceeds the fixture caster's T10, avoiding optional Stagger replies.
+
+    These encounters need actual Wounds, independently of the automatic choice
+    to fall Prone instead of taking a Wound from a repeated Staggered result.
+    """
+    return replace(source,enemies=tuple(replace(enemy,definition=replace(enemy.definition,
+        attacks=(replace(enemy.definition.attacks[0],damage=DamageProfile(11)),)))
+        for enemy in source.enemies))
+
+
 class PcMagicInteractionTests(unittest.TestCase):
     def test_actual_recover_reduces_pool_then_one_skipped_casting_die_restores_it(self):
-        # First Casting fails with one locked9. Two incoming hits cause Prone5;
+        # First Casting fails with one locked9. A direct Wound causes Prone5;
         # its real Endurance fails, forcing a standard Recover on turn2.
-        source = magic_scenario(rounds=2)
-        values = [9,10]+[1,10]+[1,10,5]+[10]*10+[10]*4
+        source = with_wounding_attacks(magic_scenario(enemies=1,rounds=2))
+        values = [9,10]+[1,10,5]+[10]*10+[10]*2
         result = run_literal(source, values)
         recover = next(step for step in result.steps if type(step.proof) is PcRecoverProof)
         skipped = tuple(step for step in result.steps if type(step.proof) is PcMagicInterruptionProof)
         self.assertEqual(len(skipped),1)
+        self.assertEqual(recover.source.party[0].injury.wounds[0].table_total,5)
+        self.assertTrue(recover.source.party[0].injury.wounds[0].effect_resolved)
         self.assertEqual(recover.source.party[0].magic.miscast_dice,1)
         self.assertEqual(recover.state.party[0].magic.miscast_dice,0)
         self.assertEqual(skipped[0].proof.result.source.amount,1)
         self.assertEqual(skipped[0].state.party[0].magic.miscast_dice,1)
         self.assertEqual(skipped[0].state.party[0].magic.casting_lore_id,'elementalism')
         self.assertEqual(skipped[0].state.party[0].magic.casting_successes,0)
+        self.assertEqual(skipped[0].proof.source_action_id,recover.proof.result.slot.execution.id)
+        self.assertIsNone(expected_magic_interruption(skipped[0].state))
+        with self.assertRaises(ValueError):
+            apply_pc_melee_step(skipped[0].state,skipped[0])
         self.assertFalse(result.state.party[0].injury.conditions.has(Condition.PRONE))
 
     def test_potion_recover_is_also_one_skipped_casting_action_not_a_free_reset(self):
-        source = with_healing(magic_scenario(rounds=2))
-        result = run_literal(source,[9,10]+[1,10]+[1,10,6]+[10]*4)
+        source = with_healing(with_wounding_attacks(magic_scenario(enemies=1,rounds=2)))
+        result = run_literal(source,[9,10]+[1,10,6]+[10]*2)
         potion = next(step for step in result.steps if type(step.proof) is PcPotionRecoverProof)
         skipped = tuple(step for step in result.steps if type(step.proof) is PcMagicInterruptionProof)
         self.assertEqual(len(skipped),1)
+        self.assertEqual(potion.proof.before.injury.wounds[0].table_total,6)
+        self.assertEqual(potion.proof.before.magic.miscast_dice,1)
         self.assertTrue(potion.proof.after.injury.wounds[0].healed)
         self.assertEqual(potion.proof.after.magic.miscast_dice,0)
+        self.assertEqual(skipped[0].proof.result.source.amount,1)
         self.assertEqual(skipped[0].state.party[0].magic.miscast_dice,1)
         self.assertEqual(skipped[0].state.party[0].magic.casting_lore_id,'elementalism')
+        self.assertEqual(skipped[0].proof.source_action_id,potion.proof.result.slot.execution.id)
+        self.assertIsNone(expected_magic_interruption(skipped[0].state))
         self.assertEqual(potion.proof.after.potions,())
 
     def test_defenceless_turn_without_slot_still_skips_once_and_resolves_actual_miscast(self):
-        source = magic_scenario(enemies=6,rounds=2)
-        values = ([9,10]+[1,10]+[1,10,1]+[1,10]+[1,10,1,1]+[1,10]
-            +[1,10,10,10,2]+[1,1]+[1]*10+[10]*6)
+        source = with_wounding_attacks(magic_scenario(enemies=3,rounds=2))
+        values = ([9,10]+[1,10,1]+[1,10,1,1]
+            +[1,10,10,10,2]+[1,1]+[1]*10+[10]*3)
         result = run_literal(source, values)
         skipped = tuple(step for step in result.steps if type(step.proof) is PcMagicInterruptionProof)
         self.assertEqual(len(skipped),1)
@@ -118,14 +142,21 @@ class PcMagicInteractionTests(unittest.TestCase):
             if modifier.kind is PcMagicTaskKind.FELLOWSHIP_GRIM),('pc1',))
 
     def test_daylight_blindness_survives_healing_or_expiry_of_an_independent_wound(self):
-        prefix = [9,9,9,10]+[1,10]+[1,10,7]+[10]*10
+        prefix = [9,9,9,10]+[1,10,7]+[10]*10
         for healing in (False,True):
-            source = magic_scenario(rounds=2)
+            source = with_wounding_attacks(magic_scenario(enemies=1,rounds=2))
             if healing:
                 source = with_healing(source)
-            values = prefix+([10,10] if not healing else [])+[10]*4
+            values = prefix+([10,10] if not healing else [])+[10]*2
             with self.subTest(healing=healing):
                 result = run_literal(source,values)
+                wounded = next(step.state for step in result.steps if step.state.party[0].timed_wounds)
+                temporary = wounded.party[0].timed_wounds[0].effect
+                self.assertIs(temporary.condition,Condition.BLINDED)
+                self.assertEqual(temporary.wound_sequence,1)
+                magical = next(modifier for modifier in wounded.magic_modifiers
+                    if modifier.kind is PcMagicTaskKind.BLINDED)
+                self.assertIn(magical,result.state.magic_modifiers)
                 self.assertTrue(result.state.party[0].injury.conditions.has(Condition.BLINDED))
                 self.assertTrue(any(modifier.kind is PcMagicTaskKind.BLINDED for modifier in result.state.magic_modifiers))
                 self.assertEqual(result.state.party[0].timed_wounds,())
@@ -150,15 +181,17 @@ class PcMagicInteractionTests(unittest.TestCase):
             for modifier in result.state.magic_modifiers))
 
     def test_actual_casting_with_only_injured_hand_retains_its_critical_source(self):
-        source = magic_scenario(enemies=8,rounds=3)
+        source = with_wounding_attacks(magic_scenario(enemies=4,rounds=3))
         # Wound12left, failed finger-save, then Wound16right. Recover picks up
         # the Staff using the only remaining, injured hand; turn3 truly casts.
-        values = ([10,10]+[1,10]+[1,10,1]+[1,10]+[1,10,1,1]+[1,10]
-            +[1,10,1,1,10,1]+[10]*10+[1]+[10]*3+[1]+[10]*3+[4]*4+[10]
-            +[1]*10+[10]*16+[1,1]+[1]*10+[10]*12)
+        values = ([10,10]+[1,10,1]+[1,10,1,1]
+            +[1,10,1,1,10,1]+[10]*10+[1]+[10]*3+[4]*4+[10]
+            +[1]*10+[10]*8+[1,1]+[1]*10+[10]*4)
         result = run_literal(source,values)
         cast = next(step for step in result.steps if type(step.proof) is PcCastingProof
             and step.source.round_state.round_number == 3)
+        self.assertEqual(tuple(w.table_total for w in cast.source.party[0].injury.wounds),(1,2,12,16))
+        self.assertEqual(cast.proof.execution.casting.test.trace.initial_values,(1,1))
         self.assertIs(magic_hand(cast.source,'pc1'),PcWeaponHand.LEFT)
         self.assertTrue(any(effect.wound_sequence == 3 and isinstance(effect,WoundConditionEffect)
             and effect.condition is Condition.CRITICALLY_INJURED
@@ -189,13 +222,13 @@ class PcMagicInteractionTests(unittest.TestCase):
             build_pc_casting_request(unavailable)
 
     def test_one_healthy_hand_can_cast_after_two_handed_grip_becomes_unavailable(self):
-        # Six attacks give wounds1,2,16 and disable the left arm. Wound16
+        # Three direct Wounds give1,2,16 and disable the left arm. Wound16
         # leaves the caster able to act: Wound20 would additionally require
         # resolving its actual Defenceless cause before ordinary Casting.
-        values = ([10,10]+[1,10]+[1,10,1]+[1,10]+[1,10,1,1]+[1,10]
-            +[1,10,10,1,5,1]+[1,1]+[1]*10+[10]*24)
+        values = ([10,10]+[1,10,1]+[1,10,1,1]
+            +[1,10,10,1,5,1]+[1,1]+[1]*10+[10]*12)
         for backup in (None,PcBackupWeaponPolicy(PcMeleeWeapon.SWORD,PcWeaponHand.RIGHT)):
-            source = magic_scenario(enemies=6,rounds=2)
+            source = with_wounding_attacks(magic_scenario(enemies=3,rounds=2))
             member = source.party[0]
             source = replace(source,party=(replace(member,
                 pc=replace(member.pc,weapon=PcMeleeWeapon.HALBERD),
@@ -205,6 +238,7 @@ class PcMagicInteractionTests(unittest.TestCase):
                 cast = next(step for step in result.steps if type(step.proof) is PcCastingProof
                     and step.source.round_state.round_number == 2)
                 self.assertIsNone(result.unsupported)
+                self.assertEqual(tuple(w.table_total for w in cast.source.party[0].injury.wounds),(1,2,16))
                 self.assertIs(magic_hand(cast.source,'pc1'),PcWeaponHand.RIGHT)
                 self.assertIs(cast.source.party[0].weapon_hand,PcTwoHandedGrip.BOTH)
                 self.assertFalse(result.state.party[0].using_backup_weapon)

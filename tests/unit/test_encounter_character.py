@@ -1,10 +1,11 @@
 """Character facts reach actual equipment/resource behavior without user policies."""
+from tests.support.talent_sources import paid_talent
 from dataclasses import replace
 import unittest
 
 from tests.support.pc_melee_fixtures import make_pc_melee_scenario
 from tests.support.pc_melee_scripted import ScriptedD10
-from towr.application.encounter_character import EncounterCharacter, EncounterTalent
+from towr.application.encounter_character import EncounterCharacter, TalentId
 from towr.domain.armour_models import ArmourLoadout,BodyArmour,ShieldKind
 from towr.application.dynamic_encounter import automatic_npc_search_space
 from towr.domain.minion_defeat_models import NpcDefeatDisposition
@@ -49,7 +50,7 @@ class EncounterCharacterTests(unittest.TestCase):
             character(weapon=PcMeleeWeapon.GREATAXE, shield=True)
 
     def test_automatic_glorious_uses_real_failed_roll_and_lucky_at_zero_fate(self):
-        source = scenario(character(fate=0, talents=(EncounterTalent.LUCKY,)))
+        source = scenario(character(fate=0, talents=(paid_talent(TalentId.LUCKY),)))
         rng = ScriptedD10([10,10,10,1,1,1,10,10])
         result = run_pc_melee_scenario(source, rng)
         rng.assert_exhausted()
@@ -64,7 +65,7 @@ class EncounterCharacterTests(unittest.TestCase):
         self.assertEqual(source.party[0].fate.spends, ())
 
     def test_lucky_subsequent_spend_is_paid_and_cannot_be_reused(self):
-        member = character(fate=1, talents=(EncounterTalent.LUCKY,)).participant('session', NpcDefeatDisposition.KILLED)
+        member = character(fate=1, talents=(paid_talent(TalentId.LUCKY),)).participant('session', NpcDefeatDisposition.KILLED)
         first = spend_fate_for_glorious(FateGloriousSpendRequest('one', member.fate,
             TestRequest('test:one', member.pc.melee_profile)))
         second = spend_fate_for_glorious(FateGloriousSpendRequest('two', first.state,

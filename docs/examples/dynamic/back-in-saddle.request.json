@@ -1,0 +1,166 @@
+{
+  "schema_version": "1",
+  "kind": "dynamic_encounter_search",
+  "request_id": "dynamic:back-in-saddle",
+  "ruleset": "towr-pg1.4-gmg1.1",
+  "party": [
+    {
+      "actor_id": "pc:rider",
+      "characteristics": {
+        "weapon_skill": 2,
+        "strength": 2,
+        "toughness": 4,
+        "agility": 4
+      },
+      "skills": {
+        "melee": 4,
+        "defence": 4,
+        "athletics": 4,
+        "endurance": 4
+      },
+      "equipment": {
+        "weapons": [
+          {
+            "id": "weapon:1",
+            "weapon": "sword",
+            "location": "left_hand"
+          }
+        ],
+        "armour": []
+      },
+      "talents": [
+        {
+          "id": "back_in_the_saddle",
+          "acquisitions": [
+            {
+              "phase": "advancement",
+              "funding": "xp",
+              "choice": null,
+              "devotion_confirmed": null
+            }
+          ]
+        }
+      ],
+      "resources": {
+        "fate": 0
+      },
+      "consumables": [],
+      "mount": "horse"
+    }
+  ],
+  "search_space": {
+    "weapon_skill": [
+      2,
+      3
+    ],
+    "strength": [
+      2,
+      3
+    ],
+    "toughness": [
+      3,
+      4
+    ],
+    "agility": [
+      4
+    ],
+    "melee": [
+      3,
+      4
+    ],
+    "athletics": [
+      3,
+      4
+    ],
+    "weapon": [
+      "staff"
+    ],
+    "abilities": [
+      []
+    ],
+    "defence": [
+      3,
+      4
+    ],
+    "shield": [
+      null
+    ],
+    "allowed_talents": [
+      "back_in_the_saddle"
+    ],
+    "ballistic_skill": [
+      2,
+      3,
+      4
+    ],
+    "initiative": [
+      2,
+      3,
+      4
+    ],
+    "shooting": [
+      3,
+      4,
+      5
+    ],
+    "dexterity": [
+      3,
+      4,
+      5
+    ],
+    "armour": [
+      null
+    ],
+    "weapon_count": [
+      1
+    ],
+    "initial_loaded": [
+      true
+    ],
+    "helmet": [
+      null
+    ],
+    "mount": [
+      "horse"
+    ],
+    "rider_kind": [
+      "human"
+    ]
+  },
+  "npc_count": {
+    "minimum": 1,
+    "maximum": 1
+  },
+  "targets": {
+    "win_rate": {
+      "numerator": 1,
+      "denominator": 2
+    },
+    "started_rounds": {
+      "numerator": 2,
+      "denominator": 1
+    }
+  },
+  "search": {
+    "master_seed": "42",
+    "max_candidates": 1,
+    "exploration_trials": 1,
+    "finalist_trials": 1,
+    "top_k": 1,
+    "max_total_trials": 2
+  },
+  "max_rounds": 2,
+  "defeat_disposition": "killed",
+  "execution": {
+    "mode": "sequential"
+  },
+  "scene": {
+    "range": "close",
+    "ambush": "none",
+    "terrain": "open",
+    "session_start": "fresh",
+    "two_handed_max_range": "long",
+    "dismounted_mount_policy": "wait_and_recover",
+    "dismounted_mounts_are_combatants": false
+  }
+}

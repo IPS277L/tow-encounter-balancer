@@ -1,4 +1,5 @@
 """Explicit GM-confirmed single-combat source, ADR-0140D."""
+from towr.domain.pc_demigryph_models import pc_kernel_attack_types
 from dataclasses import dataclass
 
 
@@ -18,7 +19,8 @@ class PcSingleCombatPair:
 
 def single_combat_active(state,actor,target):
     """Observe a complete isolated duel or an uninterrupted explicit GM pair."""
-    live={*[p.actor_id for p in state.live_party],*[p.state.actor_id for p in state.live_enemies]}
+    from towr.domain.pc_actor_models import pc_active_actor_ids
+    live=set(pc_active_actor_ids(state))
     pair={actor,target}
     if not pair<=live:
         return False
@@ -34,7 +36,7 @@ def single_combat_active(state,actor,target):
         # bonus. Do not label that still-funded attack an isolated duel.
         tested=set()
         for proof in state.history:
-            if type(proof) in (PcAttackProof,PcDemigryphStrikeProof):
+            if type(proof) in pc_kernel_attack_types():
                 attack=proof.request.kernel_request.attack
                 tested.add(attack.attacker_test.id)
                 if attack.defender_test is not None:
@@ -44,12 +46,13 @@ def single_combat_active(state,actor,target):
                 continue
             bonus=proof.execution.bonus
             if (proof.request.actor_id not in pair and bonus.beneficiary_id in pair
-                    and proof.request.round_state.round_number==state.round_state.round_number
+                    and bonus.beneficiary_test_id.startswith(
+                        f'{state.source.id}:r{state.round_state.round_number}:')
                     and bonus.beneficiary_test_id not in tested):
                 return False
         return True
     for proof in state.history:
-        if type(proof) in (PcAttackProof,PcDemigryphStrikeProof):
+        if type(proof) in pc_kernel_attack_types():
             actors={proof.request.actor_id,proof.request.target_id}
             if actors&pair and not actors<=pair:
                 return False

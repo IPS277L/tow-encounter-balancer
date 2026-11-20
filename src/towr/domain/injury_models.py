@@ -720,13 +720,21 @@ def _minion_defeat_id(value: str, name: str) -> None:
         raise TypeError(f"{name} must be an exact nonempty string")
 
 
+class MinionStaggerDefeatOutcome(str, Enum):
+    FLED = 'fled'
+    DESTROYED = 'destroyed'
+
+
 @dataclass(frozen=True, slots=True)
 class MinionStaggerDefeatSpec:
-    """A printed Minion rule replaces repeated Staggered with fleeing defeat."""
+    """A printed Minion rule replaces repeated Staggered with typed defeat."""
     rule_id: str
+    outcome: MinionStaggerDefeatOutcome = field(default=MinionStaggerDefeatOutcome.FLED, kw_only=True)
 
     def __post_init__(self) -> None:
         _minion_defeat_id(self.rule_id, "Minion Staggered defeat rule")
+        if type(self.outcome) is not MinionStaggerDefeatOutcome:
+            raise TypeError('Minion Staggered defeat requires its exact typed outcome')
 
 
 @dataclass(frozen=True, slots=True)
@@ -734,10 +742,13 @@ class MinionStaggerDefeatCause:
     source_id: str
     target_id: str
     rule_id: str
+    outcome: MinionStaggerDefeatOutcome = field(default=MinionStaggerDefeatOutcome.FLED, kw_only=True)
 
     def __post_init__(self) -> None:
         for name in ("source_id", "target_id", "rule_id"):
             _minion_defeat_id(getattr(self, name), name)
+        if type(self.outcome) is not MinionStaggerDefeatOutcome:
+            raise TypeError('Minion Staggered defeat cause requires its exact typed outcome')
 
 
 HEADSMAN_DECAPITATION_RULE_ID = 'RULE-MAGIC-ITEM-003:headsman-prone-execution'
@@ -784,7 +795,11 @@ class ProfileInjuryState:
             elif (type(self.wounds) is not int or self.wounds != 0
                     or type(self.wound_limit) is not int or self.wound_limit != 1
                     or type(self.defeated) is not bool or not self.defeated):
-                raise ValueError("Staggered fleeing defeat requires an unwounded defeated Minion")
+                raise ValueError("Staggered defeat requires an unwounded defeated Minion")
+            elif self.defeat_cause.outcome is MinionStaggerDefeatOutcome.DESTROYED:
+                replace(self.conditions)
+                if not self.conditions.has(Condition.STAGGERED):
+                    raise ValueError('Undead Minion destruction requires its actual Staggered condition')
         elif self.defeated != (self.wounds >= self.wound_limit):
             raise ValueError("defeated must match whether wound_limit was reached")
 
@@ -833,6 +848,7 @@ class ProfileWoundRequest:
     )
     base_wounds: int = 1
     decapitation_cause: ProfileDecapitationCause | None = field(default=None, kw_only=True)
+    negation_options: tuple[WoundNegationOption, ...] = field(default=(), kw_only=True)
 
     def __post_init__(self) -> None:
         _validate_request_id(self.id, "profile wound request")
@@ -859,6 +875,15 @@ class ProfileWoundRequest:
             raise TypeError(
                 "additional_wounds must contain AdditionalProfileWound values"
             )
+        for item in self.additional_wounds:
+            replace(item)
+        object.__setattr__(self, 'negation_options', tuple(self.negation_options))
+        if any(type(item) is not WoundNegationOption for item in self.negation_options):
+            raise TypeError('profile Wound negation requires exact typed options')
+        for item in self.negation_options:
+            replace(item)
+        if len({item.rule_id for item in self.negation_options}) != len(self.negation_options):
+            raise ValueError('profile Wound negation Rule IDs cannot repeat')
 
 
 @dataclass(frozen=True, slots=True)
@@ -877,6 +902,72 @@ class ProfileWoundResult:
     wounds_inflicted: int
     state_change: ProfileStateChangeRequest
     applied_rule_ids: tuple[str, ...]
+    negated_by_rule_id: str | None = field(default=None, kw_only=True)
+    wounds_negated: int = field(default=0, kw_only=True)
+
+
+def _validate_profile_wound_source(request):
+    if type(request) is not ProfileWoundRequest or type(request.npc_type) is not ProfileNpcType:
+        raise TypeError('profile Wounds require their exact request and injury policy')
+    replace(request)
+    if type(request.state) is not ProfileInjuryState or type(request.state.conditions) is not ConditionState:
+        raise TypeError('profile Wounds retain their actual exact injury and Conditions')
+    replace(request.state)
+    replace(request.state.conditions)
+    if type(request.state.conditions.conditions) is not frozenset:
+        raise TypeError('profile Wounds retain immutable source Conditions')
+    if (type(request.additional_wounds) is not tuple or type(request.negation_options) is not tuple
+            or any(type(item) is not AdditionalProfileWound for item in request.additional_wounds)):
+        raise TypeError('profile Wounds retain exact immutable additional Wounds and negation options')
+    if request.state.defeated:
+        raise ValueError('a defeated NPC cannot suffer another Wound')
+
+
+def _expected_profile_wound_result(request, negated_by_rule_id=None):
+    """One optional negation acts before HP clamping and Wound consequences."""
+    _validate_profile_wound_source(request)
+    if negated_by_rule_id is not None and (type(negated_by_rule_id) is not str
+            or negated_by_rule_id not in {option.rule_id for option in request.negation_options}):
+        raise ValueError('profile Wound negation must select an actually offered Rule ID')
+    requested = request.base_wounds + sum(item.count for item in request.additional_wounds)
+    negated = int(negated_by_rule_id is not None)
+    remaining = requested - negated
+    if remaining:
+        wounds = min(request.state.wound_limit, request.state.wounds + remaining)
+        injury = ProfileInjuryState(wounds, request.state.wound_limit,
+            request.state.conditions.without_condition(Condition.STAGGERED),
+            wounds >= request.state.wound_limit or request.decapitation_cause is not None,
+            request.decapitation_cause)
+    else:
+        injury = request.state
+    return ProfileWoundResult(request.id, injury, requested, injury.wounds - request.state.wounds,
+        ProfileStateChangeRequest(request.npc_type, request.state.wounds, injury.wounds, injury.defeated),
+        (*tuple(item.rule_id for item in request.additional_wounds),
+            *((request.decapitation_cause.rule_id,) if request.decapitation_cause is not None else ()),
+            *((negated_by_rule_id,) if negated_by_rule_id is not None else ())),
+        negated_by_rule_id=negated_by_rule_id, wounds_negated=negated)
+
+
+def validate_profile_wound_result_provenance(request, result):
+    """Validate the actual early decision without invoking a selector again."""
+    if type(result) is not ProfileWoundResult or type(result.state) is not ProfileInjuryState:
+        raise TypeError('profile Wound receipt requires exact result and injury families')
+    replace(result.state)
+    if type(result.state.conditions) is not ConditionState:
+        raise TypeError('profile Wound result requires exact Conditions')
+    replace(result.state.conditions)
+    if (type(result.wounds_requested) is not int or type(result.wounds_inflicted) is not int
+            or type(result.wounds_negated) is not int or result.wounds_negated not in (0, 1)
+            or type(result.applied_rule_ids) is not tuple
+            or type(result.state_change) is not ProfileStateChangeRequest):
+        raise TypeError('profile Wound receipt requires exact counters, state change and Rule IDs')
+    change = result.state_change
+    if (type(change.npc_type) is not ProfileNpcType or type(change.previous_wounds) is not int
+            or type(change.current_wounds) is not int or type(change.defeated) is not bool):
+        raise TypeError('profile Wound state change requires exact counters and policy')
+    expected = _expected_profile_wound_result(request, result.negated_by_rule_id)
+    if result != expected:
+        raise ValueError('profile Wound result differs from its actual source and early negation')
 
 
 @dataclass(frozen=True, slots=True)

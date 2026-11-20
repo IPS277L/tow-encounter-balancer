@@ -64,7 +64,7 @@ def mounted_view(mount=CombatMount.HORSE, *, rider_kind=None,
     return SimpleNamespace(source=source, enemy=lambda queried: enemy,
         participant=lambda queried: SimpleNamespace(injury=injury),
         mounts=(() if mount is None else (PcMountedState(actor, mount, mounted),)),
-        pending=(), pending_wound=None, history=())
+        companions=(), pending=(), pending_wound=None, history=())
 
 
 class ArmourMountTests(unittest.TestCase):

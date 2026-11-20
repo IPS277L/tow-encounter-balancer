@@ -56,7 +56,8 @@ def view(items,*,shield=False,ranged=None):
         participant=lambda actor:SimpleNamespace(injury=CharacterInjuryState()),
         live_party=(SimpleNamespace(actor_id='pc',injury=CharacterInjuryState()),),
         pending=(),pending_wound=None,magic_pending=None,exited_npc_ids=(),history=(),
-        battlefield=None,npc_shields=initial_npc_shields(source),briarroot_dropped_weapons=(),briarroot_bindings=())
+        battlefield=None,npc_shields=initial_npc_shields(source),mounts=(),
+        briarroot_dropped_weapons=(),briarroot_bindings=())
     state.enemy=lambda actor:next(enemy for enemy in state.enemies if enemy.state.actor_id==actor)
     return state
 
@@ -196,7 +197,7 @@ class GeneratedInventoryPhysicalTests(unittest.TestCase):
             enemy=state.enemy('enemy')
             dropped=replace(state.npc_shields[0],location=NpcShieldLocation.DROPPED,
                 ground=NpcShieldGroundPosition('arena',('enemy','pc')))
-            enemy=_with_shield(enemy,False)
+            enemy=_with_shield(enemy,False,mount_source=None,armour_bane_sources=())
             inventory=enemy.state.weapon_inventory
             if two_handed:
                 sword,back=inventory.items

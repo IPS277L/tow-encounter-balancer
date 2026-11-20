@@ -390,11 +390,10 @@ class RangedActionChoiceTests(unittest.TestCase):
         self.assertEqual(view.party[0].weapon_inventory.active_item_id,unit_id(view,'sword'))
 
     def test_carried_melee_wild_attack_is_compared_with_its_prepared_item(self):
-        from towr.domain.pc_combat_talent_models import PcCombatTalent,TalentAcquisition
-        from towr.domain.generated_npc_models import GeneratedTalent
+        from tests.support.talent_sources import free_talent
+        from towr.domain.talent_catalog import TalentId
         source=ranged_source(backup=True,bs=1,shooting=1,ws=4,melee=5,strength=4)
-        actor=replace(source.party[0],combat_talents=(PcCombatTalent(GeneratedTalent.WILD_ATTACK,
-            TalentAcquisition.CREATION_FREE),))
+        actor=replace(source.party[0],talents=(free_talent(TalentId.WILD_ATTACK),))
         state=tactical_snapshot(replace(source,party=(actor,)),'pc1')
         options=ranged_action_choices(state,'pc1')
         self.assertTrue(any(c.wild_attack and c.weapon_item_id==unit_id(state,'sword') for c in options))

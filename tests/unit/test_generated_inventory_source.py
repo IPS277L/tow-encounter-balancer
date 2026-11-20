@@ -1,4 +1,5 @@
 """Whole generated inventory source, item/grip profiles and strict readmission."""
+from tests.support.talent_sources import paid_talent
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, fields, replace
 from enum import Enum
@@ -7,7 +8,7 @@ import unittest
 
 from towr.domain.armour_models import ArmourLoadout,BodyArmour,ShieldKind
 from towr.domain.generated_npc_models import (
-    GeneratedAbility,GeneratedNpc,GeneratedRangedFacts,GeneratedTalent,GeneratedWeapon,
+    GeneratedAbility,GeneratedNpc,GeneratedRangedFacts,TalentId,GeneratedWeapon,
     generated_initial_weapon_inventory,generated_npc_profiles,
     generated_weapon_attack_id,generated_weapon_attack_profile,
 )
@@ -184,9 +185,9 @@ class GeneratedInventorySourceTests(unittest.TestCase):
         with self.assertRaises(ValueError):replace(npc,weapons=(replace(gun,initial_location=L.HELD,initial_grip=G.LEFT),))
         with self.assertRaises(ValueError):replace(npc,agilulf_code_confirmed=None)
         horse=source(armour=ArmourLoadout(barding=True),mount=CombatMount.HORSE,
-            talents=(GeneratedTalent.MAGIC_RESISTANCE,))
+            talents=(paid_talent(TalentId.MAGIC_RESISTANCE),))
         self.assertEqual(horse.participant('npc').definition.resilience.bonus,2)
-        self.assertEqual(horse.talents,(GeneratedTalent.MAGIC_RESISTANCE,))
+        self.assertEqual(horse.talents,(TalentId.MAGIC_RESISTANCE,))
 
     def test_profiles_reject_foreign_items_grips_and_nested_source_forgery(self):
         class Alias(str,Enum):LEFT='left'

@@ -119,6 +119,8 @@ class AimActionExecutionResult:
             raise TypeError("slot must be a CombatActionSlot")
 
         source = self.source_request
+        from towr.domain.honour_bound_models import validate_honour_bound_test_source
+        validate_honour_bound_test_source(source.awareness_test,self.awareness_test_result,actor_id=source.actor_id)
         if (
             self.request_id != source.id
             or self.rule_id != source.rule_id
@@ -133,7 +135,7 @@ class AimActionExecutionResult:
             source_test_id=source.awareness_test.id,
             actor_id=source.actor_id,
             target_id=source.target_id,
-            bonus_dice=self.awareness_test_result.successes,
+            bonus_dice=self.awareness_test_result.effective_successes,
             rule_id=source.rule_id,
         )
         if self.bonus != expected_bonus:

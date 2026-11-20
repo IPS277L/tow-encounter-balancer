@@ -6,21 +6,22 @@ from dataclasses import replace
 from functools import lru_cache
 
 from towr.domain.condition_models import Condition,ConditionState
-from towr.domain.generated_npc_models import GeneratedTalent
+from towr.domain.generated_npc_models import TalentId
 from towr.domain.pc_melee_models import PcFatePolicy,PcMeleeWeapon
 from towr.domain.pc_weapon_models import pc_weapon_test_modifiers
 from towr.domain.pc_generated_talents import WILD_ATTACK_RULE_ID
 from towr.domain.test_models import Skill,TestRequest,TestQuality,QualityModifier,_expected_initial_roll_parameters
 
 
-def pc_has_combat_talent(state,actor: str,talent: GeneratedTalent) -> bool:
-    return any(value.talent is talent for value in state.source.participant(actor).combat_talents)
+def pc_has_combat_talent(state,actor: str,talent: TalentId) -> bool:
+    from towr.domain.talent_actor_models import actor_has_talent
+    return actor_has_talent(state,actor,talent)
 
 
 def pc_wild_eligible(state,actor: str) -> bool:
     from towr.domain.pc_heavy_wound_models import usable_weapon_hand
     member=state.participant(actor)
-    return (pc_has_combat_talent(state,actor,GeneratedTalent.WILD_ATTACK)
+    return (pc_has_combat_talent(state,actor,TalentId.WILD_ATTACK)
         and not member.injury.dead and not member.injury.conditions.has(Condition.DEFENCELESS)
         and not member.injury.conditions.has(Condition.STAGGERED)
         and not member.injury.conditions.has(Condition.DRAINED)
@@ -28,15 +29,20 @@ def pc_wild_eligible(state,actor: str) -> bool:
 
 
 def pc_wild_test_variant(request: TestRequest,weapon: PcMeleeWeapon,
-        conditions: ConditionState) -> TestRequest:
+        conditions: ConditionState,*,weapon_use=None,talents=()) -> TestRequest:
     """Prepare a hypothetical next Melee Test after its voluntary price.
 
     Caller establishes eligibility. Only actor weapon modifiers change; actual
     target modifiers, Help, conditions and the ordinary dice cap are retained.
     """
-    old=pc_weapon_test_modifiers(weapon,Skill.MELEE,conditions)
     after=conditions.with_condition(Condition.STAGGERED)
-    new=pc_weapon_test_modifiers(weapon,Skill.MELEE,after)
+    if weapon_use is None:
+        old=pc_weapon_test_modifiers(weapon,Skill.MELEE,conditions)
+        new=pc_weapon_test_modifiers(weapon,Skill.MELEE,after)
+    else:
+        from towr.domain.weapon_effect_preparation import weapon_test_modifiers
+        old=weapon_test_modifiers(weapon_use,conditions,talents=talents).modifiers
+        new=weapon_test_modifiers(weapon_use,after,talents=talents).modifiers
     old_ids={modifier.rule_id for modifier in old}
     return replace(request,dice_modifiers=tuple(m for m in request.dice_modifiers
         if m.rule_id not in old_ids)+new,
@@ -84,7 +90,9 @@ def pc_test_distribution(state,actor: str,skill: Skill,request: TestRequest,*,in
     source=state.source.participant(actor)
     policy=source.glorious_policy
     member=state.participant(actor)
-    if ((not source.combat_talents and not include_policy) or source.fate_policy is not PcFatePolicy.CONFIGURED
+    combat_source=any(value.id in (TalentId.DEFENSIVE_STANCE,TalentId.WILD_ATTACK)
+        for value in source.talents)
+    if ((not combat_source and not include_policy) or source.fate_policy is not PcFatePolicy.CONFIGURED
             or policy is None or skill not in policy.skills or request.reroll_locks
             or any(item.quality is TestQuality.GLORIOUS for item in request.quality_modifiers)):
         return _distribution(request)

@@ -279,7 +279,7 @@ class EndOfDayInfectionResult:
             raise TypeError("festering_wound_state must be a FesteringWoundState")
 
         source = self.source_request
-        expected_avoided = self.test_result.successes >= source.daily_wounds.wound_count
+        expected_avoided = self.test_result.effective_successes >= source.daily_wounds.wound_count
         expected_added = _infection_festering_wound(source, expected_avoided)
         expected_festering_state = source.festering_wound_state
         if expected_added is not None:

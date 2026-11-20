@@ -1,4 +1,5 @@
 """Real paid mount-only Attack, Fate and post-Wound hand state."""
+from tests.support.talent_sources import paid_talent
 from tests.support.generated_weapon_sources import initial_generated_weapons
 from dataclasses import replace
 from itertools import chain,repeat
@@ -11,7 +12,7 @@ from tests.integration.test_pc_no_hand_recover import scene as ranged_no_hand_sc
 from tests.unit.test_generated_npc_ranged_execution import scene as ranged_scene,component as ranged_component
 from tests.support.pc_melee_scripted import heavy_prefix
 from towr.domain.fate_models import FateSpendKind
-from towr.domain.generated_npc_models import GeneratedNpc,GeneratedWeapon,GeneratedTalent
+from towr.domain.generated_npc_models import GeneratedNpc,GeneratedWeapon,TalentId
 from towr.domain.armour_models import ArmourLoadout
 from towr.domain.pc_generated_talents import PcWildAttackProof
 from towr.domain.pc_npc_ranged_models import pc_npc_ranged_weapon
@@ -24,12 +25,34 @@ from towr.domain.ranged_weapon_profiles import RangedWeaponRange
 from towr.domain.pc_demigryph_models import PcDemigryphStrikeProof
 from towr.domain.pc_melee_models import PcMeleeWeapon,PcFatePolicy,PcGloriousPolicy
 from towr.domain.pc_heavy_wound_models import usable_hands
-from towr.domain.pc_melee_result_models import PcAttackProof,PcMeleeStep,initial_pc_melee_state
+from towr.domain.pc_melee_result_models import PcAttackProof,PcAttackerStaggerProof,PcMeleeStep,initial_pc_melee_state
+from towr.domain.condition_models import Condition
 from towr.domain.test_models import Skill,InlineProfile
 from towr.engine.pc_melee_runner import run_pc_melee_scenario,apply_pc_melee_step
 
 
 class PcMountAttackIntegrationTests(unittest.TestCase):
+    def test_natural_attack_miss_staggers_its_own_body_and_replays_without_extra_action(self):
+        source=reserved(mount=CombatMount.HORSE).source
+        pc=source.party[0]
+        pc=replace(pc,pc=replace(pc.pc,weapon_skill=1,strength=1,weapon=PcMeleeWeapon.DAGGER))
+        source=replace(source,party=(pc,),max_rounds=1)
+        result=run_pc_melee_scenario(source,SequenceRandom(chain([10]*3,repeat(1))))
+        attack=next(step for step in result.steps if type(step.proof) is PcAttackProof
+            and step.proof.request.actor_id=='pc1')
+        self.assertIsNotNone(attack.proof.mount_attack)
+        acknowledgement=next(step for step in result.steps if type(step.proof) is PcAttackerStaggerProof)
+        body=next(row for row in acknowledgement.state.companions if row.rider_id=='pc1')
+        self.assertTrue(body.snapshot.state.injury.conditions.has(Condition.STAGGERED))
+        self.assertEqual(acknowledgement.state.party,acknowledgement.source.party)
+        self.assertEqual(acknowledgement.source.pending_actor_id,body.snapshot.state.actor_id)
+        self.assertEqual(acknowledgement.state.round_state,acknowledgement.source.round_state)
+        self.assertEqual(len(attack.state.round_state.active_turn.action_slots),1)
+        with self.assertRaises(ValueError): PcMeleeStep(acknowledgement.state,acknowledgement.proof)
+        state=initial_pc_melee_state(source)
+        for step in result.steps: state=apply_pc_melee_step(state,step)
+        self.assertEqual(state,result.state)
+
     def test_weak_rider_uses_mount_as_the_one_paid_primary_attack(self):
         source=reserved(mount=CombatMount.HORSE).source
         pc=source.party[0]
@@ -80,7 +103,7 @@ class PcMountAttackIntegrationTests(unittest.TestCase):
     def test_npc_wild_price_retains_the_chosen_rider_mode_before_its_test(self):
         source=reserved(actor='minion1').source
         npc=GeneratedNpc(6,4,20,3,6,4,initial_generated_weapons(GeneratedWeapon.SWORD),ArmourLoadout(),defence=4,
-            talents=(GeneratedTalent.WILD_ATTACK,),mount=CombatMount.DEMIGRYPH,
+            talents=(paid_talent(TalentId.WILD_ATTACK),),mount=CombatMount.DEMIGRYPH,
             rider_kind=RiderKind.HUMAN).participant('minion1')
         result=run_pc_melee_scenario(replace(source,enemies=(npc,)),Ones())
         price,=(step for step in result.steps if type(step.proof) is PcWildAttackProof)

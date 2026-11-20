@@ -104,6 +104,22 @@ def current_warped_form(state):
     return None
 
 
+def _close_companion_targets(state, actor):
+    """Freeze actual detached creatures after the explicitly ordered roster."""
+    from towr.domain.pc_actor_models import pc_active_actor_ids
+    from towr.domain.pc_battlefield_models import battlefield_range
+    from towr.domain.ranged_weapon_profiles import RangedWeaponRange
+    active = set(pc_active_actor_ids(state))
+    companions = tuple(row.snapshot.state.actor_id for row in state.companions
+        if row.snapshot.state.actor_id in active)
+    if not companions:
+        return ()
+    if state.battlefield is None:
+        raise ValueError('retained wave targets require their actual battlefield Close geometry')
+    return tuple(target for target in companions
+        if battlefield_range(state.battlefield, actor, target) is RangedWeaponRange.CLOSE)
+
+
 def expected_pc_warped_form_activation(state):
     turn = state.round_state.active_turn
     if (turn is None or state.pending or state.pending_wound is not None
@@ -128,7 +144,8 @@ def expected_pc_warped_form_activation(state):
         conditions=before.conditions.with_condition(Condition.STAGGERED))
     live = {m.actor_id for m in state.live_party} | {e.state.actor_id for e in state.live_enemies}
     return PcWarpedFormActivationProof(activation_id, turn.actor_id, before, after,
-        tuple(actor for actor in policy.close_actor_ids if actor in live))
+        (*tuple(actor for actor in policy.close_actor_ids if actor in live),
+            *_close_companion_targets(state, turn.actor_id)))
 
 
 def next_warped_form_target(state):
@@ -147,13 +164,26 @@ def next_warped_form_target(state):
         policy = TargetInjuryPolicy.PLAYER
         coward = first = None
     else:
-        enemy = state.enemy(actor)
+        from towr.domain.pc_actor_models import pc_actor_npc_snapshot, pc_companion
+        enemy = pc_actor_npc_snapshot(state, actor)
         injury = enemy.state.injury
         policy = enemy.definition.injury_policy
-        coward = pc_npc_stagger_defeat_spec(enemy.definition)
-        first = pc_flagellant_first_stagger_spec(state, actor)
+        if pc_companion(state, actor) is not None:
+            from towr.domain.pc_undead_minion_models import pc_undead_minion_source
+            from towr.domain.undead_minion_models import undead_minion_stagger_defeat_spec
+            coward = undead_minion_stagger_defeat_spec(pc_undead_minion_source(state, actor), actor)
+            first = None
+        else:
+            coward = pc_npc_stagger_defeat_spec(enemy.definition)
+            first = pc_flagellant_first_stagger_spec(state, actor)
+    from towr.domain.talent_injury_models import hardy_wound_dice_modifiers
+    from towr.domain.talent_actor_models import actor_acquired_talents
+    from towr.domain.pc_oath_models import pc_oath_wound_options
     return StaggerImpactRequest(activation.activation_id+':target:'+actor, actor, policy, injury,
-        state.source.facts.can_leave_zone, False, minion_stagger_defeat=coward, first_stagger_wound=first)
+        state.source.facts.can_leave_zone, False, minion_stagger_defeat=coward, first_stagger_wound=first,
+        wound_negation_options=pc_oath_wound_options(state,actor),
+        wound_dice_modifiers=(hardy_wound_dice_modifiers(actor_acquired_talents(state,actor))
+            if policy in (TargetInjuryPolicy.PLAYER,TargetInjuryPolicy.CHAMPION) else ()))
 
 
 class WarpedFormDecisions:
@@ -163,9 +193,17 @@ class WarpedFormDecisions:
         return StaggerChoice.SUFFER_WOUND
 
     def choose_wound_negation(self, *, request, table_roll, options):
-        if options:
+        return self._negation(options)
+
+    def choose_profile_wound_negation(self, *, request, options):
+        return self._negation(options)
+
+    def _negation(self, options):
+        from towr.domain.pc_oath_models import LadyWoundDecisions
+        selected = LadyWoundDecisions(None)._choice(options)
+        if options and selected is None:
             raise ValueError('external Wound negations are outside this source')
-        return None
+        return selected
 
 
 def canonical_warped_form_impact(request, recorded):
@@ -183,7 +221,8 @@ def canonical_warped_form_impact(request, recorded):
                 raise ValueError('wave Wound dice require exact in-range integers')
             return value
     dice = Dice()
-    result = resolve_stagger_impact(request, dice, decisions=WarpedFormDecisions())
+    from towr.domain.pc_oath_models import LadyWoundDecisions
+    result = resolve_stagger_impact(request, dice, decisions=LadyWoundDecisions(WarpedFormDecisions()))
     if dice.index != len(values):
         raise ValueError('wave receipt invented unused Wound dice')
     return result

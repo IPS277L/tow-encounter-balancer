@@ -1,6 +1,7 @@
 """Numeric cohort sampling preserves facts and uses explicit, bounded RNG."""
 from tests.support.generated_weapon_sources import initial_generated_weapons
 from tests.support.armour_fixtures import light_loadout
+from tests.support.talent_sources import paid_talent
 from towr.domain.armour_models import BodyArmour, ShieldKind
 from collections import Counter
 from copy import deepcopy
@@ -13,13 +14,13 @@ from unittest.mock import patch
 
 from towr.application.dynamic_encounter import NpcSearchSpace, NumericCompositionSample
 from towr.domain.generated_npc_models import (
-    GeneratedAbility, GeneratedNpc, GeneratedRangedFacts, GeneratedTalent, GeneratedWeapon,
+    GeneratedAbility, GeneratedNpc, GeneratedRangedFacts, TalentId, GeneratedWeapon,
 )
 
 
 def numeric_space(**changes):
     return NpcSearchSpace(weapon_count=(1,), **(dict(weapon_skill=(3,), strength=(4,), toughness=(5,2,3),
-        agility=(3,), melee=(4,), athletics=(4,), defence=(4,), brawn=(4,),
+        agility=(3,), melee=(4,), athletics=(4,), defence=(4,), brawn=(4,), endurance=(4,),
         weapon=(GeneratedWeapon.SWORD,), armour=(BodyArmour.LIGHT,), shield=(ShieldKind.SHIELD,),
         abilities=((),), allowed_talents=(), ballistic_skill=(3,), shooting=(4,),
         initiative=(3,), dexterity=(4,)) | changes))
@@ -74,8 +75,8 @@ class NumericCompositionSamplingTests(unittest.TestCase):
         self.assertTrue(any(value!=member.toughness for value in values))
 
     def test_numeric_fields_change_while_equipment_talents_and_ranged_confirmations_remain(self):
-        stance,wild,resistance=(GeneratedTalent.DEFENSIVE_STANCE,GeneratedTalent.WILD_ATTACK,
-            GeneratedTalent.MAGIC_RESISTANCE)
+        stance,wild,resistance=(TalentId.DEFENSIVE_STANCE,TalentId.WILD_ATTACK,
+            TalentId.MAGIC_RESISTANCE)
         space=numeric_space(weapon_skill=(2,3,5),strength=(3,4,6),agility=(2,3,5),
             melee=(2,4,6),athletics=(2,4,6),defence=(2,4,6),
             weapon=(GeneratedWeapon.SWORD,GeneratedWeapon.PISTOL,GeneratedWeapon.REPEATER_HANDBOW),
@@ -83,11 +84,11 @@ class NumericCompositionSamplingTests(unittest.TestCase):
             abilities=((),(GeneratedAbility.DRAINED_ON_HIT,)),allowed_talents=(stance,wild,resistance),
             ballistic_skill=(2,3,5),shooting=(2,4,6),initiative=(2,3,5),dexterity=(2,4,6))
         melee=GeneratedNpc(3,4,3,3,4,4,initial_generated_weapons(GeneratedWeapon.SWORD),light_loadout(light=True, shield=True),
-            (GeneratedAbility.DRAINED_ON_HIT,),defence=4,talents=(stance,wild))
+            (GeneratedAbility.DRAINED_ON_HIT,),defence=4,talents=(paid_talent(stance),paid_talent(wild)))
         pistol=GeneratedNpc(3,4,3,3,4,4,initial_generated_weapons(GeneratedWeapon.PISTOL),light_loadout(light=False, shield=False),(),defence=4,
-            talents=(resistance,),ranged=GeneratedRangedFacts(3,4,3,4,True,True,True))
+            talents=(paid_talent(resistance),),ranged=GeneratedRangedFacts(3,4,3,4,True,True,True))
         handbow=GeneratedNpc(3,4,3,3,4,4,initial_generated_weapons(GeneratedWeapon.REPEATER_HANDBOW),light_loadout(light=True, shield=False),(),
-            defence=4,talents=(stance,wild),
+            defence=4,talents=(paid_talent(stance),paid_talent(wild)),
             ranged=GeneratedRangedFacts(3,4,3,4,True,None,None))
         composition=(melee,pistol,handbow)
         original=deepcopy(composition)
@@ -98,7 +99,7 @@ class NumericCompositionSamplingTests(unittest.TestCase):
         self.assertEqual(result.changed_members,3)
         for before,after in zip(composition,result.composition):
             self.assertTrue(space.contains(after))
-            for field in ('weapon','armour','abilities','talents'):
+            for field in ('weapons','armour','abilities','talents'):
                 self.assertEqual(getattr(after,field),getattr(before,field))
             self.assertEqual((after.weapon_skill,after.strength,after.toughness,after.agility),
                 (5,6,5,5))
@@ -106,7 +107,7 @@ class NumericCompositionSamplingTests(unittest.TestCase):
             if before.ranged is None:
                 self.assertIsNone(after.ranged)
             else:
-                for field in ('initially_loaded','ammunition_supply_confirmed',
+                for field in ('ammunition_supply_confirmed',
                         'has_blackpowder_lore','has_blackpowder_kit'):
                     self.assertIs(getattr(after.ranged,field),getattr(before.ranged,field))
                 self.assertEqual((after.ranged.ballistic_skill,after.ranged.shooting,
@@ -114,17 +115,19 @@ class NumericCompositionSamplingTests(unittest.TestCase):
         self.assertEqual(composition,original)
 
     def test_prerequisites_filter_candidates_before_weighted_selection(self):
-        talents=(GeneratedTalent.DEFENSIVE_STANCE,GeneratedTalent.WILD_ATTACK)
+        talents=(TalentId.DEFENSIVE_STANCE,TalentId.WILD_ATTACK)
         space=numeric_space(weapon_skill=(2,3,5),strength=(3,4,6),toughness=(3,),
             allowed_talents=talents)
-        member=replace(fixed_member(space),weapon_skill=3,strength=4,talents=talents)
+        from tests.support.talent_sources import paid_talent
+        member=replace(fixed_member(space),weapon_skill=3,strength=4,
+            talents=tuple(paid_talent(t) for t in talents))
         for bias,ticket,expected in ((-1,0.,(3,4)),(1,.999999,(5,6))):
             rng=Random(42)
             with patch.object(rng,'random',return_value=ticket) as draw:
                 result=space.resample_numeric((member,),rng,bias=bias)
             after,=result.composition
             self.assertEqual((after.weapon_skill,after.strength),expected)
-            self.assertEqual(after.talents,talents)
+            self.assertEqual(after.talents,member.talents)
             self.assertTrue(space.contains(after))
             self.assertEqual(result.variable_fields,2)
             self.assertEqual(draw.call_count,2)

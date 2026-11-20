@@ -4,7 +4,7 @@ The first character-input slice starts a fresh session and a healthy battle.
 Choices below are simulator tactics, not additional tabletop rules.
 """
 from dataclasses import dataclass, field, replace
-from enum import Enum
+from towr.domain.oath_context_models import OathBattleContext, validate_oath_context
 
 from towr.domain.fate_models import FateSessionState
 from towr.domain.minion_defeat_models import MinionDefeatDecision, NpcDefeatDisposition
@@ -22,14 +22,9 @@ from towr.domain.pc_weapon_models import pc_weapon_requires_two_hands, pc_weapon
 from towr.domain.test_models import Skill
 from towr.domain.potion_models import ConsumableItem
 from towr.domain.pc_magic_source_models import PcWizardProfile
-from towr.domain.pc_combat_talent_models import PcCombatTalent
-
-
-class EncounterTalent(str, Enum):
-    LUCKY = 'lucky'
-    WIZARD = 'wizard'
-    DEFENSIVE_STANCE='defensive_stance'
-    WILD_ATTACK='wild_attack'
+from towr.domain.talent_catalog import TalentId
+from towr.domain.talent_models import AcquiredTalent, TalentOwnerFacts, has_talent
+from towr.domain.tool_inventory_models import ToolItemSource
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,13 +43,13 @@ class EncounterCharacter:
     armour: ArmourLoadout
     shield: bool
     weapon_hand: PcWeaponHand | None
-    talents: tuple[EncounterTalent, ...]
+    talents: tuple[AcquiredTalent, ...]
     fate: int
     backup_weapon_policy: PcBackupWeaponPolicy | None = field(default=None, kw_only=True)
     consumables: tuple[ConsumableItem, ...] = field(default=(), kw_only=True)
     wizard: PcWizardProfile | None = field(default=None, kw_only=True)
     armour_worn: bool | None = field(default=None, kw_only=True)
-    combat_talents: tuple[PcCombatTalent,...] = field(default=(),kw_only=True)
+    talent_facts: TalentOwnerFacts | None = field(default=None,kw_only=True)
     ranged: PcRangedProfile | None = field(default=None,kw_only=True)
     combat_equipment: tuple[PcWeaponItem,...] | None = field(default=None,kw_only=True)
     mount: CombatMount | None = field(default=None,kw_only=True)
@@ -63,7 +58,11 @@ class EncounterCharacter:
     throwing: int | None = field(default=None,kw_only=True)
     brawn: int | None = field(default=None,kw_only=True)
     ballistic_skill: int | None = field(default=None,kw_only=True)
+    fellowship: int | None = field(default=None,kw_only=True)
+    leadership: int | None = field(default=None,kw_only=True)
+    tools: tuple[ToolItemSource, ...] = field(default=(),kw_only=True)
     shield_hand: PcWeaponHand | None = field(default=None,kw_only=True)
+    oath_context: OathBattleContext | None = field(default=None,kw_only=True)
 
     def __post_init__(self):
         if type(self.actor_id) is not str or not self.actor_id.strip():
@@ -90,20 +89,13 @@ class EncounterCharacter:
             raise TypeError('actual shield hand must be left or right')
         if self.shield_hand is not None and not self.shield:
             raise ValueError('a shield hand requires an actual held Shield')
-        if (type(self.talents) is not tuple or any(type(t) is not EncounterTalent for t in self.talents)
-                or len(set(self.talents)) != len(self.talents)):
-            raise ValueError('talents must be a unique tuple of supported talents')
+        if (type(self.talents) is not tuple or any(type(t) is not AcquiredTalent for t in self.talents)):
+            raise ValueError('talents require their complete shared acquisition source')
         if type(self.fate) is not int or self.fate < 0:
             raise ValueError('Fate rating must be a nonnegative integer')
-        if (EncounterTalent.WIZARD in self.talents) != (self.wizard is not None):
+        if has_talent(self.talents,TalentId.WIZARD) != (self.wizard is not None):
             raise ValueError('Wizard talent requires explicit matching magic facts')
-        if type(self.combat_talents) is not tuple or any(type(t) is not PcCombatTalent for t in self.combat_talents):
-            raise TypeError('combat Talent facts must be an ordered typed tuple')
-        for fact in self.combat_talents:
-            replace(fact)
-        selected={t.value for t in self.talents if t in (EncounterTalent.DEFENSIVE_STANCE,EncounterTalent.WILD_ATTACK)}
-        if selected != {t.talent.value for t in self.combat_talents}:
-            raise ValueError('combat Talent tags must match their complete acquisition facts')
+        validate_oath_context(self.talents, self.oath_context)
         # Reuse the executor admission, including two-hand/shield restrictions.
         self._participant('admission', NpcDefeatDisposition.KILLED)
 
@@ -117,7 +109,8 @@ class EncounterCharacter:
             self.strength, self.toughness, self.agility, self.melee, self.defence,
             self.athletics, self.endurance, self.weapon,
             body_resilience_bonus(self.armour)+helmet_resilience_bonus(self.armour),
-            ranged=self.ranged,throwing=self.throwing,brawn=self.brawn,ballistic_skill=self.ballistic_skill)
+            ranged=self.ranged,throwing=self.throwing,brawn=self.brawn,ballistic_skill=self.ballistic_skill,
+            fellowship=self.fellowship,leadership=self.leadership,tools=self.tools)
         from towr.domain.pc_combat_equipment_models import PcItemLocation
         held=(None if self.combat_equipment is None else
             next((item for item in self.combat_equipment if item.location is PcItemLocation.HELD),None))
@@ -133,7 +126,7 @@ class EncounterCharacter:
                 PcShieldRecoveryPolicy.RESTORE_BEFORE_ATTACK)
         return PcMeleeParticipant(self.actor_id, pc,
             FateSessionState(session_id, self.actor_id, self.fate, self.fate,
-                has_lucky=EncounterTalent.LUCKY in self.talents),
+                has_lucky=has_talent(self.talents,TalentId.LUCKY)),
             PcMeleePolicy.AUTOMATIC_COMBAT, PcFatePolicy.CONFIGURED,
             PcRandomSidePolicy.D10_LOW_LEFT_HIGH_RIGHT, PcHeavyWoundPolicy.CONTINUE_FIGHTING,
             grip, ('generated-npc:1',),
@@ -141,11 +134,14 @@ class EncounterCharacter:
             # Decide at the actual Wound/Test window using the current resource.
             PcNearMissPolicy(11, 0),
             PcGloriousPolicy((Skill.MELEE, Skill.DEFENCE, Skill.ATHLETICS, Skill.ENDURANCE,
+                *((Skill.LEADERSHIP,) if has_talent(self.talents,TalentId.BATTLEFIELD_MUSICIAN)
+                    and self.leadership is not None else ()),
                 *((Skill.SHOOTING,Skill.DEXTERITY) if self.ranged is not None else ()),
                 *((Skill.THROWING,) if self.throwing is not None else ()),
                 *((Skill.BRAWN,) if self.brawn is not None else ()),
                 *((Skill.WILLPOWER,) if self.wizard is not None else ())), 0, 0),
             None, None, self.backup_weapon_policy, shield=shield, consumables=self.consumables,
-            wizard=self.wizard,armour_worn=self.armour_worn,combat_talents=self.combat_talents,
+            wizard=self.wizard,armour_worn=self.armour_worn,talents=self.talents,talent_facts=self.talent_facts,
             combat_equipment=self.combat_equipment,mount=self.mount,armour=self.armour,
-            rider_kind=self.rider_kind,agilulf_code_confirmed=self.agilulf_code_confirmed)
+            rider_kind=self.rider_kind,agilulf_code_confirmed=self.agilulf_code_confirmed,
+            oath_context=self.oath_context)
